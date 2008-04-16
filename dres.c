@@ -352,7 +352,8 @@ dres_new_action(int argument)
         return NULL;
     
     memset(action, 0, sizeof(*action));
-    
+    action->lvalue = DRES_ID_NONE;
+
     if (argument != DRES_ID_NONE)
         if (dres_add_argument(action, argument)) {
             free_action(action);
@@ -448,8 +449,10 @@ dres_dump_action(dres_action_t *a)
         printf("%s(", a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             printf("%s%s", t, dres_name(a->arguments[i], buf, sizeof(buf)));
-        printf(")\n");
-
+        printf(")%s%s\n",
+               a->lvalue == DRES_ID_NONE ? "" : " => ",
+               a->lvalue == DRES_ID_NONE ? "" : dres_name(a->lvalue,
+                                                          buf, sizeof(buf)));
         a = a->next;
     }
 }
@@ -1268,7 +1271,9 @@ execute_actions(dres_target_t *target)
         printf("[%s]     %s(", __FUNCTION__, a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             printf("%s%s", t, dres_name(a->arguments[i], buf, sizeof(buf)));
-        printf(")\n");
+        printf(")%s%s\n", a->lvalue == DRES_ID_NONE ? "" : " => ",
+               a->lvalue == DRES_ID_NONE ? "" : dres_name(a->lvalue,
+                                                          buf, sizeof(buf)));
     }
     
     return 0;

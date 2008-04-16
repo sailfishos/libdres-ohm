@@ -28,6 +28,8 @@ extern FILE *yyin;
 %token           TOKEN_COLON
 %token           TOKEN_PAREN_OPEN
 %token           TOKEN_PAREN_CLOSE
+%token           TOKEN_EQUAL
+%token <string>  TOKEN_LVALUE
 %token <string>  TOKEN_UNKNOWN
 %token           TOKEN_EOL
 
@@ -99,6 +101,17 @@ action: TOKEN_TAB TOKEN_ACTION_NAME
       $$->name = $2;
  }
  ;
+
+action: TOKEN_TAB TOKEN_LVALUE TOKEN_EQUAL TOKEN_ACTION_NAME
+            TOKEN_PAREN_OPEN optional_arguments TOKEN_PAREN_CLOSE {
+      if ($6 == NULL)
+	$$ = dres_new_action(DRES_ID_NONE);
+      else {
+          $$ = $6;
+      }
+      $$->name   = $4;
+      $$->lvalue = dres_variable_id($2);
+ }
 
 optional_arguments: /* empty */  { $$ = NULL; }
 	| arguments              { $$ = $1; }

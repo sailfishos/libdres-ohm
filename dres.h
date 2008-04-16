@@ -39,6 +39,7 @@ struct dres_action_s {
     char          *name;
     int           *arguments;
     int            nargument;
+    int            lvalue;                 /* variable to put the result */
     dres_action_t *next;
 };
 

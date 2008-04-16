@@ -1,3 +1,4 @@
+LEX    := flex 
 CC     := gcc
 CFLAGS := -Wall -O0 -g3 -D__DEBUG__
 
@@ -24,9 +25,9 @@ clean:
 	rm -f $(TARGETS) lexer.c parser.[hc] *~ *.o core.* core doc/*~
 
 
-lexer.c: lexer.l parser.h
+lexer.c: lexer.l parser.h Makefile
 
-parser.h: parser.c
+parser.h: parser.c Makefile
 
 
 

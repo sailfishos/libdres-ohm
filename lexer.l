@@ -27,17 +27,19 @@
      TOKEN_COLON,
      TOKEN_PAREN_OPEN,
      TOKEN_PAREN_CLOSE,
+     TOKEN_EQUAL,
+     TOKEN_LVALUE,
      TOKEN_COMMENT,
      TOKEN_EOL,
-     TOKEN_EMPTY_LINE,
+     TOKEN_NEWLINE,
      TOKEN_EOF,
      TOKEN_UNKNOWN
    };
    const char *tokenname[] = {
        "TARGET_DEF", "TARGET_REF", "VARIABLE_REF",
        "ACTION_NAME", "ACTION_ARGUMENT",
-       "TAB", "COLON", "PAREN_OPEN", "PAREN_CLOSE",
-       "COMMENT", "EOF", "EMPTY_LINE",
+       "TAB", "COLON", "PAREN_OPEN", "PAREN_CLOSE", "EQUAL"
+       "COMMENT", "EOF", "NEWLINE",
        "UNKNOWN"
    };
 #endif /* __TEST_LEXER__ */
@@ -58,9 +60,14 @@
 TABS            ^\t[ \t]*/[^#]+
 WS              [ \t]+
 OWS             [ \t]*
-EMPTY           \n
+NEWLINE         \n
 IDENT           [a-zA-Z_]+[a-zA-Z0-9_]*
 VARIABLE        \${IDENT}
+/* CALL seems to be broken... it causes parse errors when used in 
+ * in other than <INITIAL> state
+ * CALL            {IDENT}/{OWS}\(
+ */
+LVALUE          {VARIABLE}/{OWS}=
 
 %s action
 
@@ -73,13 +80,19 @@ VARIABLE        \${IDENT}
                   while ((c = input()) != EOF && c != '\n')
   		      ;                                                    }
 {WS}            { IGNORE(WHITESPACE);                                      }
-{EMPTY}         { BEGIN(INITIAL); IGNORE(EMPTY_LINE);                      }
+{NEWLINE}       { BEGIN(INITIAL); IGNORE(NEWLINE);                         }
 
 {TABS}          { TOKEN(TAB);                                              }
 {VARIABLE}      { STRING(yytext + 1); TOKEN(VARIABLE_REF);                 }
+
 ^{IDENT}/{OWS}: { STRING(yytext); TOKEN(TARGET_DEF);                       }
-{IDENT}/\(      { BEGIN(action); STRING(yytext); TOKEN(ACTION_NAME);       }
+
+{IDENT}/{OWS}\( { BEGIN(action); STRING(yytext); TOKEN(ACTION_NAME);       }
+{LVALUE}        { BEGIN(action); STRING(yytext+1); TOKEN(LVALUE);          }
 <action>{IDENT} { STRING(yytext); TOKEN(ACTION_ARG);                       }
+<action>=       { TOKEN(EQUAL);                                            }
+<action>{IDENT}/{OWS}\( { STRING(yytext); TOKEN(ACTION_NAME);              }
+
 {IDENT}         { STRING(yytext); TOKEN(TARGET_REF);                       }
 :               { TOKEN(COLON);                                            }
 \(              { TOKEN(PAREN_OPEN);                                       }
