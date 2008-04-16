@@ -1,0 +1,54 @@
+# How it (might) work:
+#   Targets are in the key-store. They have a 'last-updated' timestamp and
+#   an optional action list that is the concatenated output of function
+#   calls to update the target. The 'last-updated' timestamp changes in case
+#   the value of the key changes. As a consequence if a key is updated with
+#   the identical value it already has the timestamp will not change.
+#
+#   For requests, like 'audio_playback', the necessary required values are set
+#   first. In case of 'audio_playback' thsi would mean:
+#      - audio_playback_request = MP3
+#      - sleeping_request = wakeup
+#      - cpu_frequency = maximum
+#   Next the 'make' is requested for the correct target, in our example this
+#   would be the audio_playback target (i.e. the 'make audio_target')
+#   In the example this would result a combination of sleeping_state,
+#   cpu_frequency update if needed. Next the 'audio_playback' request
+#   will be called will be invoked. If the 'make' succeeds, i.e. non of the 
+#   called 'update' or 'request' function failed, the necessary actions can
+#   be collected from the changed targets.
+#
+#   For signals, like 'headset is connected', the relevant key is updated
+#   followed by a 'make all'. If the operation succeeds the actions, held by
+#   the changed keys, are performed.
+#
+#
+
+all: sleeping_state cpu_frequency audio_playback current_audio_route current_volume_limit current_pausing #...
+
+sleeping_state: $sleeping_request $idle_time
+		update(sleeping_state) # calls a registered method,
+		prolog(bueno)          # for instancea Prolog prediacte 
+
+cpu_frequency: $temperature $battery sleeping_state
+	        update(cpu_frequency) # calls a registered method
+		do_something($useful)
+
+audio_playback: $audio_playback_request current_audio_route current_volume_limit current_pausing cpu_frequency
+		request(audio_playback) # calls a registered method
+		do_something($clever)
+
+current_audio_route: $privacy_override_request $connected $current_profile
+		update(audio_route) # calls a registered method
+
+current_volume_limit: $active_channel
+		update(audio_volume) # calls a registered method
+		downdate($foobar)
+		be($good)
+		be(quick)
+		be(cheap)
+
+current_pausing: $paused #....
+
+
+foo: $bar $foobar
