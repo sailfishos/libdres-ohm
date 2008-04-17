@@ -416,7 +416,7 @@ free_actions(dres_action_t *action)
 
     if (action == NULL)
         return;
-    
+
     for (a = action, p = NULL; a->next != NULL; p = a, a = a->next) {
         if (p)
             free(p);
@@ -426,13 +426,8 @@ free_actions(dres_action_t *action)
             free(a->arguments);
     }
 
-    if (p) {
-        if (p->name)
-            free(p->name);
-        if (p->arguments)
-            free(p->arguments);
+    if (p)
         free(p);
-    }
 }
 
 
@@ -569,7 +564,8 @@ dres_name(int id, char *buf, size_t bufsize)
 
     case DRES_TYPE_LITERAL:
         literal = literals + DRES_INDEX(id);
-        snprintf(buf, bufsize, "'%s'", literal->name);
+        /*snprintf(buf, bufsize, "'%s'", literal->name);*/
+        snprintf(buf, bufsize, "%s", literal->name);
         break;
 
     default:
@@ -1274,6 +1270,13 @@ execute_actions(dres_target_t *target)
         printf(")%s%s\n", a->lvalue == DRES_ID_NONE ? "" : " => ",
                a->lvalue == DRES_ID_NONE ? "" : dres_name(a->lvalue,
                                                           buf, sizeof(buf)));
+
+        if (!strcmp(a->name, "dres")) {
+            char *goal = dres_name(a->arguments[0], buf, sizeof(buf));
+            DEBUG("##### recursing for goal %s...", goal);
+            dres_update_goal(goal);
+            DEBUG("##### back from recursive dres(%s)", goal);
+        }
     }
     
     return 0;

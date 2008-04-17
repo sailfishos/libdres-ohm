@@ -27,11 +27,12 @@
 all: sleeping_state cpu_frequency audio_playback current_audio_route current_volume_limit current_pausing #...
 
 sleeping_state: $sleeping_request $idle_time
-		$sleep_state = update(sleeping_state) # calls a registered method,
-		prolog(bueno)          # for instancea Prolog prediacte 
+		$sleep_state = update(sleeping_state) # calls a method,
+		prolog(atom)          		      # e.g. a Prolog prediacte 
 
 cpu_frequency: $temperature $battery sleeping_state
-	        $cpu_freq = update(cpu_frequency) # calls a registered method
+	        $cpu_freq = update(cpu_frequency)     # calls a method
+		dres(current_volume_limit)
 		do_something($useful)
 
 audio_playback: $audio_playback_request current_audio_route current_volume_limit current_pausing cpu_frequency
