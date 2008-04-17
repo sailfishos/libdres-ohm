@@ -1,0 +1,19 @@
+- DRES-level variables in addition to keystore variables
+  o syntax &foo
+
+- DRES-level recursion in actions
+  o syntax dres(goal, &var1, &val1, &var2, &val2), it'd be more intuitive
+    to have dres(goal, &var1=val1, &var2=val2), but currently let's not
+    change the lexer/parser before we have the rest of the things working
+
+  o because of recursion we need nested scoping support of DRES-variables (ie.
+    the assignments above should go away once dres(...) returns
+
+- introduce dres_contex_t, collect targets, variables, actions, etc. there
+  o use it to implement nested scoping (when recursing upon dres, chain
+    in a new local variable context before the current one, remove it upon
+    returning)
+
+
+
+  

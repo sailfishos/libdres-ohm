@@ -12,21 +12,20 @@ XXX TODO...
 
 II. Rule File Syntax
 
-A rule file consists of comments and and rules. Comments start with a
-hashmark (#) and end at the next newline (\n) or at the end of file if
-there are no more newlines. Comments are removed and ignored during
-lexical analysis. Rules are of the format
+Rule files are line-oriented plain text files. A rule file consists of rules
+and comments. Comments start with a hashmark (#) and end at the next newline
+(\n) or at the end of file whichever comes first. Comments are discarded
+during lexical analysis without further processing. Rules are of the format
 
 target: optional_prerequisites
 	optional_actions
 
+Prerequisites is a space separated list of target names and/or variable
+names (prefixed with a dollar signs ($)). Every action must always start with
+one or more tab (\t) and have one of the following formats:
 
-Prerequisites can be a space separated list of target names and/or variable
-name (prefixed with a dollar sign ($)). Every action must always start with
-one or more tabulator characters (\t) and have one of the following formats:
-
-	function(optional_argument_list)  invoke function with arguments
-	$variable = value		  assign value to keystore variable
-	&variable = value		  assign value to dres variable
+    function(optional_argument_list)  invoke function with arguments
+    $variable = value		      assign value to keystore variable
+    &variable = value		      assign value to dres variable
 
      
