@@ -35,6 +35,8 @@ extern FILE *yyin;
 }
 
 %token <string> TOKEN_IDENT
+%token          TOKEN_DOT
+%token <string> TOKEN_NUMBER
 %token <string> TOKEN_FACTVAR
 %token <string> TOKEN_DRESVAR
 %token          TOKEN_COLON
@@ -43,6 +45,7 @@ extern FILE *yyin;
 %token          TOKEN_COMMA
 %token          TOKEN_EQUAL
 %token          TOKEN_TAB
+%token          TOKEN_EOL
 %token          TOKEN_EOF
 %token          TOKEN_UNKNOWN
 
@@ -54,6 +57,7 @@ extern FILE *yyin;
 %type <action>  actions
 %type <action>  action
 %type <integer> optional_lvalue
+%type <integer> value
 
 %type <arguments> optional_arguments
 %type <arguments> arguments
@@ -91,6 +95,7 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);         }
 
 prereq:   TOKEN_IDENT            { $$ = dres_target_id($1);   }
 	| TOKEN_FACTVAR          { $$ = dres_variable_id($1); }
+	| TOKEN_DRESVAR          { $$ = dres_variable_id($1); /*XXX kludge*/ }
 	;
 
 
@@ -138,8 +143,9 @@ arguments: argument   {
            }
 	;
 
-argument: TOKEN_IDENT      { $$ = dres_literal_id($1);  }
+argument: value            { $$ = $1; }
 	| TOKEN_FACTVAR    { $$ = dres_variable_id($1); }
+	| TOKEN_DRESVAR    { $$ = dres_variable_id($1); /* XXX kludge */ }
 	;
 
 
@@ -165,10 +171,21 @@ assignments: assignment {
         }
         ;
 
-assignment: TOKEN_DRESVAR TOKEN_EQUAL TOKEN_IDENT {
-	    $$.var = dres_variable_id($1);
-            $$.val = dres_literal_id($3);
-            printf("### $%s = %s\n", $1, $3);
+assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
+	    char buf[32];
+	    $$.var = dres_variable_id($1);   /* XXX kludge */
+            $$.val = $3;
+            printf("### $%s = %s\n", $1, dres_name($3, buf, sizeof(buf)));
+        }
+	;
+
+value: TOKEN_IDENT                  { $$ = dres_literal_id($1); }
+	| TOKEN_NUMBER              { $$ = dres_literal_id($1); }
+	| TOKEN_FACTVAR TOKEN_DOT TOKEN_IDENT {
+              $$ = dres_literal_id($3); /* XXX kludge */
+        }
+        | TOKEN_DRESVAR TOKEN_DOT TOKEN_IDENT {
+              $$ = dres_literal_id($3); /* XXX kludge */
         }
 	;
 

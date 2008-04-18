@@ -712,9 +712,11 @@ dres_build_graph(char *goal)
     graph->ntarget   = ntarget;
     graph->nvariable = nvariable;
     
-    for (i = 0; i < target->prereqs->nid; i++) {
-        prid = target->prereqs->ids[i];
-        graph_build_prereq(graph, target, prid);
+    if (target->prereqs != NULL) {
+        for (i = 0; i < target->prereqs->nid; i++) {
+            prid = target->prereqs->ids[i];
+            graph_build_prereq(graph, target, prid);
+        }
     }
     
 
@@ -780,9 +782,10 @@ graph_build_prereq(dres_graph_t *graph, dres_target_t *target, int prereq)
     switch (DRES_ID_TYPE(prereq)) {
     case DRES_TYPE_TARGET:
         t = targets + DRES_INDEX(prereq);
-        for (i = 0; i < t->prereqs->nid; i++)
-            if ((status = graph_build_prereq(graph, t, t->prereqs->ids[i])))
-                return status;
+        if (t->prereqs != NULL)
+            for (i = 0; i < t->prereqs->nid; i++)
+                if ((status = graph_build_prereq(graph, t,t->prereqs->ids[i])))
+                    return status;
         return 0;
 
     case DRES_TYPE_VARIABLE:
@@ -1030,7 +1033,7 @@ dres_sort_graph(dres_graph_t *graph)
             status = EINVAL;
         }
         
-        PUSH(Q, variables[i].id);      /* variables do not depend on anything */
+        PUSH(Q, variables[i].id);     /* variables do not depend on anything */
         
         for (j = 0; j < prq->nid; j++) {
             
@@ -1065,7 +1068,7 @@ dres_sort_graph(dres_graph_t *graph)
             status = EINVAL;
         }
 
-        if (t->prereqs->nid == 0)
+        if (t-> prereqs != NULL && t->prereqs->nid == 0)
             PUSH(Q, t->id);
         
         for (j = 0; j < prq->nid; j++) {
@@ -1175,7 +1178,7 @@ int
 dres_update_goal(char *goal)
 {
     dres_graph_t  *graph;
-    dres_target_t *target;
+    dres_target_t *target, *t;
     int           *list, id, i;
 
     graph = NULL;

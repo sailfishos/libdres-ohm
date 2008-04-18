@@ -7,7 +7,7 @@
 #  include "parser.h"
 #endif
 
-#if defined(__TEST_LEXER__) || 0
+#if defined(__TEST_LEXER__) || 1
 #  define DEBUG(c, fmt, args...) printf("["#c"] "fmt"\n", ## args)
 #else
 #  define DEBUG(c, fmt, args...)
@@ -20,6 +20,8 @@
    enum {
      TOKEN_EOL = 0,
      TOKEN_IDENT,
+     TOKEN_DOT,
+     TOKEN_NUMBER,
      TOKEN_FACTVAR,
      TOKEN_DRESVAR,
      TOKEN_COLON,
@@ -33,7 +35,7 @@
    };
    const char *tokenname[] = {
        "EOL",
-       "IDENT", "FACTVAR", "DRESVAR",
+       "IDENT", "DOT", "NUMBER", "FACTVAR", "DRESVAR",
        "COLON", "PAREN_OPEN", "PAREN_CLOSE", "COMMA", "EQUAL", "TAB",
        "<<EOF>>"
        "<<UNKNOWN>>"
@@ -73,6 +75,7 @@ COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
 EOL		\n+
 IDENT		[a-zA-Z_]+[a-zA-Z0-9_]
+NUMBER          [+-]?[0-9]+
 /*TARGET		^[a-zA-Z_]+[a-zA-Z0-9_]*/
 FACTVAR		\${IDENT}
 DRESVAR		&{IDENT}
@@ -110,6 +113,8 @@ DRESVAR		&{IDENT}
 {TAB}           { TOKEN(TAB);                         }
 {EOL}		{ TOKEN(EOL);                         }
 {IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
+\.              { TOKEN(DOT);                         }
+{NUMBER}        { STRING(yytext); TOKEN(NUMBER);      }
 {FACTVAR}	{ STRING(yytext + 1); TOKEN(FACTVAR); }
 {DRESVAR}	{ STRING(yytext + 1); TOKEN(DRESVAR); }
 :               { TOKEN(COLON);                       }
