@@ -65,6 +65,7 @@
     } while (0)
 
 int pass_newline;
+int lineno = 1;
 
 %}
 
@@ -87,10 +88,13 @@ ESCAPE          \\
 %%
 
 {WS}		{ IGNORE(WHITESPACE); }
-{COMMENT_FULL}  { int c;
-                  IGNORE(COMMENT_FULL);
-                  if ((c = input()) != '\n')
-		      unput(c);              }
+{COMMENT_FULL}  {   int c;
+                    IGNORE(COMMENT_FULL);
+                    if ((c = input()) != '\n')
+		        unput(c);
+                    else
+                        lineno++;
+                }
 {COMMENT_TRAIL} { int c;
                   DEBUG("ignoring trailing comment");
 		  while ((c = input())) {
@@ -103,22 +107,24 @@ ESCAPE          \\
 ^[ \t]*$	{ int c;
    		  if ((c = input()) != '\n')
 		      unput(c);
+		  lineno++;
    		  if (!pass_newline)
 		      DEBUG("ignoring empty line");
-                  else {
+                  else
                       TOKEN(EOL);
-		  }
 		}
 {ESCAPE}        { int c;
                   if ((c = input()) != '\n')
 		      unput(c);
-		  else
+		  else {
                       DEBUG("ignoring escaped newline");
+                      lineno++;
+                  }
                 }
                  
 		  
 {TAB}           { TOKEN(TAB);                         }
-{EOL}		{ TOKEN(EOL);                         }
+{EOL}		{ lineno += yyleng; TOKEN(EOL);       }
 {IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
 \.              { TOKEN(DOT);                         }
 {NUMBER}        { STRING(yytext); TOKEN(NUMBER);      }
@@ -134,6 +140,8 @@ ESCAPE          \\
 
 %%
 
+
+int lexer_lineno(void) { return lineno; }
 
 #ifdef __TEST_LEXER__
 int
