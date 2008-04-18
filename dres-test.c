@@ -23,6 +23,8 @@ main(int argc, char *argv[])
 
     if ((status = dres_init(rulefile)) != 0)
         fatal(status, "failed to initialize dres with \"%s\"", rulefile);
+
+    dres_dump_targets();
     
     if ((status = dres_update_goal(goal)) != 0)
         printf("failed to update goal \"%s\"\n", goal);

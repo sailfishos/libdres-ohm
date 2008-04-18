@@ -2,6 +2,7 @@ LEX    := flex
 CC     := gcc
 CFLAGS := -Wall -O0 -g3 -D__DEBUG__
 
+#SOURCES := testlexer.c testparser.c dres.c
 SOURCES := lexer.c parser.c dres.c
 
 TARGETS := lexer-test parser-test dres-test
@@ -18,6 +19,12 @@ parser-test: $(SOURCES)
 lexer-test: lexer.c
 	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl
 
+testlexer: testlexer.c
+	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl
+
+testparser: testparser.c testlexer.c dres.c
+	$(CC) $(CFLAGS) -D__TEST_PARSER__ -o $@ $^ -lfl
+
 %.c: %.y
 	$(YACC) -d -o $@ $<
 
@@ -29,7 +36,9 @@ lexer.c: lexer.l parser.h Makefile
 
 parser.h: parser.c Makefile
 
+testlexer.c: testlexer.l Makefile
 
+testparser.c: testparser.y
 
 
 

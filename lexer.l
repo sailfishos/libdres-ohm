@@ -7,7 +7,7 @@
 #  include "parser.h"
 #endif
 
-#ifdef __TEST_LEXER__
+#if defined(__TEST_LEXER__) || 0
 #  define DEBUG(c, fmt, args...) printf("["#c"] "fmt"\n", ## args)
 #else
 #  define DEBUG(c, fmt, args...)
@@ -18,35 +18,43 @@
 #else
 #  define STRING(v)
    enum {
-     TOKEN_TARGET_DEF = 0,
-     TOKEN_TARGET_REF,
-     TOKEN_VARIABLE_REF,
-     TOKEN_ACTION_NAME,
-     TOKEN_ACTION_ARG,
-     TOKEN_TAB,
+     TOKEN_EOL = 0,
+     TOKEN_IDENT,
+     TOKEN_FACTVAR,
+     TOKEN_DRESVAR,
      TOKEN_COLON,
      TOKEN_PAREN_OPEN,
      TOKEN_PAREN_CLOSE,
+     TOKEN_COMMA,
      TOKEN_EQUAL,
-     TOKEN_LVALUE,
-     TOKEN_COMMENT,
-     TOKEN_EOL,
-     TOKEN_NEWLINE,
+     TOKEN_TAB,
      TOKEN_EOF,
-     TOKEN_UNKNOWN
+     TOKEN_UNKNOWN,
    };
    const char *tokenname[] = {
-       "TARGET_DEF", "TARGET_REF", "VARIABLE_REF",
-       "ACTION_NAME", "ACTION_ARGUMENT",
-       "TAB", "COLON", "PAREN_OPEN", "PAREN_CLOSE", "EQUAL"
-       "COMMENT", "EOF", "NEWLINE",
-       "UNKNOWN"
+       "EOL",
+       "IDENT", "FACTVAR", "DRESVAR",
+       "COLON", "PAREN_OPEN", "PAREN_CLOSE", "COMMA", "EQUAL", "TAB",
+       "<<EOF>>"
+       "<<UNKNOWN>>"
    };
 #endif /* __TEST_LEXER__ */
 
-#define TOKEN(t) do {                           \
-	DEBUG(lexer, "%s(\"%s\")", #t, yytext); \
-        return TOKEN_##t;                       \
+#define TOKEN(t) do {                              \
+	DEBUG(lexer, "%s(\"%s\")", #t,             \
+	 TOKEN_##t == TOKEN_EOL ? "EOL" : yytext); \
+        if (TOKEN_##t == TOKEN_EOL) {              \
+	  if (!pass_newline)			   \
+	    DEBUG(lexer, "EOL suppressed");	   \
+	  else {				   \
+	    pass_newline = 0;			   \
+	    return TOKEN_##t;			   \
+	  }					   \
+	}					   \
+	else {					   \
+	  pass_newline = 1;			   \
+	  return TOKEN_##t;			   \
+	}					   \
     } while (0)
 
 #define IGNORE(pt) do {                          \
@@ -54,51 +62,63 @@
               *yytext == '\n' ? "\\n" : yytext); \
     } while (0)
 
+int pass_newline;
+
 %}
 
-
-TABS            ^\t[ \t]*/[^#]+
-WS              [ \t]+
-OWS             [ \t]*
-NEWLINE         \n
-IDENT           [a-zA-Z_]+[a-zA-Z0-9_]*
-VARIABLE        \${IDENT}
-/* CALL seems to be broken... it causes parse errors when used in 
- * in other than <INITIAL> state
- * CALL            {IDENT}/{OWS}\(
- */
-LVALUE          {VARIABLE}/{OWS}=
+TAB		^\t/[ \t]*[^#]+
+WS		[ \t]+
+OWS		[ \t]*
+COMMENT_FULL	^{OWS}#.*$
+COMMENT_TRAIL	#
+EOL		\n+
+IDENT		[a-zA-Z_]+[a-zA-Z0-9_]
+/*TARGET		^[a-zA-Z_]+[a-zA-Z0-9_]*/
+FACTVAR		\${IDENT}
+DRESVAR		&{IDENT}
 
 %s action
 
 
 %%
 
+{WS}		{ IGNORE(WHITESPACE);   }
+{COMMENT_FULL}  { int c;
+                  IGNORE(COMMENT_FULL);
+                  if ((c = input()) != '\n')
+		      unput(c);              }
+{COMMENT_TRAIL} { int c;
+                  DEBUG(lexer, "ignoring trailing comment");
+		  while ((c = input())) {
+		      if (c == '\n') {
+		          unput(c);
+			  break;
+ 	              }
+                  }
+                }
+^[ \t]*$	{ int c;
+   		  if ((c = input()) != '\n')
+		      unput(c);
+   		  if (!pass_newline)
+		      DEBUG(lexer, "ignoring empty line");
+                  else {
+                      TOKEN(EOL);
+		  }
+		}
+		      
+		  
+{TAB}           { TOKEN(TAB);                         }
+{EOL}		{ TOKEN(EOL);                         }
+{IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
+{FACTVAR}	{ STRING(yytext + 1); TOKEN(FACTVAR); }
+{DRESVAR}	{ STRING(yytext + 1); TOKEN(DRESVAR); }
+:               { TOKEN(COLON);                       }
+\(              { TOKEN(PAREN_OPEN);                  }
+\)              { TOKEN(PAREN_CLOSE);                 }
+=		{ TOKEN(EQUAL);                       }
+,               { TOKEN(COMMA);                       }
 
-\#              { int c;
-                  DEBUG(lexer, "ignored trailing comment");
-                  while ((c = input()) != EOF && c != '\n')
-  		      ;                                                    }
-{WS}            { IGNORE(WHITESPACE);                                      }
-{NEWLINE}       { BEGIN(INITIAL); IGNORE(NEWLINE);                         }
-
-{TABS}          { TOKEN(TAB);                                              }
-{VARIABLE}      { STRING(yytext + 1); TOKEN(VARIABLE_REF);                 }
-
-^{IDENT}/{OWS}: { STRING(yytext); TOKEN(TARGET_DEF);                       }
-
-{IDENT}/{OWS}\( { BEGIN(action); STRING(yytext); TOKEN(ACTION_NAME);       }
-{LVALUE}        { BEGIN(action); STRING(yytext+1); TOKEN(LVALUE);          }
-<action>{IDENT} { STRING(yytext); TOKEN(ACTION_ARG);                       }
-<action>=       { TOKEN(EQUAL);                                            }
-<action>{IDENT}/{OWS}\( { STRING(yytext); TOKEN(ACTION_NAME);              }
-
-{IDENT}         { STRING(yytext); TOKEN(TARGET_REF);                       }
-:               { TOKEN(COLON);                                            }
-\(              { TOKEN(PAREN_OPEN);                                       }
-\)              { TOKEN(PAREN_CLOSE);                                      }
-.               { STRING(yytext); TOKEN(UNKNOWN);                          }
-
+.               { STRING(yytext); TOKEN(UNKNOWN);     }
 
 %%
 
@@ -114,9 +134,11 @@ main(int argc, char *argv[])
     else
         yyin = stdin;
   
-    while ((token = yylex()) != TOKEN_EOF)
-        printf("token %s: \"%s\"\n", tokenname[token],
-	       token == TOKEN_EOL ? "<<EOL>>" : yytext);
+    while ((token = yylex()) != TOKEN_EOF) {
+      /*
+      DEBUG(lexer, "token %s: \"%s\"\n", tokenname[token],
+      token == TOKEN_EOL ? "<<EOL>>" : yytext)*/;
+    }
 
     if (yyin != stdin)
         fclose(yyin);

@@ -35,12 +35,19 @@ typedef struct {
 
 typedef struct dres_action_s dres_action_t;
 
+typedef struct {
+    int           var_id;                  /* variable ID */
+    int           val_id;                  /* value ID */
+} dres_assign_t;
+
 struct dres_action_s {
-    char          *name;
-    int           *arguments;
-    int            nargument;
-    int            lvalue;                 /* variable to put the result */
-    dres_action_t *next;
+    char          *name;                   /* name(...) */
+    int            lvalue;                 /* variable to put the result to */
+    int           *arguments;              /* name(arguments...) */
+    int            nargument;              /* number of arguments */
+    dres_assign_t *variables;              /* name(arguments, variables) */
+    int            nvariable;              /* number of variables */
+    dres_action_t *next;                   /* more actions */
 };
 
 typedef struct {
@@ -86,6 +93,9 @@ int            dres_add_prereq(dres_prereq_t *dep, int id);
 dres_action_t *dres_new_action(int argument);
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action(dres_action_t *a);
+
+int dres_add_assignment(dres_action_t *action, int var, int val);
+
 
 void dres_dump_targets(void);
 

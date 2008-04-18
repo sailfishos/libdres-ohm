@@ -370,7 +370,6 @@ dres_new_action(int argument)
 int
 dres_add_argument(dres_action_t *action, int argument)
 {
-    
     if (action->arguments == NULL) {
         if ((action->arguments = malloc(sizeof(*(action->arguments)))) == NULL)
             return ENOMEM;
@@ -389,6 +388,35 @@ dres_add_argument(dres_action_t *action, int argument)
     return 0;
 }
 
+
+/********************
+ * dres_add_assignment
+ ********************/
+int
+dres_add_assignment(dres_action_t *action, int var, int val)
+{
+    if (action->variables == NULL) {
+        if ((action->variables =
+             malloc(sizeof(*(action->variables)))) == NULL)
+            return ENOMEM;
+    }
+    else {
+        dres_assign_t *p;
+        p = realloc(action->variables,
+                   sizeof(*(action->variables))*(action->nvariable + 1));
+        if (p == NULL)
+            return ENOMEM;
+        
+        action->variables = p;
+    }
+    
+    action->variables[action->nvariable].var_id = var;
+    action->variables[action->nvariable].val_id = val;
+    action->nvariable++;
+    
+    return 0;
+
+}
 
 /********************
  * free_action
@@ -587,6 +615,7 @@ dres_dump_targets(void)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
+    dres_assign_t *v;
     char          *_t;
     int            n;
     
@@ -618,7 +647,12 @@ dres_dump_targets(void)
         }
         
         for (a = t->actions; a; a = a->next) {
-            printf("  has action %s(", a->name);
+            char buf[32];
+
+            printf("  has action %s%s%s(",
+                   a->lvalue != DRES_ID_NONE ?
+                   dres_name(a->lvalue, buf, sizeof(buf)): "",
+                   a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
             for (n = 0, _t=""; n < a->nargument; n++, _t=",") {
                 id  = a->arguments[n];
                 idx = DRES_INDEX(id);
@@ -633,9 +667,16 @@ dres_dump_targets(void)
                     printf("%s<unknown>", _t);
                 }
             }
+
+            for (j = 0, v = a->variables; j < a->nvariable; j++, v++, _t=",") {
+                char var[32], val[32];
+                printf("%s%s=%s", _t, dres_name(v->var_id, var, sizeof(var)),
+                       dres_name(v->val_id, val, sizeof(val)));
+            }
+            
             printf(")\n");
         }
-    }    
+    }
 }
 
 
@@ -971,7 +1012,7 @@ dres_sort_graph(dres_graph_t *graph)
     }
     memset(L, DRES_ID_NONE, (n+1) * sizeof(*L));
     memset(Q, DRES_ID_NONE,  n    * sizeof(*Q));
-    memset(E, 0           ,         sizeof(*E));
+    memset(E, 0           ,  n    * sizeof(*E));
     
     hL = tL = hQ = tQ = 0;
 
@@ -1197,7 +1238,7 @@ check_variable(int id, int refstamp)
         return FALSE;
 #endif
 
-    var->stamp = stamp;               /* fake that variables has changed */
+    var->stamp = stamp;               /* fake that variables have changed */
     
     return var->stamp >= refstamp;    /* XXX: >= or is > enough ? */
 }
@@ -1255,7 +1296,8 @@ static int
 execute_actions(dres_target_t *target)
 {
     dres_action_t *a;
-    int            i;
+    dres_assign_t *v;
+    int            i, j;
     char           buf[32], *t;
 
     if (target->actions == NULL)
@@ -1264,12 +1306,19 @@ execute_actions(dres_target_t *target)
     DEBUG("executing actions for %s", target->name);
 
     for (a = target->actions; a; a = a->next) {
-        printf("[%s]     %s(", __FUNCTION__, a->name);
+        printf("[%s]    %s%s%s(", __FUNCTION__,
+               a->lvalue != DRES_ID_NONE ?
+               dres_name(a->lvalue, buf, sizeof(buf)): "",
+               a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             printf("%s%s", t, dres_name(a->arguments[i], buf, sizeof(buf)));
-        printf(")%s%s\n", a->lvalue == DRES_ID_NONE ? "" : " => ",
-               a->lvalue == DRES_ID_NONE ? "" : dres_name(a->lvalue,
-                                                          buf, sizeof(buf)));
+        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
+            char var[32], val[32];
+            printf("%s%s=%s", t, dres_name(v->var_id, var, sizeof(var)),
+                   dres_name(v->val_id, val, sizeof(val)));
+        }
+
+        printf(")\n");
 
         if (!strcmp(a->name, "dres")) {
             char *goal = dres_name(a->arguments[0], buf, sizeof(buf));
@@ -1283,50 +1332,6 @@ execute_actions(dres_target_t *target)
 }
 
 
-
-
-
-
-
-#if 0
-
-/********************
- * update_target
- ********************/
-int
-update_target(dres_target_t *target)
-{
-    dres_target_t   *t;
-    dres_variable_t *v;
-    dres_prereq_t   *prq;
-
-    int i, id, update = 0;
-    
-    if ((prq = target->prereq) == NULL)
-        update = TRUE;
-    else {
-        for (i = 0; i < prq->nid; i++) {
-            id = prq->ids[i];
-            switch (DRES_ID_TYPE(id)) {
-            case DRES_TYPE_VARIABLE:
-                update |= check_variable(id, target->stamp);
-                break;
-            case DRES_TYPE_TARGET:
-                update |= check_target(id, target->stamp);
-                break;
-            default:
-                DEBUG("### BUG: invalid prereq 0x%x for %s", target->name);
-                break;
-            }
-        }
-    }
-
-    if (update) {
-        execute_actions(target);
-    }    
-}
-
-#endif
 
 
 /* 
