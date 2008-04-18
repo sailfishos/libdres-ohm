@@ -1178,11 +1178,13 @@ int
 dres_update_goal(char *goal)
 {
     dres_graph_t  *graph;
-    dres_target_t *target, *t;
+    dres_target_t *target;
     int           *list, id, i;
 
     graph = NULL;
     list  = NULL;
+
+    stamp++;
 
     if ((target = dres_lookup_target(goal)) == NULL)
         goto fail;
@@ -1190,6 +1192,13 @@ dres_update_goal(char *goal)
     if (!DRES_IS_DEFINED(target->id))
         goto fail;
     
+    if (target->prereqs == NULL) {
+        DEBUG("%s has no prerequisites => needs to be updated", target->name);
+        execute_actions(target);
+        target->stamp = stamp;
+        return 0;
+    }
+
     if ((graph = dres_build_graph(goal)) == NULL)
         goto fail;
     
@@ -1199,8 +1208,6 @@ dres_update_goal(char *goal)
     printf("topological sort for goal %s:\n", goal);
     dres_dump_sort(list);
     
-    stamp++;
-
     for (i = 0; list[i] != DRES_ID_NONE; i++) {
         id = list[i];
 
@@ -1233,11 +1240,17 @@ check_variable(int id, int refstamp)
     dres_variable_t *var = variables + DRES_INDEX(id);
     char             buf[32];
     
-    DEBUG("should check %s...", dres_name(id, buf, sizeof(buf)));
-    
+    DEBUG("checking %s: %d vs. %d", dres_name(id, buf, sizeof(buf)),
+          var->stamp, stamp);
+          
+
+#define MEGA_TEST_HACK    
 #ifdef MEGA_TEST_HACK
-    if (!strcmp(var->name, "sleeping_request") ||
-        !strcmp(var->name, "idle_time"))
+    if (!strcmp(var->name, "idle")) {
+        DEBUG("faking variable change for idle...");
+        return TRUE;
+    }
+    else
         return FALSE;
 #endif
 
@@ -1255,26 +1268,35 @@ check_target(int tid)
 {
     dres_target_t *target, *t;
     dres_prereq_t *prq;
-    int            i, update, id;
+    int            i, id, update;
     char           buf[32];
 
     DEBUG("checking %s...", dres_name(tid, buf, sizeof(buf)));
 
     target = targets + DRES_INDEX(tid);
-    update = FALSE;
     
     if ((prq = target->prereqs) == NULL)
         update = TRUE;
     else {
+        update = FALSE;
         for (i = 0; i < prq->nid; i++) {
             id = prq->ids[i];
             switch (DRES_ID_TYPE(id)) {
             case DRES_TYPE_VARIABLE:
-                update |= check_variable(id, target->stamp);
+                if (check_variable(id, target->stamp)) {
+                    DEBUG("=> newer, %s needs to be updates", target->name);
+                    update = TRUE;
+                }
                 break;
             case DRES_TYPE_TARGET:
                 t = targets + DRES_INDEX(id);
-                update |= (t->stamp >= target->stamp);
+                DEBUG("comparing %s (stamp %d) to %s (stamp %d)...",
+                      target->name, target->stamp, t->name, t->stamp);
+                if (t->stamp >= target->stamp) {
+                    DEBUG("=> %s newer, %s needs to be updates", t->name,
+                          target->name);
+                    update = TRUE;
+                }
                 break;
             default:
                 DEBUG("### BUG: invalid prereq 0x%x for %s", id, target->name);
