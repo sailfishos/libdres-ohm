@@ -10,6 +10,7 @@
         exit(ec);                                   \
     } while (0)
 
+extern int lexer_lineno(void);
 
 int
 main(int argc, char *argv[])
@@ -38,7 +39,8 @@ main(int argc, char *argv[])
 void
 yyerror(const char *msg)
 {
-  printf("parse error: %s (%s)\n", msg, yylval.string);
+    printf("error: %s, on line %d near input %s\n", msg, lexer_lineno(),
+           yylval.string);
 }
 
 

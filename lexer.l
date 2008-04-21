@@ -8,9 +8,9 @@
 #endif
 
 #if defined(__TEST_LEXER__) || 1
-#  define DEBUG(c, fmt, args...) printf("["#c"] "fmt"\n", ## args)
+#  define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
 #else
-#  define DEBUG(c, fmt, args...)
+#  define DEBUG(fmt, args...)
 #endif
 
 #ifndef __TEST_LEXER__
@@ -43,11 +43,11 @@
 #endif /* __TEST_LEXER__ */
 
 #define TOKEN(t) do {                              \
-	DEBUG(lexer, "%s(\"%s\")", #t,             \
+	DEBUG("%s(\"%s\")", #t,                    \
 	 TOKEN_##t == TOKEN_EOL ? "EOL" : yytext); \
         if (TOKEN_##t == TOKEN_EOL) {              \
 	  if (!pass_newline)			   \
-	    DEBUG(lexer, "EOL suppressed");	   \
+	    DEBUG("EOL suppressed");	           \
 	  else {				   \
 	    pass_newline = 0;			   \
 	    return TOKEN_##t;			   \
@@ -60,11 +60,12 @@
     } while (0)
 
 #define IGNORE(pt) do {                          \
-        DEBUG(lexer, "ignored %s(\"%s\")", #pt,  \
+        DEBUG("ignored %s(\"%s\")", #pt,         \
               *yytext == '\n' ? "\\n" : yytext); \
     } while (0)
 
 int pass_newline;
+int lineno = 1;
 
 %}
 
@@ -79,19 +80,23 @@ NUMBER          [+-]?[0-9]+
 /*TARGET		^[a-zA-Z_]+[a-zA-Z0-9_]*/
 FACTVAR		\${IDENT}
 DRESVAR		&{IDENT}
+ESCAPE          \\
 
 %s action
 
 
 %%
 
-{WS}		{ IGNORE(WHITESPACE);   }
-{COMMENT_FULL}  { int c;
-                  IGNORE(COMMENT_FULL);
-                  if ((c = input()) != '\n')
-		      unput(c);              }
+{WS}		{ IGNORE(WHITESPACE); }
+{COMMENT_FULL}  {   int c;
+                    IGNORE(COMMENT_FULL);
+                    if ((c = input()) != '\n')
+		        unput(c);
+                    else
+                        lineno++;
+                }
 {COMMENT_TRAIL} { int c;
-                  DEBUG(lexer, "ignoring trailing comment");
+                  DEBUG("ignoring trailing comment");
 		  while ((c = input())) {
 		      if (c == '\n') {
 		          unput(c);
@@ -102,16 +107,24 @@ DRESVAR		&{IDENT}
 ^[ \t]*$	{ int c;
    		  if ((c = input()) != '\n')
 		      unput(c);
+		  lineno++;
    		  if (!pass_newline)
-		      DEBUG(lexer, "ignoring empty line");
-                  else {
+		      DEBUG("ignoring empty line");
+                  else
                       TOKEN(EOL);
-		  }
 		}
-		      
+{ESCAPE}        { int c;
+                  if ((c = input()) != '\n')
+		      unput(c);
+		  else {
+                      DEBUG("ignoring escaped newline");
+                      lineno++;
+                  }
+                }
+                 
 		  
 {TAB}           { TOKEN(TAB);                         }
-{EOL}		{ TOKEN(EOL);                         }
+{EOL}		{ lineno += yyleng; TOKEN(EOL);       }
 {IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
 \.              { TOKEN(DOT);                         }
 {NUMBER}        { STRING(yytext); TOKEN(NUMBER);      }
@@ -128,6 +141,8 @@ DRESVAR		&{IDENT}
 %%
 
 
+int lexer_lineno(void) { return lineno; }
+
 #ifdef __TEST_LEXER__
 int
 main(int argc, char *argv[])
@@ -141,7 +156,7 @@ main(int argc, char *argv[])
   
     while ((token = yylex()) != TOKEN_EOF) {
       /*
-      DEBUG(lexer, "token %s: \"%s\"\n", tokenname[token],
+      DEBUG("token %s: \"%s\"\n", tokenname[token],
       token == TOKEN_EOL ? "<<EOL>>" : yytext)*/;
     }
 
