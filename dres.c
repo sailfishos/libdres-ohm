@@ -1235,9 +1235,11 @@ check_variable(int id, int refstamp)
     
     DEBUG("should check %s...", dres_name(id, buf, sizeof(buf)));
     
+#define MEGA_TEST_HACK
 #ifdef MEGA_TEST_HACK
-    if (!strcmp(var->name, "sleeping_request") ||
-        !strcmp(var->name, "idle_time"))
+    if (!strcmp(var->name, "idle"))
+        return TRUE;
+    else
         return FALSE;
 #endif
 
