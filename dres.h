@@ -1,6 +1,8 @@
 #ifndef __POLICY_DRES_H__
 #define __POLICY_DRES_H__
 
+#include "variables.h"
+
 enum {
     DRES_TYPE_UNKNOWN = 0,
     DRES_TYPE_TARGET,
@@ -51,9 +53,14 @@ struct dres_action_s {
 };
 
 typedef struct {
-    int            id;
-    char          *name;
-    int            stamp;                   /* last update stamp */
+    int               id;
+    char             *name;
+    int               stamp;                /* last update stamp */
+    dres_var_t       *var;
+    union {
+        char         *strval;
+        dres_array_t *arrval;
+    };
 } dres_variable_t;
 
 typedef struct {

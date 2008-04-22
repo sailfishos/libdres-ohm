@@ -1,9 +1,14 @@
+GLIBFLAGS := $(shell pkg-config --cflags glib-2.0) \
+             $(shell pkg-config --cflags gobject-2.0)
+GLIBLIBS  := $(shell pkg-config --libs glib-2.0) \
+             $(shell pkg-config --libs gobject-2.0)
+
 LEX    := flex 
 CC     := gcc
-CFLAGS := -Wall -O0 -g3 -D__DEBUG__
+CFLAGS := -Wall -O0 -g3 -D__DEBUG__ -I./vala -L./vala $(GLIBFLAGS)
 
 #SOURCES := testlexer.c testparser.c dres.c
-SOURCES := lexer.c parser.c dres.c
+SOURCES := lexer.c parser.c dres.c variables.c
 
 TARGETS := lexer-test parser-test dres-test
 
@@ -11,19 +16,14 @@ all: $(TARGETS)
 
 
 dres-test: dres-test.c $(SOURCES)
-	$(CC) $(CFLAGS) -o $@ $^ -lfl
+	$(CC) $(CFLAGS) -o $@ $^ -lfl -lfact $(GLIBLIBS) 
 
 parser-test: $(SOURCES)
-	$(CC) $(CFLAGS) -D__TEST_PARSER__ -o $@ $^ -lfl
+	$(CC) $(CFLAGS) -D__TEST_PARSER__ -o $@ $^ -lfl  -lfact $(GLIBLIBS)
 
 lexer-test: lexer.c
-	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl
+	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl  -lfact $(GLIBLIBS)
 
-testlexer: testlexer.c
-	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl
-
-testparser: testparser.c testlexer.c dres.c
-	$(CC) $(CFLAGS) -D__TEST_PARSER__ -o $@ $^ -lfl
 
 %.c: %.y
 	$(YACC) -d -o $@ $<

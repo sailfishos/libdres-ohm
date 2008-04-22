@@ -232,6 +232,9 @@ void dres_store_update_timestamps(dres_store_t *store, int stamp)
                     name = ohm_structure_get_name(OHM_STRUCTURE(fact));
                     var  = g_hash_table_lookup(store->fact.htbl, name);
 
+                    printf("***** updating stamp of %s to %d *****\n",
+                           name, stamp);
+
                     if (var != NULL && var->pstamp != NULL)
                         *(var->pstamp) = stamp;
                 }

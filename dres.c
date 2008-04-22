@@ -19,14 +19,17 @@
 extern FILE *yyin;
 extern int   yyparse(void);
 
-static dres_target_t   *targets   = NULL;
-static int              ntarget   = 0;
-static dres_variable_t *variables = NULL;
-static int              nvariable = 0;
-static dres_literal_t  *literals  = NULL;
-static int              nliteral  = 0;
+static dres_target_t   *targets     = NULL;
+static int              ntarget     = 0;
+static dres_variable_t *variables   = NULL;
+static int              nvariable   = 0;
+static dres_literal_t  *literals    = NULL;
+static int              nliteral    = 0;
 
-static int              stamp     = 1;
+static int              stamp       = 1;
+
+static dres_store_t    *fact_store  = NULL;
+static dres_store_t    *local_store = NULL;
 
 static void free_targets(void);
 static void free_variables(void);
@@ -58,6 +61,11 @@ int
 dres_init(char *path)
 {
     int status;
+
+    if (!(fact_store  = dres_store_init(STORE_FACT, "com.nokia.policy")) ||
+        !(local_store = dres_store_init(STORE_LOCAL, NULL))) {
+        return errno;
+    }
     
     if (path == NULL)
         yyin = stdin;
@@ -69,6 +77,11 @@ dres_init(char *path)
     
     if (yyin != stdin)
         fclose(yyin);
+
+    if (status == 0) {
+        dres_store_finish(fact_store);
+        dres_store_finish(local_store);
+    }
 
     return status;
 }
@@ -83,6 +96,9 @@ dres_exit(void)
     free_targets();
     free_variables();
     free_literals();
+
+    dres_store_destroy(fact_store);
+    dres_store_destroy(local_store);
 }
 
 
@@ -284,6 +300,9 @@ dres_add_variable(char *name)
     v->id = DRES_VARIABLE(id);
     
     if ((v->name = strdup(name)) == NULL)
+        return DRES_ID_NONE;
+
+    if ((v->var = dres_var_init(fact_store, name, &v->stamp)) == NULL)
         return DRES_ID_NONE;
     
     return v->id;
@@ -1184,7 +1203,8 @@ dres_update_goal(char *goal)
     graph = NULL;
     list  = NULL;
 
-    stamp++;
+    printf("######## dres_update_goal #######\n");
+    dres_store_update_timestamps(fact_store, ++stamp);
 
     if ((target = dres_lookup_target(goal)) == NULL)
         goto fail;
@@ -1244,7 +1264,6 @@ check_variable(int id, int refstamp)
           var->stamp, stamp);
           
 
-#define MEGA_TEST_HACK    
 #ifdef MEGA_TEST_HACK
     if (!strcmp(var->name, "idle")) {
         DEBUG("faking variable change for idle...");
@@ -1254,7 +1273,9 @@ check_variable(int id, int refstamp)
         return FALSE;
 #endif
 
+#ifndef STAMP_FORCED_UPDATE
     var->stamp = stamp;               /* fake that variables have changed */
+#endif
     
     return var->stamp >= refstamp;    /* XXX: >= or is > enough ? */
 }
@@ -1284,7 +1305,7 @@ check_target(int tid)
             switch (DRES_ID_TYPE(id)) {
             case DRES_TYPE_VARIABLE:
                 if (check_variable(id, target->stamp)) {
-                    DEBUG("=> newer, %s needs to be updates", target->name);
+                    DEBUG("=> newer, %s needs to be updated", target->name);
                     update = TRUE;
                 }
                 break;
