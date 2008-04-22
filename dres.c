@@ -5,7 +5,7 @@
 
 #include "dres.h"
 
-#define STAMP_FORCED_UPDATE
+#undef STAMP_FORCED_UPDATE
 
 #ifndef TRUE
 #    define FALSE 0
@@ -34,6 +34,8 @@ static dres_store_t    *local_store = NULL;
 static void free_targets(void);
 static void free_variables(void);
 static void free_literals(void);
+static int  finalize_variables(void);
+
 
 static void free_action (dres_action_t *action);
 static void free_actions(dres_action_t *actions);
@@ -79,6 +81,7 @@ dres_init(char *path)
         fclose(yyin);
 
     if (status == 0) {
+        finalize_variables();
         dres_store_finish(fact_store);
         dres_store_finish(local_store);
     }
@@ -302,9 +305,6 @@ dres_add_variable(char *name)
     if ((v->name = strdup(name)) == NULL)
         return DRES_ID_NONE;
 
-    if ((v->var = dres_var_init(fact_store, name, &v->stamp)) == NULL)
-        return DRES_ID_NONE;
-    
     return v->id;
 }
 
@@ -330,6 +330,23 @@ dres_variable_id(char *name)
         id = dres_add_variable(name);
     
     return id;
+}
+
+
+/********************
+ * finalize_variables
+ ********************/
+static int
+finalize_variables(void)
+{
+    dres_variable_t *v;
+    int              i;
+
+    for (i = 0, v = variables; i < nvariable; i++, v++)
+        if ((v->var = dres_var_init(fact_store, v->name, &v->stamp)) == NULL)
+            return EIO;
+    
+    return 0;
 }
 
 
@@ -1260,10 +1277,9 @@ check_variable(int id, int refstamp)
     dres_variable_t *var = variables + DRES_INDEX(id);
     char             buf[32];
     
-    DEBUG("checking %s: %d vs. %d", dres_name(id, buf, sizeof(buf)),
-          var->stamp, stamp);
-          
-
+    DEBUG("%s: %d >= %d", dres_name(id, buf, sizeof(buf)),
+          var->stamp, refstamp);
+    
 #ifdef MEGA_TEST_HACK
     if (!strcmp(var->name, "idle")) {
         DEBUG("faking variable change for idle...");
@@ -1273,11 +1289,11 @@ check_variable(int id, int refstamp)
         return FALSE;
 #endif
 
-#ifndef STAMP_FORCED_UPDATE
+#ifdef STAMP_FORCED_UPDATE
     var->stamp = stamp;               /* fake that variables have changed */
 #endif
     
-    return var->stamp >= refstamp;    /* XXX: >= or is > enough ? */
+    return var->stamp > refstamp;    /* XXX: >= or > ? */
 }
 
 
@@ -1292,7 +1308,7 @@ check_target(int tid)
     int            i, id, update;
     char           buf[32];
 
-    DEBUG("checking %s...", dres_name(tid, buf, sizeof(buf)));
+    DEBUG("checking target %s", dres_name(tid, buf, sizeof(buf)));
 
     target = targets + DRES_INDEX(tid);
     
@@ -1313,7 +1329,7 @@ check_target(int tid)
                 t = targets + DRES_INDEX(id);
                 DEBUG("comparing %s (stamp %d) to %s (stamp %d)...",
                       target->name, target->stamp, t->name, t->stamp);
-                if (t->stamp >= target->stamp) {
+                if (t->stamp > target->stamp) {   /* XXX >= or > ? */
                     DEBUG("=> %s newer, %s needs to be updates", t->name,
                           target->name);
                     update = TRUE;

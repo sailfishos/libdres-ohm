@@ -59,7 +59,6 @@ extern FILE *yyin;
 %type <integer> optional_lvalue
 %type <integer> value
 
-%type <arguments> optional_arguments
 %type <arguments> arguments
 %type <argument>  argument
 %type <variables> optional_assignments
@@ -134,12 +133,12 @@ optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;         }
 arguments: argument   {
                $$.arguments = NULL; $$.arguments = 0;
                dres_add_argument(&$$, $1);
-               printf("### added first argument 0x%x\n", $1);
+               /*printf("### added first argument 0x%x\n", $1);*/
         }
         |  arguments TOKEN_COMMA argument {
                 dres_add_argument(&$1, $3);
                 $$ = $1;
-                printf("### appended argument 0x%x\n", $3);
+                /*printf("### appended argument 0x%x\n", $3);*/
            }
 	;
 
@@ -152,22 +151,22 @@ argument: value            { $$ = $1; }
 optional_assignments: /* empty */  {
             $$.arguments = NULL;
             $$.nargument = 0;
-            printf("### no arguments\n");
+            /*printf("### no arguments\n");*/
         }
 	| TOKEN_COMMA assignments {
             $$ = $2;
-            printf("### had assignments\n");
+            /*printf("### had assignments\n");*/
         }
 	;
 
 assignments: assignment {
             dres_add_assignment(&$$, $1.var, $1.val);
-            printf("### added first assignment 0x%x = 0x%x\n", $1.var, $1.val);
+            /*printf("### added first assignment 0x%x = 0x%x\n", $1.var, $1.val);*/
         }
         | assignments TOKEN_COMMA assignment {
             dres_add_assignment(&$1, $3.var, $3.val);
             $$ = $1;
-            printf("### appended assignment 0x%x = 0x%x\n", $3.var, $3.val);
+            /*printf("### appended assignment 0x%x = 0x%x\n", $3.var, $3.val);*/
         }
         ;
 
@@ -175,7 +174,7 @@ assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
 	    char buf[32];
 	    $$.var = dres_variable_id($1);   /* XXX kludge */
             $$.val = $3;
-            printf("### $%s = %s\n", $1, dres_name($3, buf, sizeof(buf)));
+            /*printf("### $%s = %s\n", $1, dres_name($3, buf, sizeof(buf)));*/
         }
 	;
 

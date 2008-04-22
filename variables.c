@@ -6,7 +6,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include "ohm-fact.h"
+#include "vala/ohm-fact.h"
 
 #include "dres.h"
 #include "variables.h"
