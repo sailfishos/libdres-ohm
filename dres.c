@@ -1220,7 +1220,6 @@ dres_update_goal(char *goal)
     graph = NULL;
     list  = NULL;
 
-    printf("######## dres_update_goal #######\n");
     dres_store_update_timestamps(fact_store, ++stamp);
 
     if ((target = dres_lookup_target(goal)) == NULL)
@@ -1277,23 +1276,14 @@ check_variable(int id, int refstamp)
     dres_variable_t *var = variables + DRES_INDEX(id);
     char             buf[32];
     
-    DEBUG("%s: %d >= %d", dres_name(id, buf, sizeof(buf)),
+    DEBUG("%s: %d > %d ?", dres_name(id, buf, sizeof(buf)),
           var->stamp, refstamp);
     
-#ifdef MEGA_TEST_HACK
-    if (!strcmp(var->name, "idle")) {
-        DEBUG("faking variable change for idle...");
-        return TRUE;
-    }
-    else
-        return FALSE;
-#endif
-
 #ifdef STAMP_FORCED_UPDATE
     var->stamp = stamp;               /* fake that variables have changed */
 #endif
     
-    return var->stamp > refstamp;    /* XXX: >= or > ? */
+    return var->stamp > refstamp;
 }
 
 
@@ -1327,9 +1317,9 @@ check_target(int tid)
                 break;
             case DRES_TYPE_TARGET:
                 t = targets + DRES_INDEX(id);
-                DEBUG("comparing %s (stamp %d) to %s (stamp %d)...",
+                DEBUG("%s: %d > %s: %d ?",
                       target->name, target->stamp, t->name, t->stamp);
-                if (t->stamp > target->stamp) {   /* XXX >= or > ? */
+                if (t->stamp > target->stamp) {
                     DEBUG("=> %s newer, %s needs to be updates", t->name,
                           target->name);
                     update = TRUE;

@@ -171,7 +171,6 @@ assignments: assignment {
         ;
 
 assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
-	    char buf[32];
 	    $$.var = dres_variable_id($1);   /* XXX kludge */
             $$.val = $3;
             /*printf("### $%s = %s\n", $1, dres_name($3, buf, sizeof(buf)));*/
