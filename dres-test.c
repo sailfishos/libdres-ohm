@@ -37,6 +37,7 @@ main(int argc, char *argv[])
         { F(idle), NULL },
         { F(min_cpu_frequency), NULL },
         { F(max_cpu_frequency), NULL },
+        { F(cpu_frequency), NULL },
         { F(temperature), NULL },
         { F(current_profile), NULL },
         { F(privacy_override), NULL },
@@ -44,6 +45,7 @@ main(int argc, char *argv[])
         { F(audio_active_policy_group), NULL },
         { F(volume_limit), NULL },
         { F(audio_cork), NULL },
+        { F(audio_route), NULL },
         { F(cpu_load), NULL },
         { F(audio_playback_request), NULL },
         { F(audio_playback), NULL },
@@ -52,6 +54,8 @@ main(int argc, char *argv[])
         { NULL, NULL }
     };
     int i;
+
+    dres_t *dres;
 
     rulefile = argc < 2 ? NULL  : argv[1];
     goal     = argc < 3 ? "all" : argv[2];
@@ -70,12 +74,12 @@ main(int argc, char *argv[])
             fatal(1, "failed to insert fact %s to fact store", facts[i].name);
     }
     
-    if ((status = dres_init(rulefile)) != 0)
+    if ((dres = dres_init(rulefile)) == NULL)
         fatal(status, "failed to initialize dres with \"%s\"", rulefile);
 
-    dres_dump_targets();
+    dres_dump_targets(dres);
     
-    if ((status = dres_update_goal(goal)) != 0)
+    if ((status = dres_update_goal(dres, goal)) != 0)
         printf("failed to update goal \"%s\"\n", goal);
 
     printf("###############################################\n");
@@ -105,17 +109,17 @@ main(int argc, char *argv[])
     }
 #endif    
 
-    if ((status = dres_update_goal(goal)) != 0)
+    if ((status = dres_update_goal(dres, goal)) != 0)
         printf("failed to update goal \"%s\"\n", goal);
     
-    dres_exit();
+    dres_exit(dres);
     
     return 0;
 }
 
 
 void
-yyerror(const char *msg)
+yyerror(dres_t *dres, const char *msg)
 {
     printf("error: %s, on line %d near input %s\n", msg, lexer_lineno(),
            yylval.string);

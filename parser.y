@@ -3,15 +3,15 @@
 #include <stdio.h>
 #include "dres.h"
 
-#ifdef __TEST_PARSER__
-#  define DEBUG(c, fmt, args...) printf("["#c"] "fmt"\n", ## args)
+#if defined(__TEST_PARSER__) || 1
+#  define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
 #else
-#  define DEBUG(c, fmt, args...)
+#  define DEBUG(fmt, args...)
 #endif
 
 
 int  yylex  (void);
-void yyerror(char const *);
+void yyerror(dres_t *dres, char const *);
 
 extern FILE *yyin;
 
@@ -33,6 +33,9 @@ extern FILE *yyin;
   dres_action_t   arguments;
   
 }
+
+%parse-param {dres_t *dres}
+
 
 %token <string> TOKEN_IDENT
 %token          TOKEN_DOT
@@ -75,26 +78,25 @@ rules:    rule
 
 
 rule: TOKEN_IDENT TOKEN_COLON optional_prereqs TOKEN_EOL optional_actions {
-                                 dres_target_t *t = dres_lookup_target($1);
-                                 t->prereqs = $3;
-                                 t->actions = $5;
-                                 t->id      = DRES_DEFINED(t->id);
-
-                                 $$ = t;
-                              }
-	 ;
-
-optional_prereqs: /* empty */    { $$ = NULL;  }
-	| prereqs                { $$ = $1;    }
+              dres_target_t *t = dres_lookup_target(dres, $1);
+              t->prereqs = $3;
+              t->actions = $5;
+              t->id      = DRES_DEFINED(t->id);
+              $$ = t;
+          }
 	;
 
-prereqs:  prereq                 { $$ = dres_new_prereq($1);         }
-	| prereqs prereq         { dres_add_prereq($1, $2); $$ = $1; }
+optional_prereqs: /* empty */    { $$ = NULL; }
+	| prereqs                { $$ = $1;   }
 	;
 
-prereq:   TOKEN_IDENT            { $$ = dres_target_id($1);   }
-	| TOKEN_FACTVAR          { $$ = dres_variable_id($1); }
-	| TOKEN_DRESVAR          { $$ = dres_variable_id($1); /*XXX kludge*/ }
+prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
+	| prereqs prereq         { dres_add_prereq($1, $2); $$ = $1;  }
+	;
+
+prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);     }
+	| TOKEN_FACTVAR          { $$ = dres_variable_id(dres, $1);   }
+	| TOKEN_DRESVAR          { $$ = dres_variable_id(dres, $1);   }
 	;
 
 
@@ -126,64 +128,52 @@ action: TOKEN_TAB optional_lvalue
         }
         ;
 
-optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;         }
-        | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_variable_id($1); }
+optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;               }
+        | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_variable_id(dres, $1); }
         ;
 
 arguments: argument   {
                $$.arguments = NULL; $$.arguments = 0;
                dres_add_argument(&$$, $1);
-               /*printf("### added first argument 0x%x\n", $1);*/
         }
-        |  arguments TOKEN_COMMA argument {
-                dres_add_argument(&$1, $3);
-                $$ = $1;
-                /*printf("### appended argument 0x%x\n", $3);*/
-           }
+        | arguments TOKEN_COMMA argument {
+               dres_add_argument(&$1, $3);
+               $$ = $1;
+          }
 	;
 
 argument: value            { $$ = $1; }
-	| TOKEN_FACTVAR    { $$ = dres_variable_id($1); }
-	| TOKEN_DRESVAR    { $$ = dres_variable_id($1); /* XXX kludge */ }
+	| TOKEN_FACTVAR    { $$ = dres_variable_id(dres, $1); }
+	| TOKEN_DRESVAR    { $$ = dres_variable_id(dres, $1); /* XXX kludge */ }
 	;
 
 
-optional_assignments: /* empty */  {
-            $$.arguments = NULL;
-            $$.nargument = 0;
-            /*printf("### no arguments\n");*/
-        }
-	| TOKEN_COMMA assignments {
-            $$ = $2;
-            /*printf("### had assignments\n");*/
-        }
+optional_assignments: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
+	| TOKEN_COMMA assignments  { $$ = $2; }
 	;
 
 assignments: assignment {
-            dres_add_assignment(&$$, $1.var, $1.val);
-            /*printf("### added first assignment 0x%x = 0x%x\n", $1.var, $1.val);*/
-        }
+              dres_add_assignment(&$$, $1.var, $1.val);
+          }
         | assignments TOKEN_COMMA assignment {
-            dres_add_assignment(&$1, $3.var, $3.val);
-            $$ = $1;
-            /*printf("### appended assignment 0x%x = 0x%x\n", $3.var, $3.val);*/
-        }
+              dres_add_assignment(&$1, $3.var, $3.val);
+              $$ = $1;
+          }
         ;
 
 assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
-	    $$.var = dres_variable_id($1);   /* XXX kludge */
+	    $$.var = dres_variable_id(dres, $1);   /* XXX kludge */
             $$.val = $3;
-            /*printf("### $%s = %s\n", $1, dres_name($3, buf, sizeof(buf)));*/
         }
 	;
 
-value: TOKEN_IDENT                  { $$ = dres_literal_id($1); }
-	| TOKEN_NUMBER              { $$ = dres_literal_id($1); }
+value: TOKEN_IDENT                  { $$ = dres_literal_id(dres, $1); }
+	| TOKEN_NUMBER              { $$ = dres_literal_id(dres, $1); }
 	| TOKEN_FACTVAR TOKEN_DOT TOKEN_IDENT {
-              $$ = dres_literal_id($3); /* XXX kludge */
+              $$ = dres_literal_id(dres, $3); /* XXX kludge */
         }
         | TOKEN_DRESVAR TOKEN_DOT TOKEN_IDENT {
-              $$ = dres_literal_id($3); /* XXX kludge */
+              $$ = dres_literal_id(dres, $3); /* XXX kludge */
         }
 	;
 
@@ -192,7 +182,7 @@ value: TOKEN_IDENT                  { $$ = dres_literal_id($1); }
 %%
 
 #ifdef __TEST_PARSER__	
-void yyerror(const char *msg)
+void yyerror(dres_t *dres, const char *msg)
 {
   printf("parse error: %s (%s)\n", msg, yylval.string);
 }
@@ -202,7 +192,7 @@ int main(int argc, char *argv[])
 {
   yyin = argc > 1 ? fopen(argv[1], "r") : stdin;
 
-  yyparse();
+  yyparse(NULL);
   
   return 0;
 

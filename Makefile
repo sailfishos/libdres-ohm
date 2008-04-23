@@ -4,6 +4,7 @@ GLIBLIBS  := $(shell pkg-config --libs glib-2.0) \
              $(shell pkg-config --libs gobject-2.0)
 
 LEX    := flex 
+YACC   := bison
 CC     := gcc
 CFLAGS := -Wall -O0 -g3 -D__DEBUG__ -I./vala -L./vala $(GLIBFLAGS)
 
@@ -24,6 +25,8 @@ parser-test: $(SOURCES)
 lexer-test: lexer.c
 	$(CC) $(CFLAGS) -D__TEST_LEXER__ -o $@ $< -lfl  -lfact $(GLIBLIBS)
 
+dres.E: dres.c
+	$(CC) $(CFLAGS) -E $< -o $@
 
 %.c: %.y
 	$(YACC) -d -o $@ $<

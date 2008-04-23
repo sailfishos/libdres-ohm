@@ -12,6 +12,11 @@
 #include "variables.h"
 
 
+#define DEBUG(fmt, args...) do {                                \
+        printf("[%s] "fmt"\n", __FUNCTION__, ## args); \
+    } while (0)
+
+
 /*
  * Storage
  */
@@ -206,6 +211,12 @@ void dres_store_finish(dres_store_t *store)
 }
 
 
+int dres_store_check(dres_store_t *store, char *name)
+{
+    return ohm_fact_store_get_facts_by_name(store->fact.fs, name) != NULL;
+}
+
+
 void dres_store_update_timestamps(dres_store_t *store, int stamp)
 {
     dres_fact_store_t     *fstore = &store->fact;
@@ -260,6 +271,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
     }
 
     snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
+    DEBUG("adding %s as %s", name, buf);
     name = strdup(buf);
 
     if ((var = (dres_var_t *)g_hash_table_lookup(store->any.htbl, name))) {

@@ -30,6 +30,7 @@ enum {
 #define DRES_DELETED(id)    ((id) | DRES_TYPE(DELETED))
 #define DRES_IS_DELETED(id) ((id) & DRES_TYPE(DELETED))
 
+
 typedef struct {
     int *ids;                              /* prerequisite IDs */
     int  nid;                              /* number of prerequisites */
@@ -52,15 +53,18 @@ struct dres_action_s {
     dres_action_t *next;                   /* more actions */
 };
 
+typedef union {
+    char         *string;
+    dres_array_t *array;
+} dres_val_t;
+
+
 typedef struct {
-    int               id;
-    char             *name;
-    int               stamp;                /* last update stamp */
-    dres_var_t       *var;
-    union {
-        char         *strval;
-        dres_array_t *arrval;
-    };
+    int          id;
+    char        *name;
+    int          stamp;                /* last update stamp */
+    dres_var_t  *var;
+    dres_val_t   val;
 } dres_variable_t;
 
 typedef struct {
@@ -84,36 +88,96 @@ typedef struct {
 } dres_graph_t;
 
 
+typedef struct {
+    dres_target_t   *targets;
+    int              ntarget;
+    dres_variable_t *variables;             
+    int              nvariable;
+    dres_literal_t  *literals;
+    int              nliteral;
 
-int  dres_init(char *rulefile);
-void dres_exit(void);
+    int              stamp;
 
-int dres_variable_id(char *name);
-int dres_literal_id (char *name);
-int dres_target_id  (char *name);
+    dres_store_t    *fact_store;
+    dres_store_t    *dres_store;
+} dres_t;
 
-dres_target_t *dres_lookup_target(char *name);
+
+
+
+#define ALLOC(type) ({                            \
+            type   *__ptr;                        \
+            size_t  __size = sizeof(type);        \
+                                                  \
+            if ((__ptr = malloc(__size)) != NULL) \
+                memset(__ptr, 0, __size);         \
+            __ptr; })
+
+#define ALLOC_OBJ(ptr) ((ptr) = ALLOC(typeof(*ptr)))
+
+#define ALLOC_ARR(type, n) ({                     \
+            type   *__ptr;                        \
+            size_t   __size = (n) * sizeof(type); \
+                                                  \
+            if ((__ptr = malloc(__size)) != NULL) \
+                memset(__ptr, 0, __size);         \
+            __ptr; })
+
+#define REALLOC_ARR(ptr, o, n) ({                                       \
+            typeof(ptr) __ptr;                                          \
+            size_t      __size = sizeof(*ptr) * (n);                    \
+                                                                        \
+            if ((ptr) == NULL) {                                        \
+                (__ptr) = ALLOC_ARR(typeof(*ptr), n);                   \
+                ptr = __ptr;                                            \
+            }                                                           \
+            else if ((__ptr = realloc(ptr, __size)) != NULL) {          \
+                if ((n) > (o))                                          \
+                    memset(__ptr + (o), 0, ((n)-(o)) * sizeof(*ptr));   \
+                ptr = __ptr;                                            \
+            }                                                           \
+            __ptr; })
+                
+#define FREE(obj) do { if (obj) free(obj); } while (0)
+
+#define STRDUP(s) ({                                    \
+            char *__s = s;                              \
+            __s = ((s) ? strdup(s) : strdup(""));       \
+            __s; })
+
+
+
+
+
+dres_t *dres_init(char *rulefile);
+void    dres_exit(dres_t *dres);
+
+int dres_variable_id(dres_t *dres, char *name);
+int dres_literal_id (dres_t *dres, char *name);
+int dres_target_id  (dres_t *dres, char *name);
+
+dres_target_t *dres_lookup_target(dres_t *dres, char *name);
 
 dres_prereq_t *dres_new_prereq(int id);
 int            dres_add_prereq(dres_prereq_t *dep, int id);
 
 dres_action_t *dres_new_action(int argument);
 int            dres_add_argument(dres_action_t *action, int argument);
-void           dres_dump_action(dres_action_t *a);
+void           dres_dump_action(dres_t *dres, dres_action_t *a);
 
 int dres_add_assignment(dres_action_t *action, int var, int val);
 
 
-void dres_dump_targets(void);
+void dres_dump_targets(dres_t *dres);
 
-dres_graph_t *dres_build_graph(char *goal);
+dres_graph_t *dres_build_graph(dres_t *dres, char *goal);
 void          dres_free_graph (dres_graph_t *graph);
 
-char *dres_name(int id, char *buf, size_t bufsize);
-int  *dres_sort_graph(dres_graph_t *graph);
-void  dres_dump_sort(int *list);
+char *dres_name(dres_t *, int id, char *buf, size_t bufsize);
+int  *dres_sort_graph(dres_t *dres, dres_graph_t *graph);
+void  dres_dump_sort(dres_t *dres, int *list);
 
-int dres_update_goal(char *goal);
+int dres_update_goal(dres_t *dres, char *goal);
 
 
 /* 

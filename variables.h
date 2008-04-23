@@ -46,7 +46,7 @@ int         dres_var_set_value(dres_var_t *, const char *,
 int         dres_var_get_value(dres_var_t *, const char *, 
                                dres_vartype_t, void *);
 
-
+int dres_store_check(dres_store_t *store, char *name);
 
 #endif /* __POLICY_DRES_VARIABLES_H__ */
 
