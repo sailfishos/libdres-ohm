@@ -1,6 +1,8 @@
 - DRES-level variables in addition to keystore variables
   o syntax &foo
 
+- precalculate and store toplogical sort order per target
+
 - DRES-level recursion in actions
   o syntax dres(goal, &var1, &val1, &var2, &val2), it'd be more intuitive
     to have dres(goal, &var1=val1, &var2=val2), but currently let's not
@@ -9,11 +11,37 @@
   o because of recursion we need nested scoping support of DRES-variables (ie.
     the assignments above should go away once dres(...) returns
 
-- introduce dres_contex_t, collect targets, variables, actions, etc. there
++ introduce dres_t, collect targets, variables, actions, etc. there
   o use it to implement nested scoping (when recursing upon dres, chain
     in a new local variable context before the current one, remove it upon
     returning)
 
+- make action handlers registrable, and register readily
+  o dres(goal, assignments...)
+  o shell("command arguments...", timeout)
+  o prolog(predicate, arguments..., retval)
 
+- allow syntactically more complex/complete expressions, eg.
+      $v1 = prolog("foo", $b + 12, $c / 3, 4)
+      $v2 = prolog("bar", 123, 45.17)
+      $v = $v1 + $v2
+      or directly
+      $v = prolog("foo", $b + 12, $c / 3, 4) + prolog("bar", 123, 45.17)
 
+  o maybe expressions should be verey versatile, eg.
+    expr: '(' expr ')'
+         | expr op expr
+         | expr ',' expr
+         | expr ';' expr
+         | '+' expr
+         | '-' expr
+         | lvalue '=' expr
+         | function '(' args ')'
+
+    op:    '+'|'-'|'*'|'/'
+    args: /* empty */
+         | arg
+         | args ',' arg
+    
+    arg: expr
   

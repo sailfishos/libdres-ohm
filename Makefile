@@ -9,7 +9,7 @@ CC     := gcc
 CFLAGS := -Wall -O0 -g3 -D__DEBUG__ -I./vala -L./vala $(GLIBFLAGS)
 
 #SOURCES := testlexer.c testparser.c dres.c
-SOURCES := lexer.c parser.c dres.c variables.c
+SOURCES := lexer.c parser.c dres.c variables.c action.c
 
 TARGETS := lexer-test parser-test dres-test
 

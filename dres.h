@@ -91,8 +91,15 @@ typedef struct {
 typedef struct {
     dres_target_t   *targets;
     int              ntarget;
-    dres_variable_t *variables;             
+#if 1
+    dres_variable_t *variables;
     int              nvariable;
+#else
+    dres_variable_t *factvars;
+    int              nfactvar;
+    dres_variable_t *dresvars;
+    int              ndresvar;
+#endif
     dres_literal_t  *literals;
     int              nliteral;
 
@@ -161,7 +168,9 @@ dres_target_t *dres_lookup_target(dres_t *dres, char *name);
 dres_prereq_t *dres_new_prereq(int id);
 int            dres_add_prereq(dres_prereq_t *dep, int id);
 
-dres_action_t *dres_new_action(int argument);
+dres_action_t *dres_new_action  (int argument);
+void           dres_free_actions(dres_action_t *action);
+#define dres_free_action dres_free_actions
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action(dres_t *dres, dres_action_t *a);
 

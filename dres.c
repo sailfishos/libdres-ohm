@@ -26,9 +26,6 @@ static void free_literals(dres_t *dres);
 static int  finalize_variables(dres_t *dres);
 
 
-static void free_action (dres_action_t *action);
-static void free_actions(dres_action_t *actions);
-
 static void free_prereq(dres_prereq_t *dep);
 
 static int graph_build_prereq(dres_t *dres, dres_graph_t *graph,
@@ -209,7 +206,7 @@ free_targets(dres_t *dres)
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         FREE(target->name);
         FREE(target->prereqs);
-        free_actions(target->actions);
+        dres_free_actions(target->actions);
     }
 
     FREE(dres->targets);
@@ -361,122 +358,6 @@ free_variables(dres_t *dres)
 }
 
 
-
-/*****************************************************************************
- *                        *** target action handling ***                     *
- *****************************************************************************/
-
-/********************
- * dres_new_action
- ********************/
-dres_action_t *
-dres_new_action(int argument)
-{
-    dres_action_t *action;
-    
-    if (ALLOC_OBJ(action) == NULL)
-        return NULL;
-    
-    action->lvalue = DRES_ID_NONE;
-
-    if (argument != DRES_ID_NONE && dres_add_argument(action, argument)) {
-        free_action(action);
-        return NULL;
-    }
-    
-    return action;
-}
-
-
-/********************
- * dres_add_argument
- ********************/
-int
-dres_add_argument(dres_action_t *action, int argument)
-{
-    if (!REALLOC_ARR(action->arguments, action->nargument, action->nargument+1))
-        return ENOMEM;
-
-    action->arguments[action->nargument++] = argument;
-    
-    return 0;
-}
-
-
-/********************
- * dres_add_assignment
- ********************/
-int
-dres_add_assignment(dres_action_t *action, int var, int val)
-{
-    if (!REALLOC_ARR(action->variables, action->nvariable, action->nvariable+1))
-        return ENOMEM;
-    
-    action->variables[action->nvariable].var_id = var;
-    action->variables[action->nvariable].val_id = val;
-    action->nvariable++;
-    
-    return 0;
-
-}
-
-
-/********************
- * free_action
- ********************/
-static void
-free_action(dres_action_t *action)
-{
-    if (action) {
-        FREE(action->name);
-        FREE(action->arguments);
-        free(action);
-    }
-}
-
-
-/********************
- * free_actions
- ********************/
-static void
-free_actions(dres_action_t *action)
-{
-    dres_action_t *a, *p;
-
-    if (action == NULL)
-        return;
-
-    for (a = action, p = NULL; a->next != NULL; p = a, a = a->next) {
-        FREE(p);
-        FREE(a->name);
-        FREE(a->arguments);
-    }
-
-    FREE(p);
-}
-
-
-/********************
- * dres_dump_action
- ********************/
-void
-dres_dump_action(dres_t *dres, dres_action_t *a)
-{
-    int  i;
-    char buf[32], *t;
-
-    while (a) {
-        printf("%s(", a->name);
-        for (i = 0, t = ""; i < a->nargument; i++, t=",")
-            printf("%s%s", t, dres_name(dres,
-                                        a->arguments[i], buf, sizeof(buf)));
-        printf(")%s%s\n",
-               a->lvalue == DRES_ID_NONE ? "" : " => ",
-               a->lvalue == DRES_ID_NONE ? "" : dres_name(dres, a->lvalue,
-                                                          buf, sizeof(buf)));
-        a = a->next;
-    }
-}
 
 
 /*****************************************************************************
@@ -922,16 +803,9 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         DEBUG("checking target #%d (%s)...", i,
               dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)));
 
-        if (dres->targets[i].id != DRES_TARGET(i)) {
-            DEBUG("### %s@%s:%d: BUG, unexpected target ID:",
-                  __FUNCTION__, __FILE__, __LINE__);
-            DEBUG("### 0x%x != 0x%x", dres->targets[i].id, DRES_TARGET(i));
-            status = EINVAL;
-        }
-
-        if (t-> prereqs != NULL && t->prereqs->nid == 0)
+        if (t->prereqs != NULL && t->prereqs->nid == 0)
             PUSH(Q, t->id);
-        
+
         for (j = 0; j < prq->nid; j++) {
             DEBUG("edge %s -> %s",
                   dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)),
