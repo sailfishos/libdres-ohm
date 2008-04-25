@@ -803,9 +803,13 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         DEBUG("checking target #%d (%s)...", i,
               dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)));
 
+#if 0 /* hmm... t->prereqs == NULL also indicates no incoming edges */
         if (t->prereqs != NULL && t->prereqs->nid == 0)
             PUSH(Q, t->id);
-
+#else
+        if (t->prereqs == NULL || t->prereqs->nid == 0)
+            PUSH(Q, t->id);
+#endif
         for (j = 0; j < prq->nid; j++) {
             DEBUG("edge %s -> %s",
                   dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)),
