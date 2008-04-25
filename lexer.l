@@ -7,10 +7,14 @@
 #  include "parser.h"
 #endif
 
-#if defined(__TEST_LEXER__) || 0
-#  define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
-#else
-#  define DEBUG(fmt, args...)
+#undef DEBUG
+
+#if !defined(DEBUG)
+#  if defined(__TEST_LEXER__)
+#    define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
+#  else
+#    define DEBUG(fmt, args...)
+#  endif
 #endif
 
 #ifndef __TEST_LEXER__
@@ -119,6 +123,10 @@ ESCAPE          \\
 		  else {
                       DEBUG("ignoring escaped newline");
                       lineno++;
+		      if ((c = input()) == '\t')
+		          unput(' ');
+		      else
+		          unput(c);
                   }
                 }
                  
@@ -144,6 +152,9 @@ ESCAPE          \\
 int lexer_lineno(void) { return lineno; }
 
 #ifdef __TEST_LEXER__
+
+int depth = 0;
+
 int
 main(int argc, char *argv[])
 {

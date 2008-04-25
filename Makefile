@@ -3,10 +3,22 @@ GLIBFLAGS := $(shell pkg-config --cflags glib-2.0) \
 GLIBLIBS  := $(shell pkg-config --libs glib-2.0) \
              $(shell pkg-config --libs gobject-2.0)
 
-LEX    := flex 
-YACC   := bison
-CC     := gcc
-CFLAGS := -Wall -O0 -g3 -D__DEBUG__ -I./vala -L./vala $(GLIBFLAGS)
+PROLOG_CFLAGS := $(shell pkg-config --cflags libprolog; \
+                         pkg-config --cflags librelation \
+                         pkg-config --cflags libfactmap)
+PROLOG_LIBS   := $(shell pkg-config --libs libprolog; \
+                         pkg-config --libs librelation \
+                         pkg-config --libs libfactmap)
+
+LEX     := flex 
+YACC    := bison
+CC      := gcc
+CFLAGS  := -Wall -O0 -g3 -D__DEBUG__ $(PROLOG_CFLAGS) $(GLIBFLAGS)
+LDFLAGS :=  $(GLIBLIBS) $(PROLOG_LIBS)
+
+#CFLAGS := -Wall -O0 -g3 -D__DEBUG__ -I./vala -L./vala \
+#	  $(PROLOG_CFLAGS) $(GLIBFLAGS)
+
 
 #SOURCES := testlexer.c testparser.c dres.c
 SOURCES := lexer.c parser.c dres.c variables.c action.c
@@ -15,9 +27,8 @@ TARGETS := lexer-test parser-test dres-test
 
 all: $(TARGETS)
 
-
 dres-test: dres-test.c $(SOURCES)
-	$(CC) $(CFLAGS) -o $@ $^ -lfl -lfact $(GLIBLIBS) 
+	$(CC) $(CFLAGS) -o $@ $^ -lfl -lfact $(LDFLAGS)
 
 parser-test: $(SOURCES)
 	$(CC) $(CFLAGS) -D__TEST_PARSER__ -o $@ $^ -lfl  -lfact $(GLIBLIBS)

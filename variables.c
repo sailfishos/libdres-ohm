@@ -12,10 +12,6 @@
 #include "variables.h"
 
 
-#define DEBUG(fmt, args...) do {                                \
-        printf("[%s] "fmt"\n", __FUNCTION__, ## args); \
-    } while (0)
-
 
 /*
  * Storage

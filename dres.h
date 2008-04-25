@@ -31,6 +31,11 @@ enum {
 #define DRES_IS_DELETED(id) ((id) & DRES_TYPE(DELETED))
 
 
+typedef struct dres_handler_s dres_handler_t;
+
+struct dres_s;
+typedef struct dres_s dres_t;
+
 typedef struct {
     int *ids;                              /* prerequisite IDs */
     int  nid;                              /* number of prerequisites */
@@ -44,13 +49,21 @@ typedef struct {
 } dres_assign_t;
 
 struct dres_action_s {
-    char          *name;                   /* name(...) */
-    int            lvalue;                 /* variable to put the result to */
-    int           *arguments;              /* name(arguments...) */
+    char           *name;                  /* name(...) */
+    dres_handler_t *handler;               /* handler */
+    int             lvalue;                /* variable to put the result to */
+    int            *arguments;             /* name(arguments...) */
     int            nargument;              /* number of arguments */
-    dres_assign_t *variables;              /* name(arguments, variables) */
-    int            nvariable;              /* number of variables */
-    dres_action_t *next;                   /* more actions */
+    dres_assign_t  *variables;             /* name(arguments, variables) */
+    int             nvariable;             /* number of variables */
+    dres_action_t  *next;                  /* more actions */
+};
+
+
+struct dres_handler_s {
+    char  *name;                               /* action name */
+    int  (*handler)(dres_t *dres, char *name,  /* action handler */
+                    dres_action_t *action, void **ret); 
 };
 
 typedef union {
@@ -88,7 +101,16 @@ typedef struct {
 } dres_graph_t;
 
 
-typedef struct {
+enum {
+    DRES_FLAG_UNKNOWN      = 0x0,
+    DRES_ACTIONS_FINALIZED = 0x1,
+};
+
+#define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
+#define DRES_SET_FLAG(d, f) ((d)->flags |=  DRES_##f)
+#define DRES_CLR_FLAG(d, f) ((d)->flags &= ~DRES_##f)
+
+struct dres_s {
     dres_target_t   *targets;
     int              ntarget;
 #if 1
@@ -107,7 +129,15 @@ typedef struct {
 
     dres_store_t    *fact_store;
     dres_store_t    *dres_store;
-} dres_t;
+
+    dres_handler_t  *handlers;
+    int              nhandler;
+
+    unsigned long    flags;
+};
+
+
+extern int depth;
 
 
 
@@ -152,12 +182,19 @@ typedef struct {
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
+#define DEBUG(fmt, args...) do {                                \
+        int __depth = depth;                                    \
+        while (__depth-- > 0)                                   \
+            printf("    ");                                     \
+        printf("[%s] "fmt"\n", __FUNCTION__, ## args);          \
+    } while (0)
 
 
 
 
-dres_t *dres_init(char *rulefile);
+dres_t *dres_init(void);
 void    dres_exit(dres_t *dres);
+int     dres_parse_file(dres_t *dres, char *path);
 
 int dres_variable_id(dres_t *dres, char *name);
 int dres_literal_id (dres_t *dres, char *name);
@@ -170,9 +207,10 @@ int            dres_add_prereq(dres_prereq_t *dep, int id);
 
 dres_action_t *dres_new_action  (int argument);
 void           dres_free_actions(dres_action_t *action);
-#define dres_free_action dres_free_actions
 int            dres_add_argument(dres_action_t *action, int argument);
-void           dres_dump_action(dres_t *dres, dres_action_t *a);
+void           dres_dump_action (dres_t *dres, dres_action_t *action);
+#define        dres_free_action dres_free_actions
+
 
 int dres_add_assignment(dres_action_t *action, int var, int val);
 
@@ -187,6 +225,12 @@ int  *dres_sort_graph(dres_t *dres, dres_graph_t *graph);
 void  dres_dump_sort(dres_t *dres, int *list);
 
 int dres_update_goal(dres_t *dres, char *goal);
+
+dres_handler_t *dres_lookup_handler(dres_t *dres, char *name);
+
+int dres_register_handler(dres_t *dres, char *name,
+                          int (*)(dres_t *, char *, dres_action_t *, void **));
+int dres_run_actions(dres_t *dres, dres_target_t *target);
 
 
 /* 

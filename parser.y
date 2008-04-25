@@ -3,10 +3,12 @@
 #include <stdio.h>
 #include "dres.h"
 
-#if defined(__TEST_PARSER__) || 1
-#  define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
-#else
-#  define DEBUG(fmt, args...)
+#if !defined(DEBUG)
+#  if defined(__TEST_PARSER__) || 1
+#    define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
+#  else
+#    define DEBUG(fmt, args...)
+#  endif
 #endif
 
 
