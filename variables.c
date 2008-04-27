@@ -6,7 +6,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include "vala/ohm-fact.h"
+#include "prolog/ohm-fact.h"
 
 #include "dres.h"
 #include "variables.h"

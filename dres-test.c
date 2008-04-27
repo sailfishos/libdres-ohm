@@ -122,7 +122,9 @@ command_loop(dres_t *dres)
     char *goal, *p, command[128];
     int   status;
     
-    printf("Enter targets (ie. goal names) to test, or quit to exit.\n");
+    printf("Enter target (ie. goal) names to test them.\n");
+    printf("Enter prolog to drop into an interactive prolog prompt.\n");
+    printf("Enter Control-d or quit to exit.\n");
     while (1) {
         printf("dres> ");
         if (fgets(command, sizeof(command), stdin) == NULL)
@@ -130,9 +132,16 @@ command_loop(dres_t *dres)
         
         if ((p = strchr(command, '\n')) != NULL)
             *p = '\0';
+        
+        if (!strcmp(command, "prolog")) {
+            prolog_prompt();
+            continue;
+        }
+        
         if (!strcmp(command, "quit"))
             break;
-        
+
+
         factstore_update(fs);
 
         goal = command;
