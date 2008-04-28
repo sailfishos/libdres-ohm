@@ -200,7 +200,12 @@ int dres_variable_id(dres_t *dres, char *name);
 int dres_literal_id (dres_t *dres, char *name);
 int dres_target_id  (dres_t *dres, char *name);
 
+
+int            dres_add_target   (dres_t *dres, char *name);
+int            dres_target_id    (dres_t *dres, char *name);
 dres_target_t *dres_lookup_target(dres_t *dres, char *name);
+void           dres_free_targets (dres_t *dres);
+
 
 dres_prereq_t *dres_new_prereq(int id);
 int            dres_add_prereq(dres_prereq_t *dep, int id);

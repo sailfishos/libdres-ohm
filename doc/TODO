@@ -28,7 +28,7 @@
       or directly
       $v = prolog("foo", $b + 12, $c / 3, 4) + prolog("bar", 123, 45.17)
 
-  o maybe expressions should be verey versatile, eg.
+  o maybe expressions should be very versatile, eg.
     expr: '(' expr ')'
          | expr op expr
          | expr ',' expr

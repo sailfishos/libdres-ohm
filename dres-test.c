@@ -141,7 +141,6 @@ command_loop(dres_t *dres)
         if (!strcmp(command, "quit"))
             break;
 
-
         factstore_update(fs);
 
         goal = command;
