@@ -8,17 +8,9 @@
 
 #undef STAMP_FORCED_UPDATE
 
-#ifndef TRUE
-#    define FALSE 0
-#    define TRUE  1
-#endif
-
 extern FILE *yyin;
 extern int   yyparse(dres_t *dres);
 
-static int  register_builtins(dres_t *dres);
-
-static void free_targets(dres_t *dres);
 static void free_variables(dres_t *dres);
 static void free_literals(dres_t *dres);
 static int  finalize_variables(dres_t *dres);
@@ -32,21 +24,6 @@ static int graph_has_prereq(dres_graph_t *graph, int tid, int prid);
 static int graph_add_prereq(dres_t *dres, dres_graph_t *graph,int tid,int prid);
 static int graph_add_leafs(dres_t *dres, dres_graph_t *graph);
 
-static int check_variable(dres_t *dres, int id, int stamp);
-static int check_target  (dres_t *dres, int id);
-
-
-static int dres_builtin_dres(dres_t *dres,
-                             char *name, dres_action_t *action, void **ret);
-#if 0
-static int dres_builtin_prolog(dres_t *dres,
-                               char *name, dres_action_t *action, void **ret);
-#endif
-static int dres_builtin_shell(dres_t *dres,
-                              char *name, dres_action_t *action, void **ret);
-
-static int dres_builtin_unknown(dres_t *dres,
-                                char *name, dres_action_t *action, void **ret);
 
 
 static int execute_actions(dres_t *dres, dres_target_t *target);
@@ -71,7 +48,7 @@ dres_init(void)
     dres->fact_store = dres_store_init(STORE_FACT , "com.nokia.policy");
     dres->dres_store = dres_store_init(STORE_LOCAL, NULL);
 
-    if ((status = register_builtins(dres)) != 0)
+    if ((status = dres_register_builtins(dres)) != 0)
         goto fail;
     
     if (dres->fact_store == NULL || dres->dres_store == NULL)
@@ -97,7 +74,7 @@ dres_exit(dres_t *dres)
     if (dres == NULL)
         return;
     
-    free_targets(dres);
+    dres_free_targets(dres);
     free_variables(dres);
     free_literals(dres);
     
@@ -131,6 +108,7 @@ dres_parse_file(dres_t *dres, char *path)
     return status;
 }
 
+
 /********************
  * dres_check_stores
  ********************/
@@ -146,93 +124,6 @@ dres_check_stores(dres_t *dres)
         if (!dres_store_check(dres->fact_store, name))
             DEBUG("*** lookup of %s FAILED", name);
     }
-}
-
-
-/*****************************************************************************
- *                            *** target handling ***                        *
- *****************************************************************************/
-
-/********************
- * dres_add_target
- ********************/
-int
-dres_add_target(dres_t *dres, char *name)
-{
-    dres_target_t *target;
-    int            id;
-
-
-    if (REALLOC_ARR(dres->targets, dres->ntarget, dres->ntarget + 1) == NULL)
-        return DRES_ID_NONE;
-
-    id     = dres->ntarget++;
-    target = dres->targets + id;
-    
-    target->id   = DRES_UNDEFINED(DRES_TARGET(id));
-    target->name = STRDUP(name);
-
-    return target->name ? target->id : DRES_ID_NONE;
-}
-
-
-/********************
- * dres_target_id
- ********************/
-int
-dres_target_id(dres_t *dres, char *name)
-{
-    dres_target_t *target;
-    int            i;
-
-    if (name != NULL)
-        for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
-            if (!strcmp(name, target->name))
-                return target->id;
-        }
-    
-    return dres_add_target(dres, name);
-}
-
-
-/********************
- * dres_lookup_target
- ********************/
-dres_target_t *
-dres_lookup_target(dres_t *dres, char *name)
-{
-    dres_target_t *target;
-    int            i, id;
-    
-    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
-        if (!strcmp(name, target->name))
-            return target;
-    
-    if ((id = dres_target_id(dres, name)) == DRES_ID_NONE)
-        return NULL;
-    else
-        return dres->targets + DRES_INDEX(id);
-}
-
-
-/********************
- * free_targets
- ********************/
-void
-free_targets(dres_t *dres)
-{
-    dres_target_t *target;
-    int            i;
-
-    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
-        FREE(target->name);
-        FREE(target->prereqs);
-        dres_free_actions(target->actions);
-    }
-
-    FREE(dres->targets);
-    dres->targets = NULL;
-    dres->ntarget = 0;
 }
 
 
@@ -447,7 +338,7 @@ dres_literal_id(dres_t *dres, char *name)
 
 
 /********************
- * free_literls
+ * free_literals
  ********************/
 static void
 free_literals(dres_t *dres)
@@ -957,11 +848,7 @@ dres_update_goal(dres_t *dres, char *goal)
     
     if (target->prereqs == NULL) {
         DEBUG("%s has no prerequisites => needs to be updated", target->name);
-#if 1
         dres_run_actions(dres, target);
-#else
-        execute_actions(dres, target);
-#endif
         target->stamp = dres->stamp;
         return 0;
     }
@@ -981,7 +868,7 @@ dres_update_goal(dres_t *dres, char *goal)
         if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
             continue;
         
-        check_target(dres, id);
+        dres_check_target(dres, id);
     }
 
     free(list);
@@ -999,10 +886,10 @@ dres_update_goal(dres_t *dres, char *goal)
 
 
 /********************
- * check_variable
+ * dres_check_variable
  ********************/
-static int
-check_variable(dres_t *dres, int id, int refstamp)
+int
+dres_check_variable(dres_t *dres, int id, int refstamp)
 {
     dres_variable_t *var = dres->variables + DRES_INDEX(id);
     char             buf[32];
@@ -1016,171 +903,6 @@ check_variable(dres_t *dres, int id, int refstamp)
 #endif
     
     return var->stamp > refstamp;
-}
-
-
-/********************
- * check_target
- ********************/
-static int
-check_target(dres_t *dres, int tid)
-{
-    dres_target_t *target, *t;
-    dres_prereq_t *prq;
-    int            i, id, update;
-    char           buf[32];
-
-    DEBUG("checking target %s", dres_name(dres, tid, buf, sizeof(buf)));
-
-    target = dres->targets + DRES_INDEX(tid);
-    
-    if ((prq = target->prereqs) == NULL)
-        update = TRUE;
-    else {
-        update = FALSE;
-        for (i = 0; i < prq->nid; i++) {
-            id = prq->ids[i];
-            switch (DRES_ID_TYPE(id)) {
-            case DRES_TYPE_VARIABLE:
-                if (check_variable(dres, id, target->stamp)) {
-                    DEBUG("=> newer, %s needs to be updated", target->name);
-                    update = TRUE;
-                }
-                break;
-            case DRES_TYPE_TARGET:
-                t = dres->targets + DRES_INDEX(id);
-                DEBUG("%s: %d > %s: %d ?",
-                      target->name, target->stamp, t->name, t->stamp);
-                if (t->stamp > target->stamp) {
-                    DEBUG("=> %s newer, %s needs to be updates", t->name,
-                          target->name);
-                    update = TRUE;
-                }
-                break;
-            default:
-                DEBUG("### BUG: invalid prereq 0x%x for %s", id, target->name);
-                break;
-            }
-        }
-    }
-        
-    if (update) {
-#if 1
-        dres_run_actions(dres, target);
-#else
-        execute_actions(dres, target);
-#endif
-        target->stamp = dres->stamp;
-    }
-    
-    return update;
-}
-
-
-
-
-/*****************************************************************************
- *                            *** builtin handlers ***                       *
- *****************************************************************************/
-
-/********************
- * register_builtins
- ********************/
-static int
-register_builtins(dres_t *dres)
-{
-#define BUILTIN(n) { .name = #n, .handler = dres_builtin_##n }
-    dres_handler_t builtins[] = {
-        BUILTIN(dres),
-        BUILTIN(shell),
-#if 0
-        BUILTIN(prolog),
-#endif
-        { .name = NULL }
-    }, *h;
-#undef BUILTIN
-
-    int status;
-
-    for (h = builtins; h->name; h++)
-        if ((status = dres_register_handler(dres, h->name, h->handler)) != 0)
-            return status;
-
-    return 0;
-}
-
-
-/********************
- * dres_builtin_dres
- ********************/
-static int
-dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
-{
-    char  buf[64];
-    char *goal;
-
-    /* XXX TODO: factstore forking, local variables with nested scoping */
-
-    if (action->arguments == NULL)
-        return EINVAL;
-
-    goal = dres_name(dres, action->arguments[0], buf, sizeof(buf));
-
-    DEBUG("DRES recursing for goal %s", goal);
-    depth++;
-    dres_update_goal(dres, goal);
-    depth--;
-    DEBUG("DRES back from goal %s", goal);
-
-    return 0;
-}
-
-
-/********************
- * dres_builtin_shell
- ********************/
-static int
-dres_builtin_shell(dres_t *dres, char *name, dres_action_t *action, void **ret)
-{
-    return dres_builtin_unknown(dres, name, action, ret);
-}
-
-
-/********************
- * dres_builtin_unknown
- ********************/
-static int
-dres_builtin_unknown(dres_t *dres,
-                     char *name, dres_action_t *action, void **ret)
-{
-    dres_assign_t *v;
-    int            i, j;
-    char           lval[64], arg[64], var[64], val[64], *t;
-    char           buf[1024], *p;
-
-    if (action == NULL)
-        return 0;
-
-    DEBUG("unknown action %s", name);
-
-    p  = buf;
-    p += sprintf(p, "%s%s%s(",
-                 action->lvalue != DRES_ID_NONE ?
-                 dres_name(dres, action->lvalue, lval, sizeof(lval)): "",
-          action->lvalue != DRES_ID_NONE ? " = " : "", action->name);
-    for (i = 0, t = ""; i < action->nargument; i++, t=",")
-        p += sprintf(p, "%s%s", t,
-                     dres_name(dres, action->arguments[i], arg, sizeof(arg)));
-    for (j = 0, v = action->variables; j < action->nvariable; j++, v++, t=",") {
-        p += sprintf(p, "%s%s=%s", t,
-                     dres_name(dres, v->var_id, var, sizeof(var)),
-                     dres_name(dres, v->val_id, val, sizeof(val)));
-    }
-    
-    sprintf(p, ")");
-    DEBUG("%s", buf);
-
-    return 0;
 }
 
 
@@ -1224,84 +946,6 @@ dres_name(dres_t *dres, int id, char *buf, size_t bufsize)
     return buf;
 }
 
-
-
-/********************
- * dres_dump_targets
- ********************/
-void
-dres_dump_targets(dres_t *dres)
-{
-    int            i, j, id, idx;
-    dres_target_t *t;
-    dres_prereq_t *d;
-    dres_action_t *a;
-    dres_assign_t *v;
-    char          *_t;
-    int            n;
-    
-    printf("Found %d targets:\n", dres->ntarget);
-
-    for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++) {
-        printf("target #%d: %s (0x%x, %p, %p)\n", i, t->name, t->id,
-               t->prereqs, t->actions);
-        if ((d = t->prereqs) != NULL) {
-            for (j = 0; j < d->nid; j++) {
-                id  = d->ids[j];
-                idx = DRES_INDEX(id);
-                switch (DRES_ID_TYPE(id)) {
-                case DRES_TYPE_TARGET:
-                    printf("  depends on target %s\n",
-                           dres->targets[idx].name);
-                    break;
-                case DRES_TYPE_VARIABLE:
-                    printf("  depends on variable $%s\n",
-                           dres->variables[idx].name);
-                    break;
-                default:
-                    printf("  depends on unknown object 0x%x\n", id);
-                }
-            }
-        }
-
-        if (t->actions == NULL) {
-            printf("  has no actions\n");
-            continue;
-        }
-        
-        for (a = t->actions; a; a = a->next) {
-            char buf[32];
-
-            printf("  has action %s%s%s(",
-                   a->lvalue != DRES_ID_NONE ?
-                   dres_name(dres, a->lvalue, buf, sizeof(buf)): "",
-                   a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
-            for (n = 0, _t=""; n < a->nargument; n++, _t=",") {
-                id  = a->arguments[n];
-                idx = DRES_INDEX(id);
-                switch (DRES_ID_TYPE(id)) {
-                case DRES_TYPE_VARIABLE:
-                    printf("%s$%s", _t, dres->variables[idx].name);
-                    break;
-                case DRES_TYPE_LITERAL:
-                    printf("%s%s", _t, dres->literals[idx].name);
-                    break;
-                default:
-                    printf("%s<unknown>", _t);
-                }
-            }
-
-            for (j = 0, v = a->variables; j < a->nvariable; j++, v++, _t=",") {
-                char var[32], val[32];
-                printf("%s%s=%s", _t,
-                       dres_name(dres, v->var_id, var, sizeof(var)),
-                       dres_name(dres, v->val_id, val, sizeof(val)));
-            }
-            
-            printf(")\n");
-        }
-    }
-}
 
 
 /********************

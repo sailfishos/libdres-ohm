@@ -140,7 +140,10 @@ struct dres_s {
 extern int depth;
 
 
-
+#ifndef TRUE
+#    define FALSE 0
+#    define TRUE  1
+#endif
 
 #define ALLOC(type) ({                            \
             type   *__ptr;                        \
@@ -184,8 +187,9 @@ extern int depth;
 
 #define DEBUG(fmt, args...) do {                                \
         int __depth = depth;                                    \
+        printf("%2.2d ", depth);                                \
         while (__depth-- > 0)                                   \
-            printf("    ");                                     \
+            printf("  ");                                       \
         printf("[%s] "fmt"\n", __FUNCTION__, ## args);          \
     } while (0)
 
@@ -196,31 +200,37 @@ dres_t *dres_init(void);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
 
-int dres_variable_id(dres_t *dres, char *name);
 int dres_literal_id (dres_t *dres, char *name);
-int dres_target_id  (dres_t *dres, char *name);
 
-
-int            dres_add_target   (dres_t *dres, char *name);
-int            dres_target_id    (dres_t *dres, char *name);
-dres_target_t *dres_lookup_target(dres_t *dres, char *name);
-void           dres_free_targets (dres_t *dres);
-
+int dres_add_variable  (dres_t *dres, char *name);
+int dres_variable_id   (dres_t *dres, char *name);
+int dres_check_variable(dres_t *dres, int id, int stamp);
 
 dres_prereq_t *dres_new_prereq(int id);
 int            dres_add_prereq(dres_prereq_t *dep, int id);
 
+/* target.c */
+int            dres_add_target   (dres_t *dres, char *name);
+int            dres_target_id    (dres_t *dres, char *name);
+dres_target_t *dres_lookup_target(dres_t *dres, char *name);
+void           dres_free_targets (dres_t *dres);
+void           dres_dump_targets (dres_t *dres);
+int            dres_check_target (dres_t *dres, int tid);
+
+/* action.c */
 dres_action_t *dres_new_action  (int argument);
 void           dres_free_actions(dres_action_t *action);
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action (dres_t *dres, dres_action_t *action);
 #define        dres_free_action dres_free_actions
 
+/* builtin.c */
+int dres_register_builtins(dres_t *dres);
+
 
 int dres_add_assignment(dres_action_t *action, int var, int val);
 
 
-void dres_dump_targets(dres_t *dres);
 
 dres_graph_t *dres_build_graph(dres_t *dres, char *goal);
 void          dres_free_graph (dres_graph_t *graph);
@@ -236,6 +246,7 @@ dres_handler_t *dres_lookup_handler(dres_t *dres, char *name);
 int dres_register_handler(dres_t *dres, char *name,
                           int (*)(dres_t *, char *, dres_action_t *, void **));
 int dres_run_actions(dres_t *dres, dres_target_t *target);
+
 
 
 /* 
