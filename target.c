@@ -103,7 +103,7 @@ dres_dump_targets(dres_t *dres)
     dres_prereq_t *d;
     dres_action_t *a;
     dres_assign_t *v;
-    char          *sep;
+    char          *sep, lval[32];
     int            n;
     
     printf("Found %d targets:\n", dres->ntarget);
@@ -136,11 +136,9 @@ dres_dump_targets(dres_t *dres)
         }
         
         for (a = t->actions; a; a = a->next) {
-            char buf[32];
-
             printf("  has action %s%s%s(",
                    a->lvalue != DRES_ID_NONE ?
-                   dres_name(dres, a->lvalue, buf, sizeof(buf)): "",
+                   dres_name(dres, a->lvalue, lval, sizeof(lval)): "",
                    a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
             for (n = 0, sep=""; n < a->nargument; n++, sep=",") {
                 id  = a->arguments[n];
