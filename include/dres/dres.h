@@ -1,7 +1,7 @@
 #ifndef __POLICY_DRES_H__
 #define __POLICY_DRES_H__
 
-#include "variables.h"
+#include <dres/variables.h>
 
 enum {
     DRES_TYPE_UNKNOWN = 0,
@@ -185,12 +185,10 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
-#define DEBUG(fmt, args...) do {                                \
-        int __depth = depth;                                    \
-        printf("%2.2d ", depth);                                \
-        while (__depth-- > 0)                                   \
-            printf("  ");                                       \
-        printf("[%s] "fmt"\n", __FUNCTION__, ## args);          \
+#define DEBUG(fmt, args...) do {                                        \
+        if (depth > 0)                                                  \
+            printf("%*.*s ", depth, depth, ">>>>>>>>>>>>>>>>");   \
+        printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
     } while (0)
 
 

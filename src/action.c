@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "dres.h"
+#include <dres/dres.h>
 
 
 /*****************************************************************************

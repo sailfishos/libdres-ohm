@@ -1,7 +1,7 @@
 %{
 
 #include <stdio.h>
-#include "dres.h"
+#include <dres/dres.h>
 
 #if !defined(DEBUG)
 #  if defined(__TEST_PARSER__) || 1
@@ -36,6 +36,7 @@ extern FILE *yyin;
   
 }
 
+%defines
 %parse-param {dres_t *dres}
 
 

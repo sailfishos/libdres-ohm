@@ -3,8 +3,10 @@
 #include <string.h>
 #include <errno.h>
 
-#include "dres.h"
-#include <vala/ohm-fact.h>
+#include <prolog/ohm-fact.h>
+
+#include <dres/dres.h>
+#include "parser.h"
 
 #undef STAMP_FORCED_UPDATE
 
@@ -964,49 +966,13 @@ dres_dump_sort(dres_t *dres, int *list)
 
 
 /********************
- * execute_actions
+ * yyerror
  ********************/
-static int
-execute_actions(dres_t *dres, dres_target_t *target)
+void
+yyerror(dres_t *dres, const char *msg)
 {
-    dres_action_t *a;
-    dres_assign_t *v;
-    int            i, j;
-    char           buf[32], *t;
-
-    if (target->actions == NULL)
-        return 0;
-
-    DEBUG("executing actions for %s", target->name);
-
-    for (a = target->actions; a; a = a->next) {
-        printf("[%s]    %s%s%s(", __FUNCTION__,
-               a->lvalue != DRES_ID_NONE ?
-               dres_name(dres, a->lvalue, buf, sizeof(buf)): "",
-               a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
-        for (i = 0, t = ""; i < a->nargument; i++, t=",")
-            printf("%s%s", t,
-                   dres_name(dres, a->arguments[i], buf, sizeof(buf)));
-        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
-            char var[32], val[32];
-            printf("%s%s=%s", t,
-                   dres_name(dres, v->var_id, var, sizeof(var)),
-                   dres_name(dres, v->val_id, val, sizeof(val)));
-        }
-
-        printf(")\n");
-
-        if (!strcmp(a->name, "dres")) {
-            char *goal = dres_name(dres, a->arguments[0], buf, sizeof(buf));
-            DEBUG("##### recursing for goal %s...", goal);
-            dres_update_goal(dres, goal);
-            DEBUG("##### back from recursive dres(%s)", goal);
-        }
-    }
-    
-    return 0;
+    dres_parse_error(dres, msg, yylval.string);
 }
-
 
 
 

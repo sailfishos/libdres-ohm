@@ -3,8 +3,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include "dres.h"
-#include "parser.h"
+#include <dres/dres.h>
 
 #include <prolog/prolog.h>
 #include <prolog/ohm-fact.h>
@@ -374,13 +373,13 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 }
 
 
-
-
+/********************
+ * dres_parse_error
+ ********************/
 void
-yyerror(dres_t *dres, const char *msg)
+dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
-    printf("error: %s, on line %d near input %s\n", msg, lexer_lineno(),
-           yylval.string);
+    printf("error: %s, on line %d near input %s\n", msg, lineno, token);
 }
 
 

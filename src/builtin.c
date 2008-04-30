@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "dres.h"
+#include <dres/dres.h>
 
 
 static int dres_builtin_dres(dres_t *dres,

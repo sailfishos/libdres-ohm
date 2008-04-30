@@ -1,0 +1,104 @@
+#                                               -*- Autoconf -*-
+# Process this file with autoconf to produce a configure script.
+
+AC_PREREQ(2.61)
+AC_INIT(dres, 0.1)
+AC_CONFIG_SRCDIR([src])
+AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
+AC_CONFIG_HEADER([include/dres/config.h])
+
+# libtool
+LT_CURRENT=2
+LT_REVISION=0
+LT_AGE=0
+AC_SUBST(LT_CURRENT)
+AC_SUBST(LT_REVISION)
+AC_SUBST(LT_AGE)
+
+# Disable static libraries.
+AC_DISABLE_STATIC
+
+# Checks for programs.
+AC_PROG_CC
+AC_PROG_INSTALL
+AC_PROG_LEX
+AC_PROG_YACC
+AM_PROG_CC_C_O
+AM_PROG_LIBTOOL
+AM_PROG_LEX
+
+# Checks for libraries.
+
+# Checks for header files.
+AC_HEADER_STDC
+AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
+
+# Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_SIZE_T
+
+# Checks for library functions.
+AC_FUNC_MALLOC
+AC_FUNC_REALLOC
+AC_CHECK_FUNCS([memset strchr strdup strerror])
+
+# Check for glib and gobject (factstore).
+PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
+
+# Checks for libprolog, librelation, libfact, libfactmap.
+PKG_CHECK_MODULES(LIBPROLOG, libprolog >= 0.0.0)
+PKG_CHECK_MODULES(LIBRELATION, librelation >= 0.0.0)
+PKG_CHECK_MODULES(LIBFACT, libfact >= 0.0.0)
+PKG_CHECK_MODULES(LIBFACTMAP, libfactmap >= 0.0.0)
+
+# SWI-prolog support
+
+AC_ARG_WITH(prolog, [  --with-prolog=<SWI prolog binary>   where the SWI prolog main binary is installed])
+if test -z "$with_prolog" ; then
+  if which pl >& /dev/null; then
+    PLBIN="`which pl`"
+  else
+    if which swipl >& /dev/null; then
+      PLBIN="`which swipl`"
+    else
+        AC_MSG_ERROR([SWI prolog binary not found])
+    fi
+  fi
+else
+  PLBIN="$with_prolog"
+fi
+
+
+PLDUMP="$PLBIN -dump-runtime-variables"
+PLDIR=$(eval `$PLDUMP`; echo $PLBASE)
+PLARCH=$(eval `$PLDUMP`; echo $$LARCH)
+PLLIBS=$(eval `$PLDUMP`; echo $PLLIBS $PLDIR/lib/$PLARCH/libpl.a)
+
+PLCFLAGS=$(eval `$PLDUMP`; echo $PLCFLAGS -I$PLDIR/include)
+PLLDFLAGS=$(eval `$PLDUMP`; echo $PLLDFLAGS)
+
+SWIPROLOG_HOME="$PLDIR"
+SWIPROLOG_CFLAGS="$PLCFLAGS"
+SWIPROLOG_LDFLAGS="$PLLDFLAGS $PLLIBS"
+
+AC_SUBST(SWIPROLOG_LDFLAGS)
+AC_SUBST(SWIPROLOG_CFLAGS)
+AC_SUBST(SWIPROLOG_HOME)
+
+AC_SUBST(LIBPROLOG_CFLAGS)
+AC_SUBST(LIBPROLOG_LDFLAGS)
+AC_SUBST(LIBRELATION_CFLAGS)
+AC_SUBST(LIBRELATION_LDFLAGS)
+AC_SUBST(LIBFACT_CFLAGS)
+AC_SUBST(LIBFACT_LDFLAGS)
+AC_SUBST(LIBFACTMAP_CFLAGS)
+AC_SUBST(LIBFACTMAP_LDFLAGS)
+
+AC_OUTPUT([
+	Makefile
+	src/Makefile
+	src/libdres.pc
+	test/Makefile
+])
