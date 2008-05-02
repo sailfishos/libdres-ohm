@@ -82,7 +82,7 @@ dres_free_targets(dres_t *dres)
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         FREE(target->name);
-        FREE(target->prereqs);
+        dres_free_prereq(target->prereqs);
         dres_free_actions(target->actions);
     }
 

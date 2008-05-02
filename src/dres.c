@@ -13,11 +13,8 @@
 extern FILE *yyin;
 extern int   yyparse(dres_t *dres);
 
-static void free_literals(dres_t *dres);
 static int  finalize_variables(dres_t *dres);
 static int  finalize_actions(dres_t *dres);
-
-static void free_prereq(dres_prereq_t *dep);
 
 static int graph_build_prereq(dres_t *dres, dres_graph_t *graph,
                               dres_target_t *target, int prereq);
@@ -78,7 +75,7 @@ dres_exit(dres_t *dres)
     dres_free_targets(dres);
     dres_free_factvars(dres);
     dres_free_dresvars(dres);
-    free_literals(dres);
+    dres_free_literals(dres);
     
     dres_store_destroy(dres->fact_store);
     dres_store_destroy(dres->dres_store);
@@ -129,61 +126,6 @@ dres_check_stores(dres_t *dres)
 }
 
 
-/*****************************************************************************
- *                  *** prerequisite/dependency handling ***                 *
- *****************************************************************************/
-
-/********************
- * dres_add_prereq
- ********************/
-int
-dres_add_prereq(dres_prereq_t *dep, int id)
-{
-    if (dep->nid < 0)                              /* unmark as not present */
-        dep->nid = 0;
-
-    if (REALLOC_ARR(dep->ids, dep->nid, dep->nid + 1) == NULL)
-        return DRES_ID_NONE;
-
-    dep->ids[dep->nid++] = id;
-
-    return 0;
-}
-
-
-/********************
- * dres_new_prereq
- ********************/
-dres_prereq_t *
-dres_new_prereq(int id)
-{
-    dres_prereq_t *dep;
-
-    if (ALLOC_OBJ(dep) == NULL)
-        return NULL;
-    
-    if (dres_add_prereq(dep, id) != DRES_ID_NONE)
-        return dep;
-
-    free_prereq(dep);
-    return NULL;
-}
-
-
-/********************
- * free_prereq
- ********************/
-static void
-free_prereq(dres_prereq_t *dep)
-{
-    if (dep) {
-        FREE(dep->ids);
-        FREE(dep);
-    }
-}
-
-
-
 
 /********************
  * finalize_variables
@@ -225,70 +167,6 @@ finalize_actions(dres_t *dres)
 }
 
 
-
-
-/*****************************************************************************
- *                          *** literal handling ***                         *
- *****************************************************************************/
-
-/********************
- * dres_add_literal
- ********************/
-int
-dres_add_literal(dres_t *dres, char *name)
-{
-    dres_literal_t *l;
-    int             id;
-
-    if (!REALLOC_ARR(dres->literals, dres->nliteral, dres->nliteral + 1))
-        return DRES_ID_NONE;
-
-    id = dres->nliteral++;
-    l  = dres->literals + id;
-
-    l->id   = DRES_LITERAL(id);
-    l->name = STRDUP(name);
-
-    return l->name ? l->id : DRES_ID_NONE;
-}
-
-
-/********************
- * dres_literal_id
- ********************/
-int
-dres_literal_id(dres_t *dres, char *name)
-{
-    dres_literal_t *l;
-    int             i;
-
-    if (name != NULL)
-        for (i = 0, l = dres->literals; i < dres->nliteral; i++, l++) {
-            if (!strcmp(name, l->name))
-                return l->id;
-        }
-    
-    return dres_add_literal(dres, name);
-}
-
-
-/********************
- * free_literals
- ********************/
-static void
-free_literals(dres_t *dres)
-{
-    int             i;
-    dres_literal_t *l;
-    
-    for (i = 0, l = dres->literals; i < dres->nliteral; i++, l++)
-        FREE(l->name);
-        
-    FREE(dres->literals);
-
-    dres->literals = NULL;
-    dres->nliteral = 0;
-}
 
 
 /*****************************************************************************

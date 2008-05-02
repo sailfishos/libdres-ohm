@@ -196,7 +196,14 @@ dres_t *dres_init(void);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
 
-int dres_literal_id (dres_t *dres, char *name);
+
+/* target.c */
+int            dres_add_target   (dres_t *dres, char *name);
+int            dres_target_id    (dres_t *dres, char *name);
+dres_target_t *dres_lookup_target(dres_t *dres, char *name);
+void           dres_free_targets (dres_t *dres);
+void           dres_dump_targets (dres_t *dres);
+int            dres_check_target (dres_t *dres, int tid);
 
 /* factvar.c */
 int  dres_add_factvar  (dres_t *dres, char *name);
@@ -210,13 +217,15 @@ int  dres_dresvar_id   (dres_t *dres, char *name);
 void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 
-/* target.c */
-int            dres_add_target   (dres_t *dres, char *name);
-int            dres_target_id    (dres_t *dres, char *name);
-dres_target_t *dres_lookup_target(dres_t *dres, char *name);
-void           dres_free_targets (dres_t *dres);
-void           dres_dump_targets (dres_t *dres);
-int            dres_check_target (dres_t *dres, int tid);
+/* literal.c */
+int  dres_add_literal  (dres_t *dres, char *name);
+int  dres_literal_id   (dres_t *dres, char *name);
+void dres_free_literals(dres_t *dres);
+
+/* prereq.c */
+dres_prereq_t *dres_new_prereq (int id);
+int            dres_add_prereq (dres_prereq_t *dep, int id);
+void           dres_free_prereq(dres_prereq_t *dep);
 
 /* action.c */
 dres_action_t *dres_new_action  (int argument);
@@ -227,9 +236,6 @@ void           dres_dump_action (dres_t *dres, dres_action_t *action);
 
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
-
-dres_prereq_t *dres_new_prereq(int id);
-int            dres_add_prereq(dres_prereq_t *dep, int id);
 
 int dres_add_assignment(dres_action_t *action, int var, int val);
 
