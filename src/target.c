@@ -120,9 +120,13 @@ dres_dump_targets(dres_t *dres)
                     printf("  depends on target %s\n",
                            dres->targets[idx].name);
                     break;
-                case DRES_TYPE_VARIABLE:
-                    printf("  depends on variable $%s\n",
-                           dres->variables[idx].name);
+                case DRES_TYPE_FACTVAR:
+                    printf("  depends on FACT variable $%s\n",
+                           dres->factvars[idx].name);
+                    break;
+                case DRES_TYPE_DRESVAR:
+                    printf("  depends on DRES variable &%s\n",
+                           dres->dresvars[idx].name);
                     break;
                 default:
                     printf("  depends on unknown object 0x%x\n", id);
@@ -144,8 +148,11 @@ dres_dump_targets(dres_t *dres)
                 id  = a->arguments[n];
                 idx = DRES_INDEX(id);
                 switch (DRES_ID_TYPE(id)) {
-                case DRES_TYPE_VARIABLE:
-                    printf("%s$%s", sep, dres->variables[idx].name);
+                case DRES_TYPE_FACTVAR:
+                    printf("%s$%s", sep, dres->factvars[idx].name);
+                    break;
+                case DRES_TYPE_DRESVAR:
+                    printf("%s$%s", sep, dres->dresvars[idx].name);
                     break;
                 case DRES_TYPE_LITERAL:
                     printf("%s%s", sep, dres->literals[idx].name);
@@ -190,8 +197,14 @@ dres_check_target(dres_t *dres, int tid)
         for (i = 0; i < prq->nid; i++) {
             id = prq->ids[i];
             switch (DRES_ID_TYPE(id)) {
-            case DRES_TYPE_VARIABLE:
-                if (dres_check_variable(dres, id, target->stamp)) {
+            case DRES_TYPE_FACTVAR:
+                if (dres_check_factvar(dres, id, target->stamp)) {
+                    DEBUG("=> newer, %s needs to be updated", target->name);
+                    update = TRUE;
+                }
+                break;
+            case DRES_TYPE_DRESVAR:
+                if (dres_check_dresvar(dres, id, target->stamp)) {
                     DEBUG("=> newer, %s needs to be updated", target->name);
                     update = TRUE;
                 }

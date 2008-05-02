@@ -6,7 +6,8 @@
 enum {
     DRES_TYPE_UNKNOWN = 0,
     DRES_TYPE_TARGET,
-    DRES_TYPE_VARIABLE,
+    DRES_TYPE_FACTVAR,
+    DRES_TYPE_DRESVAR,
     DRES_TYPE_LITERAL,
     DRES_TYPE_DELETED   = 0x40,
     DRES_TYPE_UNDEFINED = 0x80
@@ -16,7 +17,8 @@ enum {
 
 #define DRES_TYPE(type)     ((DRES_TYPE_##type) << 24)
 #define DRES_LITERAL(value) (DRES_TYPE(LITERAL)  | (value))
-#define DRES_VARIABLE(id)   (DRES_TYPE(VARIABLE) | (id))
+#define DRES_FACTVAR(id)    (DRES_TYPE(FACTVAR)  | (id))
+#define DRES_DRESVAR(id)    (DRES_TYPE(DRESVAR)  | (id))
 #define DRES_TARGET(id)     (DRES_TYPE(TARGET)   | (id))
 #define DRES_UNDEFINED(id)  (DRES_TYPE(UNDEFINED) | (id))
 #define DRES_DEFINED(id)    ((id) & ~DRES_TYPE(UNDEFINED))
@@ -96,7 +98,8 @@ typedef struct {
 
 typedef struct {
     int            ntarget;
-    int            nvariable;
+    int            nfactvar;
+    int            ndresvar;
     dres_prereq_t *depends;                 /* reversed prerequisites */
 } dres_graph_t;
 
@@ -113,15 +116,10 @@ enum {
 struct dres_s {
     dres_target_t   *targets;
     int              ntarget;
-#if 1
-    dres_variable_t *variables;
-    int              nvariable;
-#else
     dres_variable_t *factvars;
     int              nfactvar;
     dres_variable_t *dresvars;
     int              ndresvar;
-#endif
     dres_literal_t  *literals;
     int              nliteral;
 
@@ -187,7 +185,7 @@ extern int depth;
 
 #define DEBUG(fmt, args...) do {                                        \
         if (depth > 0)                                                  \
-            printf("%*.*s ", depth, depth, ">>>>>>>>>>>>>>>>");   \
+            printf("%*.*s ", depth*2, depth*2, "                  ");   \
         printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
     } while (0)
 
@@ -201,10 +199,16 @@ int     dres_parse_file(dres_t *dres, char *path);
 int dres_literal_id (dres_t *dres, char *name);
 
 /* factvar.c */
-int  dres_add_variable  (dres_t *dres, char *name);
-int  dres_variable_id   (dres_t *dres, char *name);
-void dres_free_variables(dres_t *dres);
-int  dres_check_variable(dres_t *dres, int id, int stamp);
+int  dres_add_factvar  (dres_t *dres, char *name);
+int  dres_factvar_id   (dres_t *dres, char *name);
+void dres_free_factvars(dres_t *dres);
+int  dres_check_factvar(dres_t *dres, int id, int stamp);
+
+/* dresvar.c */
+int  dres_add_dresvar  (dres_t *dres, char *name);
+int  dres_dresvar_id   (dres_t *dres, char *name);
+void dres_free_dresvars(dres_t *dres);
+int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 
 /* target.c */
 int            dres_add_target   (dres_t *dres, char *name);

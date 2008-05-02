@@ -76,7 +76,8 @@ dres_exit(dres_t *dres)
         return;
     
     dres_free_targets(dres);
-    dres_free_variables(dres);
+    dres_free_factvars(dres);
+    dres_free_dresvars(dres);
     free_literals(dres);
     
     dres_store_destroy(dres->fact_store);
@@ -120,7 +121,7 @@ dres_check_stores(dres_t *dres)
     int              i;
     char             name[128];
 
-    for (i = 0, var = dres->variables; i < dres->nvariable; i++, var++) {
+    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
         sprintf(name, "com.nokia.policy.%s", var->name);
         if (!dres_store_check(dres->fact_store, name))
             DEBUG("*** lookup of %s FAILED", name);
@@ -193,7 +194,7 @@ finalize_variables(dres_t *dres)
     dres_variable_t *v;
     int              i;
 
-    for (i = 0, v = dres->variables; i < dres->nvariable; i++, v++)
+    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++)
         if (!(v->var = dres_var_init(dres->fact_store, v->name, &v->stamp)))
             return EIO;
     
@@ -316,7 +317,7 @@ dres_build_graph(dres_t *dres, char *goal)
     if (ALLOC_OBJ(graph) == NULL)
         goto fail;
     
-    n = dres->ntarget + dres->nvariable;
+    n = dres->ntarget + dres->nfactvar + dres->ndresvar;
     
     if ((graph->depends = ALLOC_ARR(typeof(*graph->depends), n)) == NULL)
         goto fail;
@@ -324,8 +325,9 @@ dres_build_graph(dres_t *dres, char *goal)
     for (i = 0; i < n; i++)
         graph->depends[i].nid = -1;                /* node not in graph yet */
 
-    graph->ntarget   = dres->ntarget;
-    graph->nvariable = dres->nvariable;
+    graph->ntarget  = dres->ntarget;
+    graph->nfactvar = dres->nfactvar;
+    graph->ndresvar = dres->ndresvar;
     
     if (target->prereqs != NULL) {
         for (i = 0; i < target->prereqs->nid; i++) {
@@ -358,12 +360,13 @@ void
 dres_free_graph(dres_graph_t *graph)
 {
     dres_prereq_t *prq;
-    int            i;
+    int            i, n;
     
     if (graph == NULL || graph->depends == NULL)
         return;
     
-    for (i = 0; i < graph->ntarget + graph->nvariable; i++) {
+    n = graph->ntarget + graph->nfactvar + graph->ndresvar;
+    for (i = 0; i < n; i++) {
         prq = graph->depends + i;
         FREE(prq->ids);
     }
@@ -404,7 +407,8 @@ graph_build_prereq(dres_t *dres,
                     return status;
         return 0;
 
-    case DRES_TYPE_VARIABLE:
+    case DRES_TYPE_FACTVAR:
+    case DRES_TYPE_DRESVAR:
         return 0;
         
     default:
@@ -422,12 +426,14 @@ graph_add_prereq(dres_t *dres, dres_graph_t *graph, int tid, int prid)
     dres_prereq_t *depends;
     int            idx;
 
-    if (DRES_ID_TYPE(prid) == DRES_TYPE_VARIABLE)
-        idx = graph->ntarget;
-    else
-        idx = 0;
+    idx = DRES_INDEX(prid);
 
-    idx    += DRES_INDEX(prid);
+    switch (DRES_ID_TYPE(prid)) {
+    case DRES_TYPE_DRESVAR: idx += graph->nfactvar; /* fall through */
+    case DRES_TYPE_FACTVAR: idx += graph->ntarget;  /* fall through */
+    case DRES_TYPE_TARGET:  break;
+    }
+
     depends = graph->depends + idx;
     
     if (depends->nid < 0)
@@ -450,12 +456,14 @@ graph_has_prereq(dres_graph_t *graph, int tid, int prid)
     dres_prereq_t *prereqs;
     int            idx, i;
 
-    if (DRES_ID_TYPE(prid) == DRES_TYPE_VARIABLE)
-        idx = graph->ntarget;
-    else
-        idx = 0;
-
-    idx    += DRES_INDEX(prid);
+    idx = DRES_INDEX(prid);
+    
+    switch (DRES_ID_TYPE(prid)) {
+    case DRES_TYPE_DRESVAR: idx += graph->nfactvar; /* fall through */
+    case DRES_TYPE_FACTVAR: idx += graph->ntarget;  /* fall through */
+    case DRES_TYPE_TARGET:  break;
+    }
+    
     prereqs = graph->depends + idx;
     
     for (i = 0; i < prereqs->nid; i++)
@@ -477,12 +485,11 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
     char           buf[32];
             
 
-    /* */
+    /* check targets */
     for (i = 0; i < graph->ntarget; i++) {
         prq = graph->depends + i;
         for (j = 0; j < prq->nid; j++) {
             id = prq->ids[j];
-            
             if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
                 target = graph->depends + DRES_INDEX(id);
                 if (target->nid < 0) {
@@ -495,8 +502,25 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
     }
 
 
-    for (i = graph->ntarget; i < graph->nvariable; i++) {
+    /* check factvars */
+    for (i = graph->ntarget; i < graph->nfactvar; i++) {
         prq = graph->depends + graph->ntarget + i;
+        for (j = 0; j < prq->nid; j++) {
+            id = prq->ids[j];
+            if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
+                target = graph->depends + DRES_INDEX(id);
+                if (target->nid < 0) {
+                    target->nid = 0;              /* unmark as not present */
+                    DEBUG("leaf target %s (0x%x) pulled in",
+                          dres_name(dres, id, buf, sizeof(buf)), id);
+                }
+            }
+        }
+    }
+
+    /* check dresvars */
+    for (i = graph->ntarget; i < graph->ndresvar; i++) {
+        prq = graph->depends + graph->ntarget + graph->nfactvar + i;
         for (j = 0; j < prq->nid; j++) {
             id = prq->ids[j];
             if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
@@ -596,13 +620,30 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
             __item;                                                \
         })
 
-#define NEDGE(id) \
-    (E + DRES_INDEX(id) + \
-     (DRES_ID_TYPE(id) == DRES_TYPE_VARIABLE ? graph->ntarget : 0))
 
-#define PRQ_IDX(id) \
-    (DRES_INDEX(id) +                                           \
-     (DRES_ID_TYPE(id) == DRES_TYPE_VARIABLE ? graph->ntarget : 0))
+#define PRQ_IDX(id) ({                                                  \
+            int __i = DRES_INDEX(id);                                   \
+            switch (DRES_ID_TYPE(id)) {                                 \
+            case DRES_TYPE_DRESVAR: __i += graph->nfactvar; /* fall through */ \
+            case DRES_TYPE_FACTVAR: __i += graph->ntarget;  /* fall through */ \
+            case DRES_TYPE_TARGET:  break;                                     \
+            }                                                                  \
+            __i;                                                        \
+        })
+
+#if 0
+    (DRES_INDEX(id) +                                                   \
+     (DRES_ID_TYPE(id) == DRES_TYPE_DRESVAR ? graph->ntarget+graph->nfactvar : \
+      (DRES_ID_TYPE(id) == DRES_TYPE_FACTVAR ? graph->ntarget : 0)))
+#endif
+
+#define NEDGE(id) (E + PRQ_IDX(id))
+#if 0
+    (E + DRES_INDEX(id) + \
+     (DRES_ID_TYPE(id) == DRES_TYPE_DRESVAR ? graph->ntarget+graph->nfactvar : \
+      (DRES_ID_TYPE(id) == DRES_TYPE_FACTVAR ? graph->ntarget : 0)))
+#endif
+
 
     int *L, *Q, *E;
     int  hL, hQ, tL, tQ;
@@ -614,7 +655,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
     
 
     L = Q = E = NULL;
-    n = graph->ntarget + graph->nvariable;
+    n = graph->ntarget + graph->nfactvar + graph->ndresvar;
     
     if ((L = malloc((n+1) * sizeof(*L))) == NULL ||
         (Q = malloc( n    * sizeof(*Q))) == NULL ||
@@ -630,16 +671,16 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
 
     /* initialize L, incoming edges / node */
     status = 0;
-    for (i = 0; i < graph->nvariable; i++) {
-        prq = graph->depends + graph->ntarget + i;
+    for (i = 0; i < graph->ndresvar; i++) {
+        prq = graph->depends + graph->ntarget + graph->nfactvar + i;
         if (prq->nid == -1)                     /* not in the graph at all */
             continue;
         
-        PUSH(Q, dres->variables[i].id); /* variables don't depend on anything */
+        PUSH(Q, dres->dresvars[i].id); /* variables don't depend on anything */
         
         for (j = 0; j < prq->nid; j++) {
             DEBUG("edge %s -> %s",
-                  dres_name(dres, DRES_VARIABLE(i), buf, sizeof(buf)),
+                  dres_name(dres, DRES_DRESVAR(i), buf, sizeof(buf)),
                   dres_name(dres, prq->ids[j], buf1, sizeof(buf1)));
             
             if (*NEDGE(prq->ids[j]) < 0)
@@ -647,7 +688,25 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
             else
                 *NEDGE(prq->ids[j]) += 1;
         }
+    }
+
+    for (i = 0; i < graph->nfactvar; i++) {
+        prq = graph->depends + graph->ntarget + i;
+        if (prq->nid == -1)                     /* not in the graph at all */
+            continue;
         
+        PUSH(Q, dres->factvars[i].id); /* variables don't depend on anything */
+        
+        for (j = 0; j < prq->nid; j++) {
+            DEBUG("edge %s -> %s",
+                  dres_name(dres, DRES_FACTVAR(i), buf, sizeof(buf)),
+                  dres_name(dres, prq->ids[j], buf1, sizeof(buf1)));
+            
+            if (*NEDGE(prq->ids[j]) < 0)
+                *NEDGE(prq->ids[j]) = 1;
+            else
+                *NEDGE(prq->ids[j]) += 1;
+        }
     }
     
     for (i = 0; i < graph->ntarget; i++) {
@@ -687,10 +746,15 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
               dres_name(dres, dres->targets[i].id, buf, sizeof(buf)),
               *NEDGE(dres->targets[i].id));
     
-    for (i = 0; i < dres->nvariable; i++)
+    for (i = 0; i < dres->nfactvar; i++)
         DEBUG("E[%s] = %d",
-              dres_name(dres, dres->variables[i].id, buf, sizeof(buf)),
-              *NEDGE(dres->variables[i].id));
+              dres_name(dres, dres->factvars[i].id, buf, sizeof(buf)),
+              *NEDGE(dres->factvars[i].id));
+
+    for (i = 0; i < dres->ndresvar; i++)
+        DEBUG("E[%s] = %d",
+              dres_name(dres, dres->dresvars[i].id, buf, sizeof(buf)),
+              *NEDGE(dres->dresvars[i].id));
     
     
     /* try to sort topologically the graph */
@@ -729,8 +793,12 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         if (E[i] != 0) {
             DEBUG("error: graph has cycles");
             DEBUG("still has %d edges for %s #%d", E[i],
-                   i < graph->ntarget ? "target" : "variable",
-                   i < graph->ntarget ? i : i - graph->ntarget);
+                  i < graph->ntarget ? "target" :
+                  (i < graph->ntarget+graph->nfactvar ?
+                   "FACT variable" : "DRES varariable"),
+                  i < graph->ntarget ? i :
+                  (i < graph->ntarget+graph->nfactvar ? i - graph->ntarget :
+                   i - graph->ntarget - graph->nfactvar));
             status = EINVAL;
         }
     }
@@ -842,9 +910,14 @@ dres_name(dres_t *dres, int id, char *buf, size_t bufsize)
         snprintf(buf, bufsize, "%s", target->name);
         break;
         
-    case DRES_TYPE_VARIABLE:
-        variable = dres->variables + DRES_INDEX(id);
+    case DRES_TYPE_FACTVAR:
+        variable = dres->factvars + DRES_INDEX(id);
         snprintf(buf, bufsize, "$%s", variable->name);
+        break;
+
+    case DRES_TYPE_DRESVAR:
+        variable = dres->dresvars + DRES_INDEX(id);
+        snprintf(buf, bufsize, "&%s", variable->name);
         break;
 
     case DRES_TYPE_LITERAL:
