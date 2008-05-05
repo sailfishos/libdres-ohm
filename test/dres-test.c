@@ -332,7 +332,7 @@ static int
 prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 {
     prolog_predicate_t *predicates, *p, *pred;
-    char               *pred_name, ***actions;
+    char               *pred_name, ***actions, *flattened;
     char                buf[64];
     
     if ((predicates = prolog_predicates(NULL)) == NULL) {
@@ -369,6 +369,15 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
     printf("rule engine gave the following policy decisions:\n");
     prolog_dump_actions(actions);
 
+    flattened = prolog_flatten_actions(actions);
+    prolog_free_actions(actions);
+
+    if (flattened == NULL)
+        return errno;
+    
+    printf("flattened prolog actions: %s\n", flattened);
+    *(char **)ret = flattened;
+    
     return 0;
 }
 

@@ -55,7 +55,7 @@ struct dres_action_s {
     dres_handler_t *handler;               /* handler */
     int             lvalue;                /* variable to put the result to */
     int            *arguments;             /* name(arguments...) */
-    int            nargument;              /* number of arguments */
+    int             nargument;             /* number of arguments */
     dres_assign_t  *variables;             /* name(arguments, variables) */
     int             nvariable;             /* number of variables */
     dres_action_t  *next;                  /* more actions */
