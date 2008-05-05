@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include "dres.h"
-#include <vala/ohm-fact.h>
+#include <prolog/ohm-fact.h>
 
 #undef STAMP_FORCED_UPDATE
 
