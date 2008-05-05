@@ -1,7 +1,7 @@
 %{
 
 #include <string.h>
-#include "dres.h"
+#include <dres/dres.h>
 
 #ifndef __TEST_LEXER__
 #  include "parser.h"

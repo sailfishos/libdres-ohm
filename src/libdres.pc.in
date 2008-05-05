@@ -1,0 +1,10 @@
+prefix=@prefix@
+exec_prefix=@exec_prefix@
+libdir=@libdir@
+includedir=@includedir@
+
+Name: libdres
+Description: A dependency resolver library.
+Version: @VERSION@
+Libs: -L${libdir} -ldres
+Cflags: -I${includedir}

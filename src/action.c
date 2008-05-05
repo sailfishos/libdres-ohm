@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "dres.h"
+#include <dres/dres.h>
 
 
 /*****************************************************************************
@@ -85,30 +85,6 @@ dres_free_actions(dres_action_t *actions)
     FREE(p);
 }
 
-
-#if 0
-/********************
- * dres_dump_action
- ********************/
-void
-dres_dump_action(dres_t *dres, dres_action_t *a)
-{
-    int  i;
-    char buf[32], *t;
-
-    while (a) {
-        printf("%s(", a->name);
-        for (i = 0, t = ""; i < a->nargument; i++, t=",")
-            printf("%s%s", t, dres_name(dres,
-                                        a->arguments[i], buf, sizeof(buf)));
-        printf(")%s%s\n",
-               a->lvalue == DRES_ID_NONE ? "" : " => ",
-               a->lvalue == DRES_ID_NONE ? "" : dres_name(dres, a->lvalue,
-                                                          buf, sizeof(buf)));
-        a = a->next;
-    }
-}
-#endif
 
 
 /*****************************************************************************

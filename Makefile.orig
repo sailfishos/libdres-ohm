@@ -19,7 +19,7 @@ CFLAGS  := -Wall -O0 -g3 -D__DEBUG__ $(PROLOG_CFLAGS) $(GLIBFLAGS)
 LDFLAGS :=  -L. -ldres -lfl -lfact $(GLIBLIBS) $(PROLOG_LIBS)
 
 LIBDRES     := libdres.a
-DRESSOURCES := lexer.c parser.c dres.c variables.c action.c
+DRESSOURCES := lexer.c parser.c dres.c target.c variables.c action.c builtin.c
 
 TARGETS := $(LIBDRES) dres-test #lexer-test parser-test
 

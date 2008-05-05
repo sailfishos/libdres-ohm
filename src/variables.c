@@ -8,8 +8,8 @@
 
 #include "prolog/ohm-fact.h"
 
-#include "dres.h"
-#include "variables.h"
+#include <dres/dres.h>
+#include <dres/variables.h>
 
 
 

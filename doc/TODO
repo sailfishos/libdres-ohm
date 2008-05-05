@@ -1,4 +1,4 @@
-- DRES-level variables in addition to keystore variables
++ DRES-level variables in addition to keystore variables
   o syntax &foo
 
 - precalculate and store toplogical sort order per target
@@ -16,10 +16,14 @@
     in a new local variable context before the current one, remove it upon
     returning)
 
-- make action handlers registrable, and register readily
-  o dres(goal, assignments...)
++ make action handlers registrable, and register readily
+ +o dres(goal, assignments...)
   o shell("command arguments...", timeout)
   o prolog(predicate, arguments..., retval)
+
+
+
+
 
 - allow syntactically more complex/complete expressions, eg.
       $v1 = prolog("foo", $b + 12, $c / 3, 4)

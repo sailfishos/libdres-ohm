@@ -1,7 +1,7 @@
 %{
 
 #include <stdio.h>
-#include "dres.h"
+#include <dres/dres.h>
 
 #if !defined(DEBUG)
 #  if defined(__TEST_PARSER__) || 1
@@ -36,6 +36,7 @@ extern FILE *yyin;
   
 }
 
+%defines
 %parse-param {dres_t *dres}
 
 
@@ -97,8 +98,8 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 	;
 
 prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);     }
-	| TOKEN_FACTVAR          { $$ = dres_variable_id(dres, $1);   }
-	| TOKEN_DRESVAR          { $$ = dres_variable_id(dres, $1);   }
+	| TOKEN_FACTVAR          { $$ = dres_factvar_id(dres, $1);   }
+	| TOKEN_DRESVAR          { $$ = dres_dresvar_id(dres, $1);   }
 	;
 
 
@@ -131,7 +132,7 @@ action: TOKEN_TAB optional_lvalue
         ;
 
 optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;               }
-        | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_variable_id(dres, $1); }
+        | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_factvar_id(dres, $1); }
         ;
 
 arguments: argument   {
@@ -145,8 +146,8 @@ arguments: argument   {
 	;
 
 argument: value            { $$ = $1; }
-	| TOKEN_FACTVAR    { $$ = dres_variable_id(dres, $1); }
-	| TOKEN_DRESVAR    { $$ = dres_variable_id(dres, $1); /* XXX kludge */ }
+	| TOKEN_FACTVAR    { $$ = dres_factvar_id(dres, $1); }
+	| TOKEN_DRESVAR    { $$ = dres_dresvar_id(dres, $1); }
 	;
 
 
@@ -164,7 +165,7 @@ assignments: assignment {
         ;
 
 assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
-	    $$.var = dres_variable_id(dres, $1);   /* XXX kludge */
+	    $$.var = dres_dresvar_id(dres, $1);
             $$.val = $3;
         }
 	;
