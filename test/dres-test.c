@@ -35,38 +35,117 @@ static int           prolog_handler   (dres_t *dres, char *name,
                                        dres_action_t *action, void **ret);
 static map_t        *factmap_init     (OhmFactStore *fs);
 static int           factmap_check    (map_t *map);
+static void          factmap_vardump  (map_t *map, char *factname);
 static void          command_loop     (dres_t *dres);
 
 
 
 #define FACT_PREFIX "com.nokia.policy."
 #define F(n) FACT_PREFIX#n
+#define MEND {NULL, NULL}
+
+struct member {
+    char *name;
+    char *value;
+};
+
+struct member empty_member[] = {{"value", ""}, MEND};
+struct member profile_member[] = {{"value", "general"}, MEND};
+struct member privacy_member[] = {{"value", "default"}, MEND};
+
+struct member ihf_member[] = {{"device", "ihf"}, {"state", "1"}, MEND};
+struct member bt_member[] = {{"device", "bluetooth"}, {"state", "0"}, MEND};
+struct member hs_member[] = {{"device", "headset"}, {"state", "0"}, MEND};
+struct member hp_member[] = {{"device", "headphone"}, {"state", "0"}, MEND};
+struct member earp_member[] = {{"device", "earpiece"}, {"state", "1"}, MEND};
+struct member mic_member[] = {{"device", "microphone"}, {"state", "1"}, MEND};
+struct member hm_member[] = {{"device", "headmike"}, {"state", "0"}, MEND};
+
+struct member act_cscall_member[] = {{"group", "cscall"}, {"state", "0"},MEND};
+struct member act_ring_member[] = {{"group", "ringtone"}, {"state", "0"},MEND};
+struct member act_ipcall_member[] = {{"group", "ipcall"}, {"state", "0"},MEND};
+struct member act_player_member[] = {{"group", "player"}, {"state", "0"},MEND};
+struct member act_fmradio_member[] = {{"group", "fmradio"},{"state","0"},MEND};
+struct member act_other_member[] = {{"group","othermedia"},{"state","1"},MEND};
+
+struct member sinkrt_member[] = {{"type", "sink"}, {"device", "ihf"}, MEND};
+struct member sourcert_member[] = {{"type", "source"},{"device", "microphone"},
+                                   MEND};
+
+struct member lim_cscall_member[]={{"group", "cscall"}, {"limit", "100"},MEND};
+struct member lim_ring_member[]={{"group", "ringtone"}, {"limit", "100"},MEND};
+struct member lim_ipcall_member[]={{"group", "ipcall"}, {"limit", "100"},MEND};
+struct member lim_player_member[]={{"group", "player"}, {"limit", "100"},MEND};
+struct member lim_fmradio_member[]={{"group", "fmradio"},{"limit","100"},MEND};
+struct member lim_other_member[]={{"group","othermedia"},{"limit","100"},MEND};
+
+struct member cork_cscall_member[] = {{"group", "cscall"},
+                                      {"cork", "unkorked"},MEND};
+struct member cork_ring_member[] = {{"group", "ringtone"},
+                                    {"cork", "unkorked"},MEND};
+struct member cork_ipcall_member[] = {{"group", "ipcall"},
+                                      {"cork", "unkorked"},MEND};
+struct member cork_player_member[] = {{"group", "player"},
+                                      {"cork", "unkorked"},MEND};
+struct member cork_fmradio_member[] = {{"group", "fmradio"},
+                                       {"cork","unkorked"},MEND};
+struct member cork_other_member[] = {{"group","othermedia"},
+                                     {"cork","unkorked"},MEND};
+
 
 struct fact {
-    char    *name;
-    OhmFact *fact;
+    char           *name;
+    struct member  *member;
+    OhmFact        *fact;
 } facts[] = {
-    { F(sleeping_request), NULL },
-    { F(sleeping_state), NULL },
-    { F(battery), NULL },
-    { F(idle), NULL },
-    { F(min_cpu_frequency), NULL },
-    { F(max_cpu_frequency), NULL },
-    { F(cpu_frequency), NULL },
-    { F(temperature), NULL },
-    { F(current_profile), NULL },
-    { F(privacy_override), NULL },
-    { F(connected), NULL },
-    { F(audio_active_policy_group), NULL },
-    { F(volume_limit), NULL },
-    { F(audio_cork), NULL },
-    { F(audio_route), NULL },
-    { F(cpu_load), NULL },
-    { F(audio_playback_request), NULL },
-    { F(audio_playback), NULL },
-    { F(current_profile), NULL },
-    { F(connected), NULL },
-    { NULL, NULL }
+    { F(sleeping_request), empty_member, NULL },
+    { F(sleeping_state), empty_member, NULL },
+    { F(battery), empty_member, NULL },
+    { F(idle), empty_member, NULL },
+    { F(min_cpu_frequency), empty_member, NULL },
+    { F(max_cpu_frequency), empty_member, NULL },
+    { F(cpu_frequency), empty_member, NULL },
+    { F(temperature), empty_member, NULL },
+    { F(current_profile), profile_member, NULL },
+    { F(privacy_override), privacy_member, NULL },
+
+    { F(accessories), ihf_member, NULL },
+    { F(accessories), bt_member, NULL },
+    { F(accessories), hs_member, NULL },
+    { F(accessories), hp_member, NULL },
+    { F(accessories), earp_member, NULL },
+    { F(accessories), mic_member, NULL },
+    { F(accessories), hm_member, NULL },
+
+    { F(audio_active_policy_group), act_cscall_member, NULL },
+    { F(audio_active_policy_group), act_ring_member, NULL },
+    { F(audio_active_policy_group), act_ipcall_member, NULL },
+    { F(audio_active_policy_group), act_player_member, NULL },
+    { F(audio_active_policy_group), act_fmradio_member, NULL },
+    { F(audio_active_policy_group), act_other_member, NULL },
+
+    { F(audio_route), sinkrt_member, NULL },
+    { F(audio_route), sourcert_member, NULL },
+
+    { F(volume_limit), lim_cscall_member, NULL },
+    { F(volume_limit), lim_ring_member, NULL },
+    { F(volume_limit), lim_ipcall_member, NULL },
+    { F(volume_limit), lim_player_member, NULL },
+    { F(volume_limit), lim_fmradio_member, NULL },
+    { F(volume_limit), lim_other_member, NULL },
+
+    { F(audio_cork), cork_cscall_member, NULL },
+    { F(audio_cork), cork_ring_member, NULL },
+    { F(audio_cork), cork_ipcall_member, NULL },
+    { F(audio_cork), cork_player_member, NULL },
+    { F(audio_cork), cork_fmradio_member, NULL },
+    { F(audio_cork), cork_other_member, NULL },
+
+    { F(cpu_load), empty_member, NULL },
+    { F(audio_playback), empty_member, NULL },
+
+    { F(audio_playback_request), empty_member, NULL },
+    { NULL, NULL, NULL}
 };
 
 OhmFactStore *fs;
@@ -117,10 +196,11 @@ main(int argc, char *argv[])
  ********************/
 static void
 command_loop(dres_t *dres)
-{
+{    
+#if 0
     char *goal, *p, command[128];
     int   status;
-    
+
     printf("Enter target (ie. goal) names to test them.\n");
     printf("Enter prolog to drop into an interactive prolog prompt.\n");
     printf("Enter Control-d or quit to exit.\n");
@@ -147,6 +227,82 @@ command_loop(dres_t *dres)
         if ((status = dres_update_goal(dres, goal)) != 0)
             printf("failed to update goal \"%s\"\n", goal);
     }
+#else
+    struct fact   *def;
+    struct member *m;
+    GValue         gval;
+    char          *str, *name, *member, *value, *p, *q;
+    char           buf[512];
+
+    printf("Enter 'fact-name.member=value, ...'\n");
+    printf("Enter 'prolog' to drop into an interactive prolog prompt.\n");
+    printf("Enter Control-d or quit to exit.\n");
+
+    for (;;) {
+        printf("dres> ");
+
+        if (fgets(buf, sizeof(buf), stdin) == NULL)
+            break;
+
+        name = member = value = NULL;
+
+        for (p = q = buf;  *p;  p++) {
+            if (*p > 0x20 && *p < 0x7f) {
+                *q++ = *p;
+            }
+        }
+        *q = 0;
+
+        if (!strcmp(buf, "prolog")) {
+            prolog_prompt();
+            continue;
+        }
+
+
+        if (!strcmp(buf, "quit"))
+            break;
+        
+        for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
+            if ((p = strchr(name, '=')) != NULL) {
+                *p++ = 0;
+                value = p;
+                if ((p = strrchr(name,'.')) != NULL) {
+                    *p++ = 0;
+                    member = p;
+          
+                    for (def = facts;  def->name != NULL;  def++) {
+                        if (!strcmp(name, def->name)) {
+                            for (m = def->member;  m->name != NULL;  m++) {
+                                if (!strcmp(member, m->name))
+                                    break;
+                            }
+                            if (m->name != NULL)
+                                break;
+                        }
+                    }
+                    if (def->name == NULL)
+                        printf("Can't find %s.%s\n", name, member);
+                    else {
+                        gval = ohm_value_from_string(value);
+                        ohm_fact_set(def->fact, member, &gval);
+                        printf("%s:%s = %s\n", name, member, value);
+                    }
+                }
+            }
+        }
+
+#if 1
+        factmap_check(maps);
+        prolog_prompt();
+#endif
+
+        printf("updating goal 'all'\n");
+        if (dres_update_goal(dres, "all") != 0)
+            printf("failed to update goal 'all'\n");
+
+    } /* for ;; */
+
+#endif
 }
 
 
@@ -164,12 +320,14 @@ rule_engine_init(void)
     int nextension = sizeof(extensions) / sizeof(extensions[0]);
 
     char *files[] = {
-        "prolog/hwconfig",
-        "prolog/devconfig",
-        "prolog/interface",
-        "prolog/profile",
-        "prolog/audio",
+        "/home/jko/dres/prolog/hwconfig",
+        "/home/jko/dres/prolog/devconfig",
+        "/home/jko/dres/prolog/interface",
+        "/home/jko/dres/prolog/profile",
+        "/home/jko/dres/prolog/audio",
+#if 0
         "prolog/test"
+#endif
     };
     int nfile = sizeof(files)/sizeof(files[0]);
     int i;
@@ -202,9 +360,10 @@ rule_engine_init(void)
 static OhmFactStore *
 factstore_init(void)
 {
-    OhmFactStore *fs;
-    GValue        gval;
-    int           i;
+    OhmFactStore  *fs;
+    struct member *m;
+    GValue         gval;
+    int            i;
     
     if ((fs = ohm_fact_store_get_fact_store()) == NULL)
         return NULL;
@@ -212,8 +371,11 @@ factstore_init(void)
     for (i = 0; facts[i].name != NULL; i++) {
         if ((facts[i].fact = ohm_fact_new(facts[i].name)) == NULL)
             return NULL;
-        gval = ohm_value_from_string("bar");
-        ohm_fact_set(facts[i].fact, "foo", &gval);
+        for (m = facts[i].member; m->name != NULL;  m++) {
+            DEBUG("%s:%s=%s", facts[i].name, m->name, m->value);
+            gval = ohm_value_from_string(m->value);
+            ohm_fact_set(facts[i].fact, m->name, &gval);
+        }
         if (!ohm_fact_store_insert(fs, facts[i].fact))
             return NULL;
     }
@@ -234,8 +396,8 @@ factstore_update(OhmFactStore *fs)
     
     for (i = 0; facts[i].name != NULL; i++) {
         
-        if (strcmp(facts[i].name, F(temperature)) &&
-            strcmp(facts[i].name, F(current_profile)))
+        if (strcmp(facts[i].name, FACT_PREFIX "temperature") &&
+            strcmp(facts[i].name, FACT_PREFIX "current_profile"))
             continue;
         
         if ((fact = ohm_fact_new(facts[i].name)) == NULL)
@@ -249,17 +411,34 @@ factstore_update(OhmFactStore *fs)
     return 0;
 }
 
-
-
 /********************
- * active_accessory
+ * filters
  ********************/
 int
-active_accessory(int arity, char **row, void *dummy)
+print_var(int arity, char **row, void*dummy)
+{
+    int i;
+
+    DEBUG("arity:%d", arity);
+
+    for (i=0; i<arity; i++)
+        DEBUG("row[%d]=%s", i, row[i]);
+    return 1;
+}
+
+int
+state(int arity, char **row, void *dummy)
 {
 #define FIELD_STATE 1
     return (row[FIELD_STATE][0] == '1');        /* hmm, ontology... */
 }
+
+int
+privacy(int arity, char **row, void *dummy)
+{
+    return strcmp(row[0], "default") ? 1 : 0;
+}
+
 
 
 /********************
@@ -277,14 +456,23 @@ factmap_init(OhmFactStore *fs)
         .filter = f                         \
     }
 
-    FIELDS(accessories , "device", "state");
+    FIELDS(current_profile, "value");
+    FIELDS(connected, "device", "state");
+    FIELDS(privacy_override, "value");
+    FIELDS(audio_active_policy_group, "group", "state");
+    FIELDS(audio_route , "type" , "device");
     FIELDS(volume_limit, "group" , "limit");
-    FIELDS(audio_route , "group" , "device");
+    FIELDS(audio_cork, "group", "cork");
 
     static map_t maps[] = {
-        MAP(accessories , "com.nokia.policy.accessories" , active_accessory),
-        MAP(volume_limit, "com.nokia.policy.volume_limit", NULL),
-        MAP(audio_route , "com.nokia.policy.audio_route" , NULL),
+        MAP(current_profile , FACT_PREFIX"current_profile"          , NULL   ),
+        MAP(connected       , FACT_PREFIX"accessories"              , state  ),
+        MAP(privacy_override, FACT_PREFIX"privacy_override"         , privacy),
+        MAP(audio_active_policy_group,
+                              FACT_PREFIX"audio_active_policy_group", state  ),
+        MAP(audio_route     , FACT_PREFIX"audio_route"              , NULL   ),
+        MAP(volume_limit    , FACT_PREFIX"volume_limit"             , NULL   ),
+        MAP(audio_cork      , FACT_PREFIX"audio_cork"               , NULL   ),
         { .name = NULL }
     };
 
@@ -292,7 +480,7 @@ factmap_init(OhmFactStore *fs)
     
     for (m = maps; m->name; m++) {
         m->fs  = fs;
-        m->map = factmap_create(fs, m->name, m->key, m->fields, m->filter,NULL);
+        m->map = factmap_create(fs, m->name, m->key,m->fields, m->filter,NULL);
 
         if (m->map == NULL) {
             DEBUG("failed to create factmap %s for %s", m->name, m->key);
@@ -317,13 +505,51 @@ factmap_check(map_t *map)
     
     for (m = map; m->name; m++) {
         DEBUG("updating fact map %s...", m->name);
-        if (factmap_update(m->map) != 0)
+        if (factmap_update(m->map) != 0) {
+            DEBUG("failed!");
             status = 1;
+        }
     }
 
     return status;
 }
 
+
+/*******************
+ *
+ *******************/
+static void
+factmap_vardump(map_t *map, char *factname)
+{
+    OhmFactStore  *fs = ohm_fact_store_get_fact_store();
+    GSList        *l;
+    GValue        *v;
+    OhmFact       *f;
+    map_t         *m;
+    char         **flds;
+    int            i;
+
+    for (m = map; m->name; m++) {
+        if (!strcmp(factname, m->name)) {
+            if (!(l = ohm_fact_store_get_facts_by_name(fs, factname)) || 
+                g_slist_length(l) == 0) {
+                printf("'%s' is in fact-map but no entry in fact-store\n",
+                       factname);
+            }
+            else {
+                for (i = 0;    l;    i++, l = g_slist_next(l)) {
+                    f = l->data;
+                    
+                    
+                }
+            }
+
+            return;
+        }
+    }
+
+    printf("Don't know anything about '%s'\n", factname);
+}
 
 /********************
  * prolog_handler
