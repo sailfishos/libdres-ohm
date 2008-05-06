@@ -32,7 +32,7 @@ enum {
 #define DRES_DELETED(id)    ((id) | DRES_TYPE(DELETED))
 #define DRES_IS_DELETED(id) ((id) & DRES_TYPE(DELETED))
 
-
+typedef struct dres_scope_s   dres_scope_t;
 typedef struct dres_handler_s dres_handler_t;
 
 struct dres_s;
@@ -61,7 +61,6 @@ struct dres_action_s {
     dres_action_t  *next;                  /* more actions */
 };
 
-
 struct dres_handler_s {
     char  *name;                               /* action name */
     int  (*handler)(dres_t *dres, char *name,  /* action handler */
@@ -73,11 +72,10 @@ typedef union {
     dres_array_t *array;
 } dres_val_t;
 
-
 typedef struct {
     int          id;
+    int          stamp;                     /* last update stamp */
     char        *name;
-    int          stamp;                /* last update stamp */
     dres_var_t  *var;
     dres_val_t   val;
 } dres_variable_t;
@@ -95,14 +93,12 @@ typedef struct {
     int            stamp;                   /* last update stamp */
 } dres_target_t;
 
-
 typedef struct {
     int            ntarget;
     int            nfactvar;
     int            ndresvar;
     dres_prereq_t *depends;                 /* reversed prerequisites */
 } dres_graph_t;
-
 
 enum {
     DRES_FLAG_UNKNOWN      = 0x0,
@@ -112,6 +108,14 @@ enum {
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
 #define DRES_SET_FLAG(d, f) ((d)->flags |=  DRES_##f)
 #define DRES_CLR_FLAG(d, f) ((d)->flags &= ~DRES_##f)
+
+
+#define DRES_VAR_FIELD "value"              /* field name for variables */
+
+struct dres_scope_s {
+    dres_store_t *curr;                     /* current variables */
+    dres_scope_t *prev;                     /* previous scope */
+};
 
 struct dres_s {
     dres_target_t   *targets;
@@ -127,6 +131,8 @@ struct dres_s {
 
     dres_store_t    *fact_store;
     dres_store_t    *dres_store;
+
+    dres_scope_t    *scope;
 
     dres_handler_t  *handlers;
     int              nhandler;
@@ -192,7 +198,7 @@ extern int depth;
 
 
 
-dres_t *dres_init(void);
+dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
 

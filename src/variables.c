@@ -261,7 +261,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
     OhmFact    *fact;
     GSList     *list;
 
-    if (!store || !name || !pstamp) {
+    if (!store || !name || (store->type == STORE_FACT && !pstamp)) {
         errno = EINVAL;
         return NULL;
     }

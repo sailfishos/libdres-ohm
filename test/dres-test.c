@@ -28,9 +28,8 @@ typedef struct {
 
 extern int lexer_lineno(void);
 
-static int           rule_engine_init (void);
+static int           rule_engine_init (char *pldir);
 static OhmFactStore *factstore_init   (void);
-static int           factstore_update (OhmFactStore *fs);
 static int           prolog_handler   (dres_t *dres, char *name,
                                        dres_action_t *action, void **ret);
 static map_t        *factmap_init     (OhmFactStore *fs);
@@ -40,8 +39,8 @@ static void          command_loop     (dres_t *dres);
 
 
 
-#define FACT_PREFIX "com.nokia.policy."
-#define F(n) FACT_PREFIX#n
+#define FACT_PREFIX "com.nokia.policy"
+#define F(n) FACT_PREFIX"."#n
 #define MEND {NULL, NULL}
 
 struct member {
@@ -155,15 +154,16 @@ map_t        *maps;
 int
 main(int argc, char *argv[])
 {
-    char   *rulefile;
+    char   *rulefile, *pldir;
     dres_t *dres;
 
-    rulefile = argc < 2 ? NULL  : argv[1];
+    rulefile = argc < 2 ? NULL : argv[1];
+    pldir    = argc < 3 ? "../prolog" : argv[2];
 
     g_type_init();
     
     
-    if (rule_engine_init() != 0)
+    if (rule_engine_init(pldir) != 0)
         fatal(1, "failed to initialize the rule engine");
     
     if ((fs = factstore_init()) == NULL)
@@ -172,7 +172,7 @@ main(int argc, char *argv[])
     if ((maps = factmap_init(fs)) == NULL)
         fatal(1, "failed to initialize factstore prolog mapppings");
     
-    if ((dres = dres_init()) == NULL)
+    if ((dres = dres_init(FACT_PREFIX)) == NULL)
         fatal(1, "failed to initialize dres with \"%s\"", rulefile);
     
     if (dres_register_handler(dres, "prolog", prolog_handler) != 0)
@@ -197,44 +197,15 @@ main(int argc, char *argv[])
 static void
 command_loop(dres_t *dres)
 {    
-#if 0
-    char *goal, *p, command[128];
-    int   status;
-
-    printf("Enter target (ie. goal) names to test them.\n");
-    printf("Enter prolog to drop into an interactive prolog prompt.\n");
-    printf("Enter Control-d or quit to exit.\n");
-    while (1) {
-        printf("dres> ");
-        if (fgets(command, sizeof(command), stdin) == NULL)
-            break;
-        
-        if ((p = strchr(command, '\n')) != NULL)
-            *p = '\0';
-        
-        if (!strcmp(command, "prolog")) {
-            prolog_prompt();
-            continue;
-        }
-        
-        if (!strcmp(command, "quit"))
-            break;
-
-        factstore_update(fs);
-
-        goal = command;
-        printf("updating goal '%s'\n", goal);
-        if ((status = dres_update_goal(dres, goal)) != 0)
-            printf("failed to update goal \"%s\"\n", goal);
-    }
-#else
     struct fact   *def;
     struct member *m;
     GValue         gval;
     char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
+    char          *goal;
     int            memberok, selok;
     char           buf[512];
 
+    printf("Enter target (ie. goal) names to test them.\n");
     printf("Enter 'fact-name.member=value, ...'\n");
     printf("Enter 'prolog' to drop into an interactive prolog prompt.\n");
     printf("Enter Control-d or quit to exit.\n");
@@ -269,15 +240,15 @@ command_loop(dres_t *dres)
             continue;
         }
 
-
+        if (!buf[0])
+            continue;
+        
         if (!strcmp(buf, "quit"))
             break;
         
-        for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
-            if ((p = strchr(name, '=')) != NULL) {
-                *p++ = 0;
-                value = p;
-                if ((p = strrchr(name,'.')) != NULL) {
+        if (strchr(buf, '=') != NULL) {
+            for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
+                if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
                     member = p;
 
@@ -312,30 +283,34 @@ command_loop(dres_t *dres)
                             if (memberok && selok)
                                 break;
                         }
-                    }
-                    if (def->name == NULL)
-                        printf("Can't find %s.%s\n", name, member);
-                    else {
-                        gval = ohm_value_from_string(value);
-                        ohm_fact_set(def->fact, member, &gval);
-                        printf("%s:%s = %s\n", name, member, value);
+                        if (def->name == NULL)
+                            printf("Can't find %s.%s\n", name, member);
+                        else {
+                            gval = ohm_value_from_string(value);
+                            ohm_fact_set(def->fact, member, &gval);
+                            printf("%s:%s = %s\n", name, member, value);
+                        }
                     }
                 }
             }
-        }
 
 #if 0
-        factmap_check(maps);
-        prolog_prompt();
+            factmap_check(maps);
+            prolog_prompt();
 #endif
-
-        printf("updating goal 'all'\n");
-        if (dres_update_goal(dres, "all") != 0)
-            printf("failed to update goal 'all'\n");
-
+            
+            printf("updating goal 'all'\n");
+            if (dres_update_goal(dres, "all") != 0)
+                printf("failed to update goal 'all'\n");
+        }
+        else {
+            goal = buf;
+            printf("updating goal '%s'\n", goal);
+            if (dres_update_goal(dres, goal) != 0)
+                printf("failed to update goal \"%s\"\n", goal);
+        }
+        
     } /* for ;; */
-
-#endif
 }
 
 
@@ -343,7 +318,7 @@ command_loop(dres_t *dres)
  * rule_engine_init
  ********************/
 static int
-rule_engine_init(void)
+rule_engine_init(char *pldir)
 {
 #define PROLOG_SYSDIR "/usr/share/prolog/"
     char *extensions[] = {
@@ -353,17 +328,19 @@ rule_engine_init(void)
     int nextension = sizeof(extensions) / sizeof(extensions[0]);
 
     char *files[] = {
-        "/home/jko/dres/prolog/hwconfig",
-        "/home/jko/dres/prolog/devconfig",
-        "/home/jko/dres/prolog/interface",
-        "/home/jko/dres/prolog/profile",
-        "/home/jko/dres/prolog/audio",
+        "hwconfig",
+        "devconfig",
+        "interface",
+        "profile",
+        "audio",
 #if 0
-        "prolog/test"
+        "test"
 #endif
     };
     int nfile = sizeof(files)/sizeof(files[0]);
     int i;
+
+    char path[PATH_MAX];
 
     /* initialize our prolog library */
     if (prolog_init("test", 0, 0, 0, 0) != 0)
@@ -379,8 +356,9 @@ rule_engine_init(void)
     /* load our test files */
     for (i = 0; i < nfile; i++) {
         DEBUG("loading prolog ruleset %s...", files[i]);
-        if (prolog_load_file(files[i]))
-            fatal(2, "failed to load %s", files[i]);
+        snprintf(path, sizeof(path), "%s/%s", pldir, files[i]);
+        if (prolog_load_file(path))
+            fatal(2, "failed to load %s", path);
     }
     
     return 0;
@@ -416,33 +394,6 @@ factstore_init(void)
     return fs;
 }
 
-
-/********************
- * factstore_update
- ********************/
-static int
-factstore_update(OhmFactStore *fs)
-{
-    GValue   gval;
-    OhmFact *fact;
-    int      i;
-    
-    for (i = 0; facts[i].name != NULL; i++) {
-        
-        if (strcmp(facts[i].name, FACT_PREFIX "temperature") &&
-            strcmp(facts[i].name, FACT_PREFIX "current_profile"))
-            continue;
-        
-        if ((fact = ohm_fact_new(facts[i].name)) == NULL)
-            fatal(1, "could not create fact %s", facts[i].name);
-        gval = ohm_value_from_string("barfoo");
-        ohm_fact_set(fact, "foobar", &gval);
-        if (!ohm_fact_store_insert(fs, fact))
-            fatal(1, "failed to insert fact %s to fact store", facts[i].name);
-    }
-    
-    return 0;
-}
 
 /********************
  * filters
@@ -498,14 +449,13 @@ factmap_init(OhmFactStore *fs)
     FIELDS(audio_cork, "group", "cork");
 
     static map_t maps[] = {
-        MAP(current_profile , FACT_PREFIX"current_profile"          , NULL   ),
-        MAP(connected       , FACT_PREFIX"accessories"              , state  ),
-        MAP(privacy_override, FACT_PREFIX"privacy_override"         , privacy),
-        MAP(audio_active_policy_group,
-                              FACT_PREFIX"audio_active_policy_group", state  ),
-        MAP(audio_route     , FACT_PREFIX"audio_route"              , NULL   ),
-        MAP(volume_limit    , FACT_PREFIX"volume_limit"             , NULL   ),
-        MAP(audio_cork      , FACT_PREFIX"audio_cork"               , NULL   ),
+        MAP(current_profile ,          F(current_profile)          , NULL   ),
+        MAP(connected       ,          F(accessories)              , state  ),
+        MAP(privacy_override,          F(privacy_override)         , privacy),
+        MAP(audio_active_policy_group, F(audio_active_policy_group), state  ),
+        MAP(audio_route     ,          F(audio_route)              , NULL   ),
+        MAP(volume_limit    ,          F(volume_limit)             , NULL   ),
+        MAP(audio_cork      ,          F(audio_cork)               , NULL   ),
         { .name = NULL }
     };
 
