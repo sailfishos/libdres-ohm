@@ -1,10 +1,5 @@
-foo: bar
+all: sleeping_state cpu_frequencey audio_route audio_volume_limit
 
-bar: foobar
-
-foobar: barfoo
-
-barfoo: audio_playback_request
 
 sleeping_state: &sleeping_request $battery $idle
 	$sleeping_state = prolog(set_sleeping_state, &sleeping_request, \
@@ -14,7 +9,7 @@ cpu_frequency: sleeping_state &min_cpu_frequency &max_cpu_frequency \
 			$battery $temperature
 	$cpu_frequency = prolog(set_cpu_frequency, &min_cpu_frequency, &max_cpu_frequency)
 
-audio_route: $current_profile $privacy_override $connected \
+audio_route: $current_profile $privacy_override $accessories \
              $audio_active_policy_group
 	$audio_route = prolog(set_routes)
 
