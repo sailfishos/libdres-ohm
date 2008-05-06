@@ -253,38 +253,43 @@ command_loop(dres_t *dres)
             for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
                 if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
-                    member = p;
+                    value = p;
 
-                    if (p[-2] == ']' && (q = strchr(name, '[')) != NULL) {
-                        *q = p[-2] = 0;
-                        selfld = q + 1;
-                        if ((p = strchr(selfld, ':')) == NULL) {
-                            printf("Invalid variable syntax: [%s]\n", selfld);
-                            continue;
+                    if ((p = strrchr(name, '.')) != NULL) {
+                        *p++ = 0;
+                        member = p;
+
+                        if (p[-2] == ']' && (q = strchr(name, '[')) != NULL) {
+                            *q = p[-2] = 0;
+                            selfld = q + 1;
+                            if ((p = strchr(selfld, ':')) == NULL) {
+                                printf("Invalid syntax: [%s]\n", selfld);
+                                continue;
+                            }
+                            else {
+                                *p++ = 0;
+                                selval = p;
+                            }
                         }
-                        else {
-                            *p++ = 0;
-                            selval = p;
-                        }
-                    }
           
-                    for (def = facts;  def->name != NULL;  def++) {
-                        if (!strcmp(name, def->name)) {
-                            for (m = def->member;  m->name != NULL;  m++) {
-                                if (!strcmp(member, m->name)) {
-                                    memberok = TRUE;
-                                    if (selfld == NULL) {
+                        for (def = facts;  def->name != NULL;  def++) {
+                            if (!strcmp(name, def->name)) {
+                                for (m = def->member;  m->name != NULL;  m++) {
+                                    if (!strcmp(member, m->name)) {
+                                        memberok = TRUE;
+                                        if (selfld == NULL) {
+                                            selok = TRUE;
+                                            break;
+                                        }
+                                    }
+                                    else if (!strcmp(selfld, m->name) &&
+                                             !strcmp(selval, m->value)  ) {
                                         selok = TRUE;
-                                        break;
                                     }
                                 }
-                                else if (!strcmp(selfld, m->name) &&
-                                         !strcmp(selval, m->value)  ) {
-                                    selok = TRUE;
-                                }
+                                if (memberok && selok)
+                                    break;
                             }
-                            if (memberok && selok)
-                                break;
                         }
                         if (def->name == NULL)
                             printf("Can't find %s.%s\n", name, member);
