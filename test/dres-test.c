@@ -28,7 +28,7 @@ typedef struct {
 
 extern int lexer_lineno(void);
 
-static int           rule_engine_init (void);
+static int           rule_engine_init (char *pldir);
 static OhmFactStore *factstore_init   (void);
 static int           factstore_update (OhmFactStore *fs);
 static int           prolog_handler   (dres_t *dres, char *name,
@@ -40,8 +40,8 @@ static void          command_loop     (dres_t *dres);
 
 
 
-#define FACT_PREFIX "com.nokia.policy."
-#define F(n) FACT_PREFIX#n
+#define FACT_PREFIX "com.nokia.policy"
+#define F(n) FACT_PREFIX"."#n
 #define MEND {NULL, NULL}
 
 struct member {
@@ -155,15 +155,16 @@ map_t        *maps;
 int
 main(int argc, char *argv[])
 {
-    char   *rulefile;
+    char   *rulefile, *pldir;
     dres_t *dres;
 
-    rulefile = argc < 2 ? NULL  : argv[1];
+    rulefile = argc < 2 ? NULL : argv[1];
+    pldir    = argc < 3 ? "../prolog" : argv[2];
 
     g_type_init();
     
     
-    if (rule_engine_init() != 0)
+    if (rule_engine_init(pldir) != 0)
         fatal(1, "failed to initialize the rule engine");
     
     if ((fs = factstore_init()) == NULL)
@@ -172,7 +173,7 @@ main(int argc, char *argv[])
     if ((maps = factmap_init(fs)) == NULL)
         fatal(1, "failed to initialize factstore prolog mapppings");
     
-    if ((dres = dres_init()) == NULL)
+    if ((dres = dres_init(FACT_PREFIX)) == NULL)
         fatal(1, "failed to initialize dres with \"%s\"", rulefile);
     
     if (dres_register_handler(dres, "prolog", prolog_handler) != 0)
@@ -231,9 +232,10 @@ command_loop(dres_t *dres)
     struct fact   *def;
     struct member *m;
     GValue         gval;
-    char          *str, *name, *member, *value, *p, *q;
+    char          *str, *name, *member, *value, *p, *q, *goal;
     char           buf[512];
 
+    printf("Enter target (ie. goal) names to test them.\n");
     printf("Enter 'fact-name.member=value, ...'\n");
     printf("Enter 'prolog' to drop into an interactive prolog prompt.\n");
     printf("Enter Control-d or quit to exit.\n");
@@ -258,48 +260,57 @@ command_loop(dres_t *dres)
             continue;
         }
 
-
+        if (!buf[0])
+            continue;
+        
         if (!strcmp(buf, "quit"))
             break;
         
-        for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
-            if ((p = strchr(name, '=')) != NULL) {
-                *p++ = 0;
-                value = p;
-                if ((p = strrchr(name,'.')) != NULL) {
+        if (strchr(buf, '=') != NULL) {
+            for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
+                if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
-                    member = p;
-          
-                    for (def = facts;  def->name != NULL;  def++) {
-                        if (!strcmp(name, def->name)) {
-                            for (m = def->member;  m->name != NULL;  m++) {
-                                if (!strcmp(member, m->name))
+                    value = p;
+                    if ((p = strrchr(name,'.')) != NULL) {
+                        *p++ = 0;
+                        member = p;
+                        
+                        for (def = facts;  def->name != NULL;  def++) {
+                            if (!strcmp(name, def->name)) {
+                                for (m = def->member;  m->name != NULL;  m++) {
+                                    if (!strcmp(member, m->name))
+                                        break;
+                                }
+                                if (m->name != NULL)
                                     break;
                             }
-                            if (m->name != NULL)
-                                break;
                         }
-                    }
-                    if (def->name == NULL)
-                        printf("Can't find %s.%s\n", name, member);
-                    else {
-                        gval = ohm_value_from_string(value);
-                        ohm_fact_set(def->fact, member, &gval);
-                        printf("%s:%s = %s\n", name, member, value);
+                        if (def->name == NULL)
+                            printf("Can't find %s.%s\n", name, member);
+                        else {
+                            gval = ohm_value_from_string(value);
+                            ohm_fact_set(def->fact, member, &gval);
+                            printf("%s:%s = %s\n", name, member, value);
+                        }
                     }
                 }
             }
-        }
-
 #if 1
-        factmap_check(maps);
-        prolog_prompt();
+            factmap_check(maps);
+            prolog_prompt();
 #endif
-
-        printf("updating goal 'all'\n");
-        if (dres_update_goal(dres, "all") != 0)
-            printf("failed to update goal 'all'\n");
-
+            
+            printf("updating goal 'all'\n");
+            if (dres_update_goal(dres, "all") != 0)
+                printf("failed to update goal 'all'\n");
+        }
+        else {
+            goal = buf;
+        printf("updating goal '%s'\n", goal);
+        if (dres_update_goal(dres, goal) != 0)
+            printf("failed to update goal \"%s\"\n", goal);
+        }
+        
     } /* for ;; */
 
 #endif
@@ -310,7 +321,7 @@ command_loop(dres_t *dres)
  * rule_engine_init
  ********************/
 static int
-rule_engine_init(void)
+rule_engine_init(char *pldir)
 {
 #define PROLOG_SYSDIR "/usr/share/prolog/"
     char *extensions[] = {
@@ -320,17 +331,19 @@ rule_engine_init(void)
     int nextension = sizeof(extensions) / sizeof(extensions[0]);
 
     char *files[] = {
-        "/home/jko/dres/prolog/hwconfig",
-        "/home/jko/dres/prolog/devconfig",
-        "/home/jko/dres/prolog/interface",
-        "/home/jko/dres/prolog/profile",
-        "/home/jko/dres/prolog/audio",
+        "hwconfig",
+        "devconfig",
+        "interface",
+        "profile",
+        "audio",
 #if 0
-        "prolog/test"
+        "test"
 #endif
     };
     int nfile = sizeof(files)/sizeof(files[0]);
     int i;
+
+    char path[PATH_MAX];
 
     /* initialize our prolog library */
     if (prolog_init("test", 0, 0, 0, 0) != 0)
@@ -346,8 +359,9 @@ rule_engine_init(void)
     /* load our test files */
     for (i = 0; i < nfile; i++) {
         DEBUG("loading prolog ruleset %s...", files[i]);
-        if (prolog_load_file(files[i]))
-            fatal(2, "failed to load %s", files[i]);
+        snprintf(path, sizeof(path), "%s/%s", pldir, files[i]);
+        if (prolog_load_file(path))
+            fatal(2, "failed to load %s", path);
     }
     
     return 0;
