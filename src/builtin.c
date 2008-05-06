@@ -68,7 +68,9 @@ dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
 
     DEBUG("DRES recursing for goal %s", goal);
     depth++;
+    dres_scope_push(dres, action->variables, action->nvariable);
     dres_update_goal(dres, goal);
+    dres_scope_pop(dres);
     depth--;
     DEBUG("DRES back from goal %s", goal);
 
