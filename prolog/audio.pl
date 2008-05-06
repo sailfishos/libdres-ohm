@@ -146,3 +146,12 @@ current_volume_limit(PolicyGroup, Limit) :-
 
 current_cork(PolicyGroup, Corked) :-
     related(audio_cork, [PolicyGroup, Corked]).
+
+
+/*
+ * test predicates
+ */
+
+foo(ActionList) :- findall(X, bar(X), ActionList).
+bar([audio_route, [type, source], [device, microphone]]).
+bar([audio_route, [type, sink], [device, ihf]]).

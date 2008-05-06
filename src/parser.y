@@ -33,7 +33,6 @@ extern FILE *yyin;
   int             argument;
   dres_action_t   variables;
   dres_action_t   arguments;
-  
 }
 
 %defines
@@ -102,7 +101,6 @@ prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);     }
 	| TOKEN_DRESVAR          { $$ = dres_dresvar_id(dres, $1);   }
 	;
 
-
 optional_actions: /* empty */    { $$ = NULL; }
 	| actions                { $$ = $1;   }
 	;
@@ -117,9 +115,10 @@ actions:  action                 { $$ = $1;   }
         }
 	;
 
-action: TOKEN_TAB optional_lvalue 
-	  TOKEN_IDENT 
-          TOKEN_PAREN_OPEN arguments 
+action: TOKEN_TAB
+	  optional_lvalue
+	  TOKEN_IDENT
+          TOKEN_PAREN_OPEN arguments
                            optional_assignments TOKEN_PAREN_CLOSE TOKEN_EOL {
             $$ = dres_new_action(DRES_ID_NONE);
 	    $$->name      = $3;
@@ -131,7 +130,7 @@ action: TOKEN_TAB optional_lvalue
         }
         ;
 
-optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;               }
+optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;              }
         | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_factvar_id(dres, $1); }
         ;
 
@@ -149,7 +148,6 @@ argument: value            { $$ = $1; }
 	| TOKEN_FACTVAR    { $$ = dres_factvar_id(dres, $1); }
 	| TOKEN_DRESVAR    { $$ = dres_dresvar_id(dres, $1); }
 	;
-
 
 optional_assignments: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
 	| TOKEN_COMMA assignments  { $$ = $2; }

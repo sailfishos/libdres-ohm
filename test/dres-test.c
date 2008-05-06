@@ -32,6 +32,9 @@ static int           rule_engine_init (char *pldir);
 static OhmFactStore *factstore_init   (void);
 static int           prolog_handler   (dres_t *dres, char *name,
                                        dres_action_t *action, void **ret);
+static int           objects_to_facts (char *name, char ***objects,
+                                       OhmFact ***factptr);
+
 static map_t        *factmap_init     (OhmFactStore *fs);
 static int           factmap_check    (map_t *map);
 static void          factmap_vardump  (map_t *map, char *factname);
@@ -563,11 +566,12 @@ factmap_vardump(map_t *map, char *factname)
 static int
 prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 {
-    prolog_predicate_t *predicates, *p, *pred;
-    char               *pred_name, ***objects;
-    char                buf[64];
-    OhmFact            *result;
-    
+    prolog_predicate_t  *predicates, *p, *pred;
+    char                *pred_name, ***objects;
+    OhmFact            **facts, *fact;
+    char                 buf[64];
+    int                  status, i;
+
     if ((predicates = prolog_predicates(NULL)) == NULL) {
         DEBUG("failed to determine predicate table");
         return ENOENT;
@@ -601,30 +605,90 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
     printf("rule engine gave the following objects:\n");
     prolog_dump_objects(objects);
 
-#if 0
-    facts = actions_to_facts(actions);
-    prolog_free_actions(actions);
-#endif
+    if (DRES_ID_TYPE(action->lvalue) == DRES_TYPE_FACTVAR) {
+        dres_name(dres, action->lvalue, buf, sizeof(buf));
+        
+        status = objects_to_facts(buf, objects, &facts);
+        prolog_free_objects(objects);
+        
+        if (status != 0) {
+            printf("failed to convert prolog objects to facts...\n");
+            goto fail;
+        }
+        
+        for (i = 0; (fact = facts[i]) != NULL; i++)
+            if (!ohm_fact_store_insert(fs, fact))
+                printf("##### failed to insert fact %s to fact store\n", buf);
+            else
+                printf("***** inserted new fact %s\n", buf);
+        FREE(facts);
+    }
+
+    return 0;
+
+        
+ fail:
+    if (facts) {
+        for (i = 0; (fact = facts[i]) != NULL; i++)
+            g_object_unref(fact);
+        FREE(facts);
+    }
+
+    return status;
+}
+
+
+/********************
+ * object_to_fact
+ ********************/
+static OhmFact *
+object_to_fact(char *name, char **object)
+{
+    OhmFact *fact;
+    GValue   value;
+    char    *field;
+    int      i;
+
+    if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
+        return NULL;
     
+    if ((fact = ohm_fact_new(name)) == NULL)
+        return NULL;
+    
+    for (i = 2; object[i] != NULL; i += 2) {
+        field = object[i];
+        value = ohm_value_from_string(object[i+1]);
+        ohm_fact_set(fact, field, &value);
+    }
+    
+    return fact;
+}
+
+
+/********************
+ * objects_to_facts
+ ********************/
+static int
+objects_to_facts(char *name, char ***objects, OhmFact ***factptr)
+{
+    OhmFact **facts = NULL;
+    char    **object;
+    int       i;
+    
+    if ((facts = ALLOC_ARR(OhmFact *, 1)) == NULL)
+        return ENOMEM;
+
+    for (i = 0; (object = objects[i]) != NULL; i++) {
+        if (REALLOC_ARR(facts, i+1, i+2) == NULL)
+            return ENOMEM;
+        if ((facts[i] = object_to_fact(name, object)) == NULL)
+            return EINVAL;
+    }
+    facts[i] = NULL;
+
+    *factptr = facts;
     return 0;
 }
-
-
-#if 0
-/********************
- * actions_to_facts
- ********************/
-int
-actions_to_facts(char ***actions, OhmFact **factptr)
-{
-    OhmFacts  *facts = NULL;
-    char     **action;
-    
-    if (!ALLOC_OBJ(facts))
-        return ENOMEM;
-    
-}
-#endif
 
 
 /********************

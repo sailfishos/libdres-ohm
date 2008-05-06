@@ -31,3 +31,6 @@ audio_playback_request:
 	dres(audio_playback, \
              &audio_playback_request = play, \
              &min_cpu_frequency = 300)
+
+foo:
+	$audio_playback = prolog(foo, &foo=bar)
