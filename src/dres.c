@@ -33,7 +33,7 @@ int depth = 0;
  * dres_init
  ********************/
 dres_t *
-dres_init(void)
+dres_init(char *prefix)
 {
     dres_t *dres;
     int     status;
@@ -43,7 +43,7 @@ dres_init(void)
         return NULL;
     }
     
-    dres->fact_store = dres_store_init(STORE_FACT , "com.nokia.policy");
+    dres->fact_store = dres_store_init(STORE_FACT , prefix);
     dres->dres_store = dres_store_init(STORE_LOCAL, NULL);
 
     if ((status = dres_register_builtins(dres)) != 0)
