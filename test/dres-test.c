@@ -574,7 +574,7 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
     prolog_predicate_t  *predicates, *p, *pred;
     char                *pred_name, ***objects;
     OhmFact            **facts, *fact;
-    char                 buf[64];
+    char                 buf[64], factname[128];
     int                  status, i;
 
     if ((predicates = prolog_predicates(NULL)) == NULL) {
@@ -612,8 +612,9 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 
     if (DRES_ID_TYPE(action->lvalue) == DRES_TYPE_FACTVAR) {
         dres_name(dres, action->lvalue, buf, sizeof(buf));
-        
-        status = objects_to_facts(buf, objects, &facts);
+        snprintf(factname, sizeof(factname), "%s.%s", FACT_PREFIX, buf+1);
+
+        status = objects_to_facts(factname, objects, &facts);
         prolog_free_objects(objects);
         
         if (status != 0) {
@@ -623,9 +624,10 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
         
         for (i = 0; (fact = facts[i]) != NULL; i++)
             if (!ohm_fact_store_insert(fs, fact))
-                printf("##### failed to insert fact %s to fact store\n", buf);
+                printf("##### failed to insert fact %s to fact store\n",
+                       factname);
             else
-                printf("***** inserted new fact %s\n", buf);
+                printf("***** inserted new fact %s\n", factname);
         FREE(facts);
     }
 
