@@ -231,7 +231,8 @@ command_loop(dres_t *dres)
     struct fact   *def;
     struct member *m;
     GValue         gval;
-    char          *str, *name, *member, *value, *p, *q;
+    char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
+    int            memberok, selok;
     char           buf[512];
 
     printf("Enter 'fact-name.member=value, ...'\n");
@@ -244,7 +245,17 @@ command_loop(dres_t *dres)
         if (fgets(buf, sizeof(buf), stdin) == NULL)
             break;
 
-        name = member = value = NULL;
+        if (!strncmp(buf, "dump ", 5)) {
+            for (p=q=buf+5;  *q && *q != '\n';  q++)
+                ;
+            *q = '\0';
+
+            factmap_vardump(maps, p);
+            continue;
+        }
+
+        name = member = selfld = selval = value = NULL;
+        memberok = selok = FALSE;
 
         for (p = q = buf;  *p;  p++) {
             if (*p > 0x20 && *p < 0x7f) {
@@ -269,14 +280,36 @@ command_loop(dres_t *dres)
                 if ((p = strrchr(name,'.')) != NULL) {
                     *p++ = 0;
                     member = p;
+
+                    if (p[-2] == ']' && (q = strchr(name, '[')) != NULL) {
+                        *q = p[-2] = 0;
+                        selfld = q + 1;
+                        if ((p = strchr(selfld, ':')) == NULL) {
+                            printf("Invalid variable syntax: [%s]\n", selfld);
+                            continue;
+                        }
+                        else {
+                            *p++ = 0;
+                            selval = p;
+                        }
+                    }
           
                     for (def = facts;  def->name != NULL;  def++) {
                         if (!strcmp(name, def->name)) {
                             for (m = def->member;  m->name != NULL;  m++) {
-                                if (!strcmp(member, m->name))
-                                    break;
+                                if (!strcmp(member, m->name)) {
+                                    memberok = TRUE;
+                                    if (selfld == NULL) {
+                                        selok = TRUE;
+                                        break;
+                                    }
+                                }
+                                else if (!strcmp(selfld, m->name) &&
+                                         !strcmp(selval, m->value)  ) {
+                                    selok = TRUE;
+                                }
                             }
-                            if (m->name != NULL)
+                            if (memberok && selok)
                                 break;
                         }
                     }
@@ -291,7 +324,7 @@ command_loop(dres_t *dres)
             }
         }
 
-#if 1
+#if 0
         factmap_check(maps);
         prolog_prompt();
 #endif
@@ -526,21 +559,43 @@ factmap_vardump(map_t *map, char *factname)
     GValue        *v;
     OhmFact       *f;
     map_t         *m;
-    char         **flds;
-    int            i;
+    int            i, j;
 
     for (m = map; m->name; m++) {
         if (!strcmp(factname, m->name)) {
-            if (!(l = ohm_fact_store_get_facts_by_name(fs, factname)) || 
+            if (!(l = ohm_fact_store_get_facts_by_name(fs, m->key)) || 
                 g_slist_length(l) == 0) {
                 printf("'%s' is in fact-map but no entry in fact-store\n",
                        factname);
             }
             else {
+                printf("\n");
+
                 for (i = 0;    l;    i++, l = g_slist_next(l)) {
                     f = l->data;
-                    
-                    
+
+                    for (j = 0; m->fields[j]; j++) {
+                        printf("   %s.%s=", m->key, m->fields[j]);
+                        if ((v = ohm_fact_get(f, m->fields[j])) == NULL)
+                            printf("<null>\n");
+                        else {
+                            switch (G_VALUE_TYPE(v)) {
+
+                            case G_TYPE_STRING:
+                                printf("'%s'\n", g_value_get_string(v));
+                                break;
+
+                            case G_TYPE_INT:
+                                printf("%d\n", g_value_get_int(v));
+                                break;
+
+                            default:
+                                printf("<unknown type %d>\n", G_VALUE_TYPE(v));
+                                break;
+                            }
+                        }
+                    }
+                    printf("\n");
                 }
             }
 
