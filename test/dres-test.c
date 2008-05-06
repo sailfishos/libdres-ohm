@@ -30,7 +30,6 @@ extern int lexer_lineno(void);
 
 static int           rule_engine_init (char *pldir);
 static OhmFactStore *factstore_init   (void);
-static int           factstore_update (OhmFactStore *fs);
 static int           prolog_handler   (dres_t *dres, char *name,
                                        dres_action_t *action, void **ret);
 static map_t        *factmap_init     (OhmFactStore *fs);
@@ -198,41 +197,12 @@ main(int argc, char *argv[])
 static void
 command_loop(dres_t *dres)
 {    
-#if 0
-    char *goal, *p, command[128];
-    int   status;
-
-    printf("Enter target (ie. goal) names to test them.\n");
-    printf("Enter prolog to drop into an interactive prolog prompt.\n");
-    printf("Enter Control-d or quit to exit.\n");
-    while (1) {
-        printf("dres> ");
-        if (fgets(command, sizeof(command), stdin) == NULL)
-            break;
-        
-        if ((p = strchr(command, '\n')) != NULL)
-            *p = '\0';
-        
-        if (!strcmp(command, "prolog")) {
-            prolog_prompt();
-            continue;
-        }
-        
-        if (!strcmp(command, "quit"))
-            break;
-
-        factstore_update(fs);
-
-        goal = command;
-        printf("updating goal '%s'\n", goal);
-        if ((status = dres_update_goal(dres, goal)) != 0)
-            printf("failed to update goal \"%s\"\n", goal);
-    }
-#else
     struct fact   *def;
     struct member *m;
     GValue         gval;
-    char          *str, *name, *member, *value, *p, *q, *goal;
+    char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
+    char          *goal;
+    int            memberok, selok;
     char           buf[512];
 
     printf("Enter target (ie. goal) names to test them.\n");
@@ -246,7 +216,17 @@ command_loop(dres_t *dres)
         if (fgets(buf, sizeof(buf), stdin) == NULL)
             break;
 
-        name = member = value = NULL;
+        if (!strncmp(buf, "dump ", 5)) {
+            for (p=q=buf+5;  *q && *q != '\n';  q++)
+                ;
+            *q = '\0';
+
+            factmap_vardump(maps, p);
+            continue;
+        }
+
+        name = member = selfld = selval = value = NULL;
+        memberok = selok = FALSE;
 
         for (p = q = buf;  *p;  p++) {
             if (*p > 0x20 && *p < 0x7f) {
@@ -270,20 +250,38 @@ command_loop(dres_t *dres)
             for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
                 if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
-                    value = p;
-                    if ((p = strrchr(name,'.')) != NULL) {
-                        *p++ = 0;
-                        member = p;
-                        
-                        for (def = facts;  def->name != NULL;  def++) {
-                            if (!strcmp(name, def->name)) {
-                                for (m = def->member;  m->name != NULL;  m++) {
-                                    if (!strcmp(member, m->name))
+                    member = p;
+
+                    if (p[-2] == ']' && (q = strchr(name, '[')) != NULL) {
+                        *q = p[-2] = 0;
+                        selfld = q + 1;
+                        if ((p = strchr(selfld, ':')) == NULL) {
+                            printf("Invalid variable syntax: [%s]\n", selfld);
+                            continue;
+                        }
+                        else {
+                            *p++ = 0;
+                            selval = p;
+                        }
+                    }
+          
+                    for (def = facts;  def->name != NULL;  def++) {
+                        if (!strcmp(name, def->name)) {
+                            for (m = def->member;  m->name != NULL;  m++) {
+                                if (!strcmp(member, m->name)) {
+                                    memberok = TRUE;
+                                    if (selfld == NULL) {
+                                        selok = TRUE;
                                         break;
+                                    }
                                 }
-                                if (m->name != NULL)
-                                    break;
+                                else if (!strcmp(selfld, m->name) &&
+                                         !strcmp(selval, m->value)  ) {
+                                    selok = TRUE;
+                                }
                             }
+                            if (memberok && selok)
+                                break;
                         }
                         if (def->name == NULL)
                             printf("Can't find %s.%s\n", name, member);
@@ -295,7 +293,8 @@ command_loop(dres_t *dres)
                     }
                 }
             }
-#if 1
+
+#if 0
             factmap_check(maps);
             prolog_prompt();
 #endif
@@ -306,14 +305,12 @@ command_loop(dres_t *dres)
         }
         else {
             goal = buf;
-        printf("updating goal '%s'\n", goal);
-        if (dres_update_goal(dres, goal) != 0)
-            printf("failed to update goal \"%s\"\n", goal);
+            printf("updating goal '%s'\n", goal);
+            if (dres_update_goal(dres, goal) != 0)
+                printf("failed to update goal \"%s\"\n", goal);
         }
         
     } /* for ;; */
-
-#endif
 }
 
 
@@ -399,33 +396,6 @@ factstore_init(void)
 
 
 /********************
- * factstore_update
- ********************/
-static int
-factstore_update(OhmFactStore *fs)
-{
-    GValue   gval;
-    OhmFact *fact;
-    int      i;
-    
-    for (i = 0; facts[i].name != NULL; i++) {
-        
-        if (strcmp(facts[i].name, FACT_PREFIX "temperature") &&
-            strcmp(facts[i].name, FACT_PREFIX "current_profile"))
-            continue;
-        
-        if ((fact = ohm_fact_new(facts[i].name)) == NULL)
-            fatal(1, "could not create fact %s", facts[i].name);
-        gval = ohm_value_from_string("barfoo");
-        ohm_fact_set(fact, "foobar", &gval);
-        if (!ohm_fact_store_insert(fs, fact))
-            fatal(1, "failed to insert fact %s to fact store", facts[i].name);
-    }
-    
-    return 0;
-}
-
-/********************
  * filters
  ********************/
 int
@@ -479,14 +449,13 @@ factmap_init(OhmFactStore *fs)
     FIELDS(audio_cork, "group", "cork");
 
     static map_t maps[] = {
-        MAP(current_profile , FACT_PREFIX"current_profile"          , NULL   ),
-        MAP(connected       , FACT_PREFIX"accessories"              , state  ),
-        MAP(privacy_override, FACT_PREFIX"privacy_override"         , privacy),
-        MAP(audio_active_policy_group,
-                              FACT_PREFIX"audio_active_policy_group", state  ),
-        MAP(audio_route     , FACT_PREFIX"audio_route"              , NULL   ),
-        MAP(volume_limit    , FACT_PREFIX"volume_limit"             , NULL   ),
-        MAP(audio_cork      , FACT_PREFIX"audio_cork"               , NULL   ),
+        MAP(current_profile ,          F(current_profile)          , NULL   ),
+        MAP(connected       ,          F(accessories)              , state  ),
+        MAP(privacy_override,          F(privacy_override)         , privacy),
+        MAP(audio_active_policy_group, F(audio_active_policy_group), state  ),
+        MAP(audio_route     ,          F(audio_route)              , NULL   ),
+        MAP(volume_limit    ,          F(volume_limit)             , NULL   ),
+        MAP(audio_cork      ,          F(audio_cork)               , NULL   ),
         { .name = NULL }
     };
 
@@ -540,21 +509,43 @@ factmap_vardump(map_t *map, char *factname)
     GValue        *v;
     OhmFact       *f;
     map_t         *m;
-    char         **flds;
-    int            i;
+    int            i, j;
 
     for (m = map; m->name; m++) {
         if (!strcmp(factname, m->name)) {
-            if (!(l = ohm_fact_store_get_facts_by_name(fs, factname)) || 
+            if (!(l = ohm_fact_store_get_facts_by_name(fs, m->key)) || 
                 g_slist_length(l) == 0) {
                 printf("'%s' is in fact-map but no entry in fact-store\n",
                        factname);
             }
             else {
+                printf("\n");
+
                 for (i = 0;    l;    i++, l = g_slist_next(l)) {
                     f = l->data;
-                    
-                    
+
+                    for (j = 0; m->fields[j]; j++) {
+                        printf("   %s.%s=", m->key, m->fields[j]);
+                        if ((v = ohm_fact_get(f, m->fields[j])) == NULL)
+                            printf("<null>\n");
+                        else {
+                            switch (G_VALUE_TYPE(v)) {
+
+                            case G_TYPE_STRING:
+                                printf("'%s'\n", g_value_get_string(v));
+                                break;
+
+                            case G_TYPE_INT:
+                                printf("%d\n", g_value_get_int(v));
+                                break;
+
+                            default:
+                                printf("<unknown type %d>\n", G_VALUE_TYPE(v));
+                                break;
+                            }
+                        }
+                    }
+                    printf("\n");
                 }
             }
 
