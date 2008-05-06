@@ -565,6 +565,7 @@ factmap_vardump(map_t *map, char *factname)
     printf("Don't know anything about '%s'\n", factname);
 }
 
+
 /********************
  * prolog_handler
  ********************/
@@ -572,14 +573,15 @@ static int
 prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 {
     prolog_predicate_t *predicates, *p, *pred;
-    char               *pred_name, ***actions, *flattened;
+    char               *pred_name, ***objects;
     char                buf[64];
+    OhmFact            *result;
     
     if ((predicates = prolog_predicates(NULL)) == NULL) {
         DEBUG("failed to determine predicate table");
         return ENOENT;
     }
-
+    
     pred_name = dres_name(dres, action->arguments[0], buf, sizeof(buf));
     
     pred = NULL;
@@ -599,27 +601,39 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
     }
     
     DEBUG("calling prolog predicate %s...", pred_name);
-
-
+    
     factmap_check(maps);
     
-    if (!prolog_call(pred, &actions))
+    if (!prolog_call(pred, &objects))
         return EINVAL;
 
-    printf("rule engine gave the following policy decisions:\n");
-    prolog_dump_actions(actions);
+    printf("rule engine gave the following objects:\n");
+    prolog_dump_objects(objects);
 
-    flattened = prolog_flatten_actions(actions);
+#if 0
+    facts = actions_to_facts(actions);
     prolog_free_actions(actions);
-
-    if (flattened == NULL)
-        return errno;
-    
-    printf("flattened prolog actions: %s\n", flattened);
-    *(char **)ret = flattened;
+#endif
     
     return 0;
 }
+
+
+#if 0
+/********************
+ * actions_to_facts
+ ********************/
+int
+actions_to_facts(char ***actions, OhmFact **factptr)
+{
+    OhmFacts  *facts = NULL;
+    char     **action;
+    
+    if (!ALLOC_OBJ(facts))
+        return ENOMEM;
+    
+}
+#endif
 
 
 /********************
