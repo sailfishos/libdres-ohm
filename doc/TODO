@@ -3,7 +3,7 @@
 
 - precalculate and store toplogical sort order per target
 
-- DRES-level recursion in actions
++ DRES-level recursion in actions
   o syntax dres(goal, &var1, &val1, &var2, &val2), it'd be more intuitive
     to have dres(goal, &var1=val1, &var2=val2), but currently let's not
     change the lexer/parser before we have the rest of the things working

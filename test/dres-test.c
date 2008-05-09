@@ -173,7 +173,7 @@ main(int argc, char *argv[])
         fatal(1, "failed to initialize the fact store");
 
     if ((maps = factmap_init(fs)) == NULL)
-        fatal(1, "failed to initialize factstore prolog mapppings");
+        fatal(1, "failed to initialize factstore prolog mappings");
     
     if ((dres = dres_init(FACT_PREFIX)) == NULL)
         fatal(1, "failed to initialize dres with \"%s\"", rulefile);
