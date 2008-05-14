@@ -38,8 +38,10 @@ static int           objects_to_facts (char *name, char ***objects,
 static map_t        *factmap_init     (OhmFactStore *fs);
 static int           factmap_check    (map_t *map);
 static void          factmap_vardump  (map_t *map, char *factname);
+static void          factmap_flddump  (map_t *map, char *factname);
 static void          command_loop     (dres_t *dres);
 
+static void          factdump         (void *);
 
 
 #define FACT_PREFIX "com.nokia.policy"
@@ -205,6 +207,7 @@ command_loop(dres_t *dres)
     GValue         gval;
     char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
     char          *goal;
+    void          *fact;
     int            memberok, selok;
     char           buf[512];
 
@@ -228,6 +231,15 @@ command_loop(dres_t *dres)
             continue;
         }
 
+        if (!strncmp(buf, "fields ", 7)) {
+            for (p=q=buf+7;  *q && *q != '\n';  q++)
+                ;
+            *q = '\0';
+
+            factmap_flddump(maps, p);
+            continue;
+        }
+
         name = member = selfld = selval = value = NULL;
         memberok = selok = FALSE;
 
@@ -243,6 +255,18 @@ command_loop(dres_t *dres)
             continue;
         }
 
+        if (buf[0] == '{') {
+            if (buf[strlen(buf)-1] != '}')
+                printf("invalid syntax: missing '}'\n");
+            else {
+                buf[strlen(buf)-1] = '\0';
+                fact = dres_fact_create("foo", buf+1);
+                factdump(fact);
+            }
+            continue;
+        }
+
+
         if (!buf[0])
             continue;
         
@@ -250,6 +274,14 @@ command_loop(dres_t *dres)
             break;
         
         if (strchr(buf, '=') != NULL) {
+            /*
+             * here we parse command lines like:
+             *    com.nokia.policy.audio_route[device:ihf].status = 0, ...
+             * where
+             *    'com.nokia.policy.audio_route' is a fact that has two fields:
+             *    'device' and 'status'
+             */
+
             for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
                 if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
@@ -507,7 +539,7 @@ factmap_check(map_t *map)
 
 
 /*******************
- *
+ * factmap_vardump
  *******************/
 static void
 factmap_vardump(map_t *map, char *factname)
@@ -557,6 +589,48 @@ factmap_vardump(map_t *map, char *factname)
                 }
             }
 
+            return;
+        }
+    }
+
+    printf("Don't know anything about '%s'\n", factname);
+}
+
+/********************
+ * factmap_flddump
+ ********************/
+static void
+factmap_flddump(map_t *map, char *factname)
+{
+    OhmFactStore  *fs = ohm_fact_store_get_fact_store();
+    map_t         *m;
+    GSList        *l;
+    OhmFact       *f;
+    char          *flds[128];
+    int            nfld;
+    int            i;
+
+    for (m = map; m->name; m++) {
+        if (!strcmp(factname, m->name)) {
+            if (!(l = ohm_fact_store_get_facts_by_name(fs, m->key)) || 
+                g_slist_length(l) == 0) {
+                printf("'%s' is in fact-map but no entry in fact-store\n",
+                       factname);
+            }
+            else {
+                f = l->data;
+
+                if ((nfld = get_fields(f, flds, 128)) < 0)
+                    printf("Can't obtain field names for '%s'\n", factname);
+                else {
+                    printf("\nField names of fact '%s'\n", m->key);
+                    
+                    for (i = 0;   i < nfld;   i++)
+                        printf("   %s\n", flds[i]);
+                    
+                    printf("\n");
+                }
+            }
             return;
         }
     }
@@ -698,6 +772,8 @@ objects_to_facts(char *name, char ***objects, OhmFact ***factptr)
 }
 
 
+
+
 /********************
  * dres_parse_error
  ********************/
@@ -707,6 +783,45 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
     printf("error: %s, on line %d near input %s\n", msg, lineno, token);
 }
 
+
+/********************
+ * factdump
+ ********************/
+static void factdump(void *vfact)
+{
+    OhmFact  *fact = (OhmFact *)vfact;
+    GValue   *gval;
+    char     *flds[128];
+    int       nfld;
+    int       i;
+
+    if (fact == NULL)
+        printf("<null>\n");
+    else {
+        if ((nfld = get_fields(fact, flds, sizeof(flds)/sizeof(flds[0]))) < 0)
+            printf("Can't obtain field names\n");
+        else {
+            for (i = 0;  i < nfld;  i++) {
+                printf("  %s: ", flds[i]);
+                if ((gval = ohm_fact_get(fact, flds[i])) == NULL)
+                    printf("<null>\n");
+                else {
+                    switch (G_VALUE_TYPE(gval)) {
+                    case G_TYPE_STRING:
+                        printf("'%s'\n", g_value_get_string(gval));
+                        break;
+                    case G_TYPE_INT:
+                        printf("%d\n", g_value_get_int(gval));
+                        break;
+                    default:
+                        printf("<unsupported type %d>\n", G_VALUE_TYPE(gval));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
 
 
 /* 
