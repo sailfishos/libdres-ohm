@@ -276,6 +276,34 @@ void dres_store_update_timestamps(dres_store_t *store, int stamp)
     }
 }
 
+int dres_var_create(dres_store_t *store, char *name, void *pval)
+{
+    OhmFact  *src = (OhmFact *)pval;
+    OhmFact  *dst;
+
+    if (!store || !name || !pval) {
+        errno = EINVAL;
+        return FALSE;
+    }
+
+    if (store->type != STORE_FACT) {
+        errno = ENOSYS;
+        return FALSE;
+    }
+
+    if ((dst = ohm_fact_new(name)) == NULL) {
+        errno = EIO;
+        return FALSE;
+    }
+
+    if (!assign_fact_var(&dst, &src, 1)) {
+        g_object_unref(dst);
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
 
 dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
 {
