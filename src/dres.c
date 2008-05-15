@@ -132,7 +132,7 @@ dres_check_stores(dres_t *dres)
     char             name[128];
 
     for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
-        sprintf(name, "com.nokia.policy.%s", var->name);
+        sprintf(name, "%s%s", dres_get_prefix(dres), var->name);
         if (!dres_store_check(dres->fact_store, name))
             DEBUG("*** lookup of %s FAILED", name);
     }
