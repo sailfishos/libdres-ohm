@@ -296,10 +296,12 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
         return FALSE;
     }
 
-    if (!assign_fact_var(&dst, &src, 1)) {
+    if (!assign_fact_var(&dst, &src, 1) ||
+        !ohm_fact_store_insert(store->any.fs, dst)) {
         g_object_unref(dst);
         return FALSE;
     }
+
 
     return TRUE;
 }
