@@ -394,12 +394,11 @@ command_loop(dres_t *dres)
         if (fgets(buf, sizeof(buf), stdin) == NULL)
             break;
 
-        if (!strncmp(buf, "dump ", 5)) {
-            for (p=q=buf+5;  *q && *q != '\n';  q++)
-                ;
-            *q = '\0';
+        if ((p = strchr(buf, '\n')) != NULL)
+            *p = '\0';
 
-            factmap_vardump(maps, p);
+        if (!strcmp(buf, "dump")) {
+            dump_fact_store();
             continue;
         }
 
