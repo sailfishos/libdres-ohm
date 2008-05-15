@@ -111,6 +111,15 @@ dres_set_prefix(dres_t *dres, char *prefix)
         return 0;
 }
 
+/********************
+ * dres_get_prefix
+ ********************/
+char *
+dres_get_prefix(dres_t *dres)
+{
+    return dres_store_get_prefix(dres->fact_store);
+}
+
 
 /********************
  * dres_check_stores
@@ -128,7 +137,6 @@ dres_check_stores(dres_t *dres)
             DEBUG("*** lookup of %s FAILED", name);
     }
 }
-
 
 
 /********************
@@ -237,6 +245,24 @@ dres_update_goal(dres_t *dres, char *goal)
     return EINVAL;
 }
 
+
+/********************
+ * dres_lookup_variable
+ ********************/
+dres_variable_t *
+dres_lookup_variable(dres_t *dres, int id)
+{
+    int idx = DRES_INDEX(id);
+    
+    switch (DRES_ID_TYPE(id)) {
+    case DRES_TYPE_FACTVAR:
+        return idx > dres->nfactvar ? NULL : dres->factvars + idx;
+    case DRES_TYPE_DRESVAR:
+        return idx > dres->ndresvar ? NULL : dres->dresvars + idx;
+    }        
+
+    return NULL;
+}
 
 
 /*****************************************************************************

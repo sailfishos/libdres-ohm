@@ -29,6 +29,7 @@ extern FILE *yyin;
   dres_prereq_t  *prereq;
   dres_action_t  *action;
   dres_varref_t   varref;
+
   struct {
     int var;
     int val;
@@ -61,7 +62,6 @@ extern FILE *yyin;
 %token          TOKEN_EOF
 %token          TOKEN_UNKNOWN
 
-%type <string>  initializer
 %type <target>  rule
 %type <integer> prereq
 %type <prereq>  prereqs
@@ -97,12 +97,19 @@ optional_init: /* empty */
         |      initializers
         ;
 
-initializers: initializer { DEBUG("an initializer"); }
-        |     initializers initializer { DEBUG("more initializers"); }
+initializers: initializer
+        |     initializers initializer
         ;
 
 initializer: TOKEN_FACTVAR assign_op TOKEN_INITIALIZER TOKEN_EOL {
-            DEBUG("initializer: %s", $3);
+            void *value = dres_fact_create($1, $3);
+
+            if (value == NULL) {
+	        yyerror(dres, "failed to create fact variable");
+	        YYABORT;
+	    }
+	    
+	    dres_var_create(dres->fact_store, $1, value);
         }
         ;
 

@@ -305,6 +305,7 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
 {
     OhmFact  *src = (OhmFact *)pval;
     OhmFact  *dst;
+    char      buf[512];
 
     if (!store || !name || !pval) {
         errno = EINVAL;
@@ -315,7 +316,13 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
         errno = ENOSYS;
         return FALSE;
     }
-
+    
+    if (strchr(name, '.') == NULL) {
+        snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
+        DEBUG("adding %s as %s", name, buf);
+        name = /*strdup(buf)*/buf;
+    }
+    
     if ((dst = ohm_fact_new(name)) == NULL) {
         errno = EIO;
         return FALSE;
@@ -345,9 +352,11 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
         return NULL;
     }
 
-    snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
-    DEBUG("adding %s as %s", name, buf);
-    name = strdup(buf);
+    if (strchr(name, '.') == NULL) {
+        snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
+        DEBUG("adding %s as %s", name, buf);
+        name = /*strdup(buf)*/buf;
+    }
 
     if ((var = (dres_var_t *)g_hash_table_lookup(store->any.htbl, name))) {
         return var;

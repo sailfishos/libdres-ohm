@@ -46,7 +46,7 @@ char         *dres_store_get_prefix(dres_store_t *store);
 int           dres_var_create(dres_store_t *, char *, void *);
 dres_var_t   *dres_var_init(dres_store_t *, char *, int *);
 void          dres_var_destroy(dres_var_t *);
-int           dres_var_set(dres_var_t *, char *, dres_vartype_t type, void *);
+int           dres_var_set(dres_var_t *, char *, dres_vartype_t, void *);
 int           dres_var_set_field(dres_var_t *, const char *,
                                  char *, dres_vartype_t, void *);
 int           dres_var_get_field(dres_var_t *, const char *,

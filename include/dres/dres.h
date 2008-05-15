@@ -209,6 +209,9 @@ dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
 int     dres_set_prefix(dres_t *dres, char *prefix);
+char *  dres_get_prefix(dres_t *dres);
+
+dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
 
 
 

@@ -40,6 +40,21 @@ dres_factvar_id(dres_t *dres, char *name)
     dres_variable_t *var;
     int              i;
 
+#if 0
+    char            *prefix, fullname[128];
+
+    /* Notes: this is now done by the factstore hiding layer... */
+    if (name != NULL && strchr(name, '.') == NULL) {
+        if ((prefix = dres_store_get_prefix(dres->fact_store)) != NULL) {
+            snprintf(fullname, sizeof(fullname), "%s%s", prefix, name);
+            name = fullname;
+        }
+    }
+
+    DEBUG("*** name = \"%s\"", name);
+#endif    
+
+
     if (name != NULL)
         for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
             if (!strcmp(name, var->name))

@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
+#include <dres/variables.h>
 
 #include <prolog/prolog.h>
 #include <prolog/ohm-fact.h>
@@ -25,6 +26,16 @@ typedef struct {
 } map_t;
 
 
+typedef struct {
+    char              *name;
+    char              *value;
+} dres_fldsel_t;
+
+typedef struct {
+    int                count;
+    dres_fldsel_t     *field;
+} dres_selector_t;
+
 
 extern int lexer_lineno(void);
 
@@ -33,7 +44,7 @@ static OhmFactStore *factstore_init   (void);
 static int           prolog_handler   (dres_t *dres, char *name,
                                        dres_action_t *action, void **ret);
 static int           objects_to_facts (char *name, char ***objects,
-                                       OhmFact ***factptr);
+                                       OhmFact **facts, int max);
 
 static map_t        *factmap_init     (OhmFactStore *fs);
 static int           factmap_check    (map_t *map);
@@ -84,17 +95,17 @@ struct member lim_fmradio_member[]={{"group", "fmradio"},{"limit","100"},MEND};
 struct member lim_other_member[]={{"group","othermedia"},{"limit","100"},MEND};
 
 struct member cork_cscall_member[] = {{"group", "cscall"},
-                                      {"cork", "unkorked"},MEND};
+                                      {"cork", "uncorked"},MEND};
 struct member cork_ring_member[] = {{"group", "ringtone"},
-                                    {"cork", "unkorked"},MEND};
+                                    {"cork", "uncorked"},MEND};
 struct member cork_ipcall_member[] = {{"group", "ipcall"},
-                                      {"cork", "unkorked"},MEND};
+                                      {"cork", "uncorked"},MEND};
 struct member cork_player_member[] = {{"group", "player"},
-                                      {"cork", "unkorked"},MEND};
+                                      {"cork", "uncorked"},MEND};
 struct member cork_fmradio_member[] = {{"group", "fmradio"},
-                                       {"cork","unkorked"},MEND};
+                                       {"cork","uncorked"},MEND};
 struct member cork_other_member[] = {{"group","othermedia"},
-                                     {"cork","unkorked"},MEND};
+                                     {"cork","uncorked"},MEND};
 
 
 struct fact {
@@ -171,12 +182,14 @@ main(int argc, char *argv[])
     if (rule_engine_init(pldir) != 0)
         fatal(1, "failed to initialize the rule engine");
     
+    if ((fs = ohm_fact_store_get_fact_store()) == NULL)
+        fatal(1, "failed to get fact store");
+
+#if 0
     if ((fs = factstore_init()) == NULL)
         fatal(1, "failed to initialize the fact store");
+#endif
 
-    if ((maps = factmap_init(fs)) == NULL)
-        fatal(1, "failed to initialize factstore prolog mappings");
-    
     if ((dres = dres_init(FACT_PREFIX)) == NULL)
         fatal(1, "failed to initialize dres with \"%s\"", rulefile);
     
@@ -185,6 +198,9 @@ main(int argc, char *argv[])
 
     if (dres_parse_file(dres, rulefile))
         fatal(1, "failed to parse DRES rule file %s", rulefile);
+
+    if ((maps = factmap_init(fs)) == NULL)
+        fatal(1, "failed to initialize factstore prolog mappings");
 
     dres_dump_targets(dres);
 
@@ -195,6 +211,159 @@ main(int argc, char *argv[])
     dres_exit(dres);
     
     return 0;
+}
+
+
+/********************
+ * dump_fact_store
+ ********************/
+void
+dump_fact_store(void)
+{
+    char *dump;
+
+    dump = ohm_fact_store_to_string(ohm_fact_store_get_fact_store());
+    printf("fact store: %s\n", dump ?: "NULL");
+}
+
+
+
+static dres_selector_t *parse_selector(char *descr)
+{
+    dres_selector_t *selector;
+    dres_fldsel_t   *field;
+    char            *p, *q, c;
+    char            *str;
+    char            *name;
+    char            *value;
+    char             buf[1024];
+    int              i;
+
+    
+    if (descr == NULL) {
+        errno = 0;
+        return NULL;
+    }
+
+    for (p = descr, q = buf;  (c = *p) != '\0';   p++) {
+        if (c > 0x20 && c < 0x7f)
+            *q++ = c;
+    }
+
+    if ((selector = malloc(sizeof(*selector))) == NULL)
+        return NULL;
+    memset(selector, 0, sizeof(*selector));
+
+    for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
+        if ((p = strchr(name, '=')) == NULL)
+            DEBUG("Invalid selctor: '%s'", descr);
+        else {
+            *p++ = '\0';
+            value = p;
+
+            selector->count++;
+            selector->field = realloc(selector->field,
+                                      sizeof(dres_fldsel_t) * selector->count);
+
+            if (selector->field == NULL)
+                return NULL; /* maybe better not to attempt to free anything */
+            
+            field = selector->field + selector->count - 1;
+
+            field->name  = strdup(name);
+            field->value = strdup(value);
+        }
+    }
+   
+    return selector;
+}
+
+static void free_selector(dres_selector_t *selector)
+{
+    int i;
+
+    if (selector != NULL) {
+        for (i = 0;   i < selector->count;   i++) {
+            free(selector->field[i].name);
+            free(selector->field[i].value);
+        }
+
+        free(selector);
+    }
+}
+
+static int is_matching(OhmFact *fact, dres_selector_t *selector)
+{
+    dres_fldsel_t *fldsel;
+    GValue        *gval;
+    long int       ival;
+    char          *e;
+    int            i;
+    int            match;
+  
+    if (fact == NULL || selector == NULL)
+        match = FALSE;
+    else {
+        match = TRUE;
+
+        for (i = 0;    match && i < selector->count;    i++) {
+            fldsel = selector->field + i;
+
+            if ((gval = ohm_fact_get(fact, fldsel->name)) == NULL)
+                match = FALSE;
+            else {
+                switch (G_VALUE_TYPE(gval)) {
+                    
+                case G_TYPE_STRING:
+                    match = !strcmp(g_value_get_string(gval), fldsel->value);
+                    break;
+                    
+                case G_TYPE_INT:
+                    ival  = strtol(fldsel->value, &e, 10);
+                    match = (*e == '\0' && g_value_get_int(gval) == ival);
+                    break;
+
+                default:
+                    match = FALSE;
+                    break;
+                }
+            }
+        } /* for */
+    }
+
+    return match;
+}
+
+static int find_facts(char *name, char *select, OhmFact **facts, int max)
+{
+    dres_selector_t *selector = parse_selector(select);
+    
+    GSList            *list;
+    int                llen;
+    OhmFact           *fact;
+    int                flen;
+    int                i;
+
+    list   = ohm_fact_store_get_facts_by_name(ohm_fact_store_get_fact_store(),
+                                              name);
+    llen   = list ? g_slist_length(list) : 0;
+
+    for (i = flen = 0;    list != NULL;   i++, list = g_slist_next(list)) {
+        fact = (OhmFact *)list->data;
+
+        if (!selector || is_matching(fact, selector))
+            facts[flen++] = fact;
+
+        if (flen >= max) {
+            free_selector(selector);
+            errno = ENOMEM;
+            return -1;
+        }
+        
+    }
+
+    free_selector(selector);
+    return flen;
 }
 
 
@@ -210,8 +379,10 @@ command_loop(dres_t *dres)
     char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
     char          *goal;
     void          *fact;
-    int            memberok, selok;
-    char           buf[512];
+    int            memberok, selok, len;
+    char           buf[512], selector[128];
+
+    dump_fact_store();
 
     printf("Enter target (ie. goal) names to test them.\n");
     printf("Enter 'fact-name.member=value, ...'\n");
@@ -284,6 +455,7 @@ command_loop(dres_t *dres)
              *    'device' and 'status'
              */
 
+            strcpy(selector, buf);
             for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
                 if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
@@ -328,9 +500,22 @@ command_loop(dres_t *dres)
                         if (def->name == NULL)
                             printf("Can't find %s.%s\n", name, member);
                         else {
+                            int      n = 128;
+                            OhmFact *facts[n];
+                            
                             gval = ohm_value_from_string(value);
-                            ohm_fact_set(def->fact, member, &gval);
-                            printf("%s:%s = %s\n", name, member, value);
+                            
+                            printf("*** %s[%s]\n", name, selector ?: "");
+                            if ((n = find_facts(name, selector, facts, n)) < 0)
+                                printf("could not find facts matching %s[%s]\n",
+                                       name, selector ?: "");
+                            else {
+                                int i;
+                                for (i = 0; i < n; i++) {
+                                    ohm_fact_set(facts[i], member, &gval);
+                                    printf("%s:%s = %s\n", name, member, value);
+                                }
+                            }
                         }
                     }
                 }
@@ -341,6 +526,8 @@ command_loop(dres_t *dres)
             prolog_prompt();
 #endif
             
+            dump_fact_store();
+
             printf("updating goal 'all'\n");
             if (dres_update_goal(dres, "all") != 0)
                 printf("failed to update goal 'all'\n");
@@ -642,6 +829,198 @@ factmap_flddump(map_t *map, char *factname)
 }
 
 
+
+/********************
+ * object_to_fact
+ ********************/
+static OhmFact *
+object_to_fact(char *name, char **object)
+{
+    OhmFact *fact;
+    GValue   value;
+    char    *field;
+    int      i;
+
+    if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
+        return NULL;
+    
+    if ((fact = ohm_fact_new(name)) == NULL)
+        return NULL;
+    
+    for (i = 2; object[i] != NULL; i += 2) {
+        field = object[i];
+        value = ohm_value_from_string(object[i+1]);
+        ohm_fact_set(fact, field, &value);
+    }
+    
+    return fact;
+}
+
+
+/********************
+ * objects_to_facts
+ ********************/
+static int
+objects_to_facts(char *name, char ***objects, OhmFact **facts, int max)
+{
+    char **object;
+    int    i;
+    
+    for (i = 0; (object = objects[i]) != NULL && i < max; i++) {
+        if ((facts[i] = object_to_fact(name, object)) == NULL)
+            return -EINVAL;
+    }
+    
+    return i;
+}
+
+
+
+/********************
+ * prolog_handler
+ ********************/
+static int
+prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
+{
+#define MAX_FACTS 128
+    prolog_predicate_t *predicates, *p, *pred;
+    char               *pred_name, ***objects;
+    dres_variable_t    *variable;
+    struct {
+        dres_array_t    head;
+        OhmFact        *facts[MAX_FACTS];
+    } arrbuf = { head: { len: 0 } };
+    dres_array_t       *facts = &arrbuf.head;
+    char                buf[64], factname[128];
+    int                 status, i;
+
+    if ((predicates = prolog_predicates(NULL)) == NULL) {
+        DEBUG("failed to determine predicate table");
+        return ENOENT;
+    }
+    
+    pred_name = dres_name(dres, action->arguments[0], buf, sizeof(buf));
+    
+    pred = NULL;
+    for (p = predicates; p->name; p++) {
+        if (!strcmp(p->name, pred_name)) {
+            DEBUG("found exported predicate: %s%s%s/%d (0x%x)",
+                  p->module ?: "", p->module ? ":" : "",
+                  p->name, p->arity, (unsigned int)p->predicate);
+            pred = p;
+            break;
+        }
+    }
+    
+    if (pred == NULL) {
+        DEBUG("cold not find prolog predicate %s", pred_name);
+        return ENOENT;
+    }
+    
+    DEBUG("calling prolog predicate %s...", pred_name);
+    
+    factmap_check(maps);
+    
+    if (!prolog_call(pred, &objects))
+        return EINVAL;
+
+    printf("rule engine gave the following objects:\n");
+    prolog_dump_objects(objects);
+
+    if (DRES_ID_TYPE(action->lvalue.variable) == DRES_TYPE_FACTVAR) {
+        facts->len = objects_to_facts("foo", objects,
+                                      (OhmFact **)facts->fact, MAX_FACTS);
+        if (facts->len < 0)
+            goto fail;
+        
+        dres_name(dres, action->lvalue.variable, buf, sizeof(buf));
+        snprintf(factname, sizeof(factname), "%s%s",
+                 dres_get_prefix(dres), buf + 1);
+        
+        if (action->lvalue.field != NULL) {
+            /* uh-oh... */
+            DEBUG("uh-oh... should set lvalue.field");
+            goto fail;
+        }
+        
+        variable = dres_lookup_variable(dres, action->lvalue.variable);
+        if (variable == NULL)
+            goto fail;
+        
+        if (!dres_var_set(variable->var, action->lvalue.selector, 
+                         VAR_FACT_ARRAY, facts))
+            goto fail;
+        prolog_free_objects(objects);
+        
+        for (i = 0; i < facts->len; i++)
+            g_object_unref(facts->fact[i]);
+        printf("***** inserted new fact %s\n", factname);
+    }
+
+    return 0;
+
+        
+ fail:
+    for (i = 0; i < facts->len; i++)
+        g_object_unref(facts->fact[i]);
+    
+    return status;
+}
+
+
+/********************
+ * dres_parse_error
+ ********************/
+void
+dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
+{
+    printf("error: %s, on line %d near input %s\n", msg, lineno, token);
+}
+
+
+/********************
+ * factdump
+ ********************/
+static void factdump(void *vfact)
+{
+    OhmFact  *fact = (OhmFact *)vfact;
+    GValue   *gval;
+    char     *flds[128];
+    int       nfld;
+    int       i;
+
+    if (fact == NULL)
+        printf("<null>\n");
+    else {
+        if ((nfld = get_fields(fact, flds, sizeof(flds)/sizeof(flds[0]))) < 0)
+            printf("Can't obtain field names\n");
+        else {
+            for (i = 0;  i < nfld;  i++) {
+                printf("  %s: ", flds[i]);
+                if ((gval = ohm_fact_get(fact, flds[i])) == NULL)
+                    printf("<null>\n");
+                else {
+                    switch (G_VALUE_TYPE(gval)) {
+                    case G_TYPE_STRING:
+                        printf("'%s'\n", g_value_get_string(gval));
+                        break;
+                    case G_TYPE_INT:
+                        printf("%d\n", g_value_get_int(gval));
+                        break;
+                    default:
+                        printf("<unsupported type %d>\n", G_VALUE_TYPE(gval));
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+
+
+
+#if 0
 /********************
  * prolog_handler
  ********************/
@@ -720,111 +1099,8 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 
     return status;
 }
+#endif
 
-
-/********************
- * object_to_fact
- ********************/
-static OhmFact *
-object_to_fact(char *name, char **object)
-{
-    OhmFact *fact;
-    GValue   value;
-    char    *field;
-    int      i;
-
-    if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
-        return NULL;
-    
-    if ((fact = ohm_fact_new(name)) == NULL)
-        return NULL;
-    
-    for (i = 2; object[i] != NULL; i += 2) {
-        field = object[i];
-        value = ohm_value_from_string(object[i+1]);
-        ohm_fact_set(fact, field, &value);
-    }
-    
-    return fact;
-}
-
-
-/********************
- * objects_to_facts
- ********************/
-static int
-objects_to_facts(char *name, char ***objects, OhmFact ***factptr)
-{
-    OhmFact **facts = NULL;
-    char    **object;
-    int       i;
-    
-    if ((facts = ALLOC_ARR(OhmFact *, 1)) == NULL)
-        return ENOMEM;
-
-    for (i = 0; (object = objects[i]) != NULL; i++) {
-        if (REALLOC_ARR(facts, i+1, i+2) == NULL)
-            return ENOMEM;
-        if ((facts[i] = object_to_fact(name, object)) == NULL)
-            return EINVAL;
-    }
-    facts[i] = NULL;
-
-    *factptr = facts;
-    return 0;
-}
-
-
-
-
-/********************
- * dres_parse_error
- ********************/
-void
-dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
-{
-    printf("error: %s, on line %d near input %s\n", msg, lineno, token);
-}
-
-
-/********************
- * factdump
- ********************/
-static void factdump(void *vfact)
-{
-    OhmFact  *fact = (OhmFact *)vfact;
-    GValue   *gval;
-    char     *flds[128];
-    int       nfld;
-    int       i;
-
-    if (fact == NULL)
-        printf("<null>\n");
-    else {
-        if ((nfld = get_fields(fact, flds, sizeof(flds)/sizeof(flds[0]))) < 0)
-            printf("Can't obtain field names\n");
-        else {
-            for (i = 0;  i < nfld;  i++) {
-                printf("  %s: ", flds[i]);
-                if ((gval = ohm_fact_get(fact, flds[i])) == NULL)
-                    printf("<null>\n");
-                else {
-                    switch (G_VALUE_TYPE(gval)) {
-                    case G_TYPE_STRING:
-                        printf("'%s'\n", g_value_get_string(gval));
-                        break;
-                    case G_TYPE_INT:
-                        printf("%d\n", g_value_get_int(gval));
-                        break;
-                    default:
-                        printf("<unsupported type %d>\n", G_VALUE_TYPE(gval));
-                        break;
-                    }
-                }
-            }
-        }
-    }
-}
 
 
 /* 
