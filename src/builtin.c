@@ -7,10 +7,6 @@
 
 static int dres_builtin_dres(dres_t *dres,
                              char *name, dres_action_t *action, void **ret);
-#if 0
-static int dres_builtin_prolog(dres_t *dres,
-                               char *name, dres_action_t *action, void **ret);
-#endif
 static int dres_builtin_shell(dres_t *dres,
                               char *name, dres_action_t *action, void **ret);
 
@@ -33,9 +29,6 @@ dres_register_builtins(dres_t *dres)
     dres_handler_t builtins[] = {
         BUILTIN(dres),
         BUILTIN(shell),
-#if 0
-        BUILTIN(prolog),
-#endif
         { .name = NULL }
     }, *h;
 #undef BUILTIN
@@ -97,7 +90,8 @@ dres_builtin_unknown(dres_t *dres,
 {
     dres_assign_t *v;
     int            i, j;
-    char           lval[64], arg[64], var[64], val[64], *t;
+    char           lvalbuf[128], *lval, rvalbuf[128], *rval;
+    char           arg[64], var[64], val[64], *t;
     char           buf[1024], *p;
 
     if (action == NULL)
@@ -106,20 +100,28 @@ dres_builtin_unknown(dres_t *dres,
     DEBUG("unknown action %s", name);
 
     p  = buf;
-    p += sprintf(p, "%s%s%s(",
-                 action->lvalue != DRES_ID_NONE ?
-                 dres_name(dres, action->lvalue, lval, sizeof(lval)): "",
-          action->lvalue != DRES_ID_NONE ? " = " : "", action->name);
-    for (i = 0, t = ""; i < action->nargument; i++, t=",")
-        p += sprintf(p, "%s%s", t,
-                     dres_name(dres, action->arguments[i], arg, sizeof(arg)));
-    for (j = 0, v = action->variables; j < action->nvariable; j++, v++, t=",") {
-        p += sprintf(p, "%s%s=%s", t,
-                     dres_name(dres, v->var_id, var, sizeof(var)),
-                     dres_name(dres, v->val_id, val, sizeof(val)));
+    lval = dres_dump_varref(dres, lvalbuf, sizeof(lvalbuf), &action->lvalue);
+    rval = dres_dump_varref(dres, rvalbuf, sizeof(rvalbuf), &action->rvalue);
+    if (lval)
+        p += sprintf(p, "%s = ", lval);
+    if (rval)
+        p += sprintf(p, "%s", rval);
+    else {
+        p += sprintf("  %s(", action->name);
+        for (i = 0, t = ""; i < action->nargument; i++, t=",")
+            p += sprintf(p, "%s%s", t,
+                         dres_name(dres, action->arguments[i],
+                                   arg, sizeof(arg)));
+        for (j = 0, v = action->variables;
+             j < action->nvariable;
+             j++, v++, t=",") {
+            p += sprintf(p, "%s%s=%s", t,
+                         dres_name(dres, v->var_id, var, sizeof(var)),
+                         dres_name(dres, v->val_id, val, sizeof(val)));
+        }
+        sprintf(p, ")");
     }
     
-    sprintf(p, ")");
     DEBUG("%s", buf);
 
     return 0;

@@ -188,6 +188,8 @@ main(int argc, char *argv[])
 
     dres_dump_targets(dres);
 
+    /*exit(0);*/
+
     command_loop(dres);
 
     dres_exit(dres);
@@ -362,6 +364,7 @@ rule_engine_init(char *pldir)
 {
 #define PROLOG_SYSDIR "/usr/share/prolog/"
     char *extensions[] = {
+        PROLOG_SYSDIR"extensions/fact",
         PROLOG_SYSDIR"extensions/relation",
         PROLOG_SYSDIR"extensions/set",
     };
@@ -684,8 +687,8 @@ prolog_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
     printf("rule engine gave the following objects:\n");
     prolog_dump_objects(objects);
 
-    if (DRES_ID_TYPE(action->lvalue) == DRES_TYPE_FACTVAR) {
-        dres_name(dres, action->lvalue, buf, sizeof(buf));
+    if (DRES_ID_TYPE(action->lvalue.variable) == DRES_TYPE_FACTVAR) {
+        dres_name(dres, action->lvalue.variable, buf, sizeof(buf));
         snprintf(factname, sizeof(factname), "%s.%s", FACT_PREFIX, buf+1);
 
         status = objects_to_facts(factname, objects, &facts);

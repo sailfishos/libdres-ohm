@@ -1,6 +1,8 @@
 %{
 
 #include <stdio.h>
+#include <string.h>
+
 #include <dres/dres.h>
 
 #if !defined(DEBUG)
@@ -26,6 +28,7 @@ extern FILE *yyin;
   dres_target_t  *target;
   dres_prereq_t  *prereq;
   dres_action_t  *action;
+  dres_varref_t   varref;
   struct {
     int var;
     int val;
@@ -38,22 +41,27 @@ extern FILE *yyin;
 %defines
 %parse-param {dres_t *dres}
 
-
+%token <string> TOKEN_PREFIX
+%token <string> TOKEN_VARNAME
+%token <string> TOKEN_INITIALIZER
+%token <string> TOKEN_SELECTOR
 %token <string> TOKEN_IDENT
-%token          TOKEN_DOT
+%token          TOKEN_DOT "."
 %token <string> TOKEN_NUMBER
 %token <string> TOKEN_FACTVAR
 %token <string> TOKEN_DRESVAR
-%token          TOKEN_COLON
-%token          TOKEN_PAREN_OPEN
-%token          TOKEN_PAREN_CLOSE
-%token          TOKEN_COMMA
-%token          TOKEN_EQUAL
-%token          TOKEN_TAB
+%token          TOKEN_COLON ":"
+%token          TOKEN_PAREN_OPEN "("
+%token          TOKEN_PAREN_CLOSE ")"
+%token          TOKEN_COMMA ","
+%token          TOKEN_EQUAL   "="
+%token          TOKEN_APPEND "+="
+%token          TOKEN_TAB "\t"
 %token          TOKEN_EOL
 %token          TOKEN_EOF
 %token          TOKEN_UNKNOWN
 
+%type <string>  initializer
 %type <target>  rule
 %type <integer> prereq
 %type <prereq>  prereqs
@@ -61,25 +69,51 @@ extern FILE *yyin;
 %type <action>  optional_actions
 %type <action>  actions
 %type <action>  action
-%type <integer> optional_lvalue
+%type <action>  expr
+%type <action>  call
 %type <integer> value
-
+%type <varref>  lvalue
+%type <varref>  rvalue
+%type <varref>  varref
 %type <arguments> arguments
 %type <argument>  argument
-%type <variables> optional_assignments
-%type <variables> assignments
-%type <assign>    assignment
+%type <variables> optional_locals
+%type <variables> locals
+%type <assign>    local
 %%
 
 
-input: rules
+input: optional_prefix optional_init rules
+
+optional_prefix: /* empty */ {
+              dres_set_prefix(dres, NULL);
+          }
+        | TOKEN_PREFIX "=" TOKEN_VARNAME TOKEN_EOL {
+              dres_set_prefix(dres, $3);
+          }
+	;
+
+optional_init: /* empty */
+        |      initializers
+        ;
+
+initializers: initializer { DEBUG("an initializer"); }
+        |     initializers initializer { DEBUG("more initializers"); }
+        ;
+
+initializer: TOKEN_FACTVAR assign_op TOKEN_INITIALIZER TOKEN_EOL {
+            DEBUG("initializer: %s", $3);
+        }
+        ;
+
+assign_op: "=" | "+=";
 
 rules:    rule
 	| rules rule
 	;
 
 
-rule: TOKEN_IDENT TOKEN_COLON optional_prereqs TOKEN_EOL optional_actions {
+rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_actions {
               dres_target_t *t = dres_lookup_target(dres, $1);
               t->prereqs = $3;
               t->actions = $5;
@@ -98,7 +132,6 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 
 prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);     }
 	| TOKEN_FACTVAR          { $$ = dres_factvar_id(dres, $1);   }
-	| TOKEN_DRESVAR          { $$ = dres_dresvar_id(dres, $1);   }
 	;
 
 optional_actions: /* empty */    { $$ = NULL; }
@@ -115,30 +148,72 @@ actions:  action                 { $$ = $1;   }
         }
 	;
 
-action: TOKEN_TAB
-	  optional_lvalue
-	  TOKEN_IDENT
-          TOKEN_PAREN_OPEN arguments
-                           optional_assignments TOKEN_PAREN_CLOSE TOKEN_EOL {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name      = $3;
-	    $$->lvalue    = $2;
-            $$->arguments = $5.arguments;
-	    $$->nargument = $5.nargument;
-            $$->variables = $6.variables;
-            $$->nvariable = $6.nvariable;
+action: TOKEN_TAB expr { $$ = $2; }
+	;
+
+expr:   lvalue "=" call   {
+            $$         = $3;
+	    $$->lvalue = $1;
         }
+      | lvalue "=" rvalue {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->lvalue = $1;
+	    $$->rvalue = $3;
+	}
+      | call {
+            $$ = $1;
+        }
+      ;
+
+lvalue: varref { $$ = $1; }
+      ;
+
+rvalue: varref { $$ = $1; }
+      ;
+
+varref:   TOKEN_FACTVAR {
+              DEBUG("varref: %s", $1);
+              $$.variable = dres_factvar_id(dres, $1);
+              $$.selector = NULL;
+              $$.field    = NULL;
+        }
+	| TOKEN_FACTVAR TOKEN_SELECTOR {
+              DEBUG("varref: %s[%s]", $1, $2);
+              $$.variable = dres_factvar_id(dres, $1);
+              $$.selector = STRDUP($2);
+              $$.field    = NULL;
+        }
+	| TOKEN_FACTVAR ":" TOKEN_IDENT {
+              DEBUG("varref: %s:%s", $1, $3);
+              $$.variable = dres_factvar_id(dres, $1);
+              $$.selector = NULL;
+              $$.field    = STRDUP($3);
+        }
+	| TOKEN_FACTVAR TOKEN_SELECTOR ":" TOKEN_IDENT {
+              DEBUG("varref: %s[%s]:%s", $1, $2, $4);
+              $$.variable = dres_factvar_id(dres, $1);
+              $$.selector = STRDUP($2);
+              $$.field    = STRDUP($4);
+          }
         ;
 
-optional_lvalue: /* empty */        { $$ = DRES_ID_NONE;              }
-        | TOKEN_FACTVAR TOKEN_EQUAL { $$ = dres_factvar_id(dres, $1); }
-        ;
+call: TOKEN_IDENT "(" arguments optional_locals ")" TOKEN_EOL {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->name = STRDUP($1);
+	    $$->arguments = $3.arguments;
+	    $$->nargument = $3.nargument;
+	    #if 0
+	    $$->variables = $4.variables;
+	    $$->nvariable = $4.nvariable;
+	    #endif
+        }
+	;
 
 arguments: argument   {
                $$.arguments = NULL; $$.arguments = 0;
                dres_add_argument(&$$, $1);
         }
-        | arguments TOKEN_COMMA argument {
+        | arguments "," argument {
                dres_add_argument(&$1, $3);
                $$ = $1;
           }
@@ -149,35 +224,33 @@ argument: value            { $$ = $1; }
 	| TOKEN_DRESVAR    { $$ = dres_dresvar_id(dres, $1); }
 	;
 
-optional_assignments: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
-	| TOKEN_COMMA assignments  { $$ = $2; }
+optional_locals: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
+	| "," locals          { $$ = $2; }
 	;
 
-assignments: assignment {
+locals:   local {
               dres_add_assignment(&$$, $1.var, $1.val);
-          }
-        | assignments TOKEN_COMMA assignment {
+        }
+        | locals "," local {
               dres_add_assignment(&$1, $3.var, $3.val);
               $$ = $1;
-          }
+        }
         ;
 
-assignment: TOKEN_DRESVAR TOKEN_EQUAL value {
-	    $$.var = dres_dresvar_id(dres, $1);
-            $$.val = $3;
+local: TOKEN_DRESVAR "=" value {
+            
         }
-	;
+        ;
 
-value: TOKEN_IDENT                  { $$ = dres_literal_id(dres, $1); }
+value:    TOKEN_IDENT               { $$ = dres_literal_id(dres, $1); }
 	| TOKEN_NUMBER              { $$ = dres_literal_id(dres, $1); }
-	| TOKEN_FACTVAR TOKEN_DOT TOKEN_IDENT {
+	| TOKEN_FACTVAR ":" TOKEN_IDENT {
               $$ = dres_literal_id(dres, $3); /* XXX kludge */
         }
-        | TOKEN_DRESVAR TOKEN_DOT TOKEN_IDENT {
+        | TOKEN_DRESVAR ":" TOKEN_IDENT {
               $$ = dres_literal_id(dres, $3); /* XXX kludge */
         }
 	;
-
 
 
 %%

@@ -100,6 +100,19 @@ dres_parse_file(dres_t *dres, char *path)
 
 
 /********************
+ * dres_set_prefix
+ ********************/
+int
+dres_set_prefix(dres_t *dres, char *prefix)
+{
+    if (!dres_store_set_prefix(dres->fact_store, prefix))
+        return errno ?: ENOMEM;
+    else
+        return 0;
+}
+
+
+/********************
  * dres_check_stores
  ********************/
 void
@@ -271,6 +284,32 @@ dres_name(dres_t *dres, int id, char *buf, size_t bufsize)
 }
 
 
+/********************
+ * dres_dump_varref
+ ********************/
+char *
+dres_dump_varref(dres_t *dres, char *buf, size_t bufsize, dres_varref_t *vr)
+{
+    int len;
+
+    if (vr == NULL)
+        return NULL;
+
+    if (vr->variable == DRES_ID_NONE)
+        return NULL;
+    
+    dres_name(dres, vr->variable, buf, bufsize);
+    len = strlen(buf);
+    
+    snprintf(buf + len, bufsize - len, "%s%s%s",
+             vr->selector ? "[" : "",
+             vr->selector ?: "",
+             vr->selector ? "]" : "",
+             vr->field ? ":" : "", vr->field ?: "");
+    
+    return buf;
+}
+
 
 /********************
  * dres_dump_sort
@@ -293,7 +332,9 @@ dres_dump_sort(dres_t *dres, int *list)
 void
 yyerror(dres_t *dres, const char *msg)
 {
-    dres_parse_error(dres, msg, yylval.string);
+    extern int lineno;
+
+    dres_parse_error(dres, lineno, msg, yylval.string);
 }
 
 

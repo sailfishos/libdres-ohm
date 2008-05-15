@@ -17,12 +17,52 @@
 #  endif
 #endif
 
+/*
+ * Notes:
+ *
+ *   To avoid unnecessary string duplication/freeing we collect tokens to a
+ *   ring buffer. Doing so allows us to have a sane lifecycle management
+ *   (owner allocates/frees semantics) without having to worry about freeing
+ *   unneeded tokens in the parser.
+ *
+ *   However the ringbuffer must be big enough to hold all the outstanding
+ *   tokens collected between (bison) rule reductions by the parser. There is
+ *   no ringbuffer overflow check at the moment. Instead the ringbuffer is set
+ *   to be way larger than necessary for any sanely manageable ruleset.
+ */
+
+#define RINGBUFF_SIZE (16 * 1024)
+
+static char ringbuff[RINGBUFF_SIZE];
+static int  ringoffs = 0;
+
 #ifndef __TEST_LEXER__
-#  define STRING(v) yylval.string = strdup(v)
+#  define STRING(v) do {                                \
+       int __size = strlen(v) + 1;                      \
+       if (ringoffs + __size + 1 >= RINGBUFF_SIZE)      \
+           ringoffs = 0;                                \
+       yylval.string = strcpy(ringbuff + ringoffs, v);  \
+       ringoffs += __size;                              \
+   } while (0)
+#  define STRINGN(v, n) do {                               \
+       int __size, __len;                                  \
+       if ((n) > (__len = strlen(v)))                      \
+           __size = __len + 1;                             \
+       else                                                \
+           __size = (n) + 1;                               \
+       if (ringoffs + __size + 1 >= RINGBUFF_SIZE)         \
+           ringoffs = 0;                                   \
+       yylval.string = strncpy(ringbuff + ringoffs, v, n); \
+       ringbuff[ringoffs + (n)] = '\0';                    \
+       ringoffs += __size;                                 \
+   } while (0)
 #else
 #  define STRING(v)
    enum {
      TOKEN_EOL = 0,
+     TOKEN_PREFIX,
+     TOKEN_INITIALIZER,
+     TOKEN_SELECTOR,
      TOKEN_IDENT,
      TOKEN_DOT,
      TOKEN_NUMBER,
@@ -39,6 +79,7 @@
    };
    const char *tokenname[] = {
        "EOL",
+       "PREFIX", "INITIALIZER", "SELECTOR",
        "IDENT", "DOT", "NUMBER", "FACTVAR", "DRESVAR",
        "COLON", "PAREN_OPEN", "PAREN_CLOSE", "COMMA", "EQUAL", "TAB",
        "<<EOF>>"
@@ -68,23 +109,27 @@
               *yytext == '\n' ? "\\n" : yytext); \
     } while (0)
 
-int pass_newline;
+int pass_newline = 0;
 int lineno = 1;
+int seen_prefix = 0;
 
 %}
 
 TAB		^\t/[ \t]*[^#]+
 WS		[ \t]+
+PREFIX		^PREFIX/({WS}|=)
 OWS		[ \t]*
 COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
 EOL		\n+
 IDENT		[a-zA-Z_]+[a-zA-Z0-9_]
 NUMBER          [+-]?[0-9]+
-/*TARGET		^[a-zA-Z_]+[a-zA-Z0-9_]*/
-FACTVAR		\${IDENT}
-DRESVAR		&{IDENT}
+VARNAME         {IDENT}(\.{IDENT})*
+FACTVAR		\${VARNAME}
+DRESVAR		&{VARNAME}
 ESCAPE          \\
+INITIALIZER     \{[^{]+\}
+SELECTOR        \[[^[]+\]
 
 %s action
 
@@ -129,11 +174,14 @@ ESCAPE          \\
 		          unput(c);
                   }
                 }
-                 
-		  
+                
+{IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
+{PREFIX}        { TOKEN(PREFIX); }
+{INITIALIZER}   { STRINGN(yytext+1, yyleng-2); TOKEN(INITIALIZER); }
+{SELECTOR}      { STRINGN(yytext+1, yyleng-2); TOKEN(SELECTOR);    }
+{VARNAME}       { STRING(yytext); TOKEN(VARNAME);     }
 {TAB}           { TOKEN(TAB);                         }
 {EOL}		{ lineno += yyleng; TOKEN(EOL);       }
-{IDENT}		{ STRING(yytext); TOKEN(IDENT);       }
 \.              { TOKEN(DOT);                         }
 {NUMBER}        { STRING(yytext); TOKEN(NUMBER);      }
 {FACTVAR}	{ STRING(yytext + 1); TOKEN(FACTVAR); }
@@ -142,6 +190,7 @@ ESCAPE          \\
 \(              { TOKEN(PAREN_OPEN);                  }
 \)              { TOKEN(PAREN_CLOSE);                 }
 =		{ TOKEN(EQUAL);                       }
+\+=             { TOKEN(APPEND);                      }
 ,               { TOKEN(COMMA);                       }
 
 .               { STRING(yytext); TOKEN(UNKNOWN);     }
