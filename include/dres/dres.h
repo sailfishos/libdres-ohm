@@ -50,10 +50,17 @@ typedef struct {
     int           val_id;                  /* value ID */
 } dres_assign_t;
 
+typedef struct {
+    int   variable;                        /* variable ID */
+    char *selector;                        /* selector or NULL */
+    char *field;                           /* field or NULL */
+} dres_varref_t;
+
 struct dres_action_s {
     char           *name;                  /* name(...) */
+    dres_varref_t   lvalue;                /* variable to put the result to */
+    dres_varref_t   rvalue;                /* variable to copy if any, or */
     dres_handler_t *handler;               /* handler */
-    int             lvalue;                /* variable to put the result to */
     int            *arguments;             /* name(arguments...) */
     int             nargument;             /* number of arguments */
     dres_assign_t  *variables;             /* name(arguments, variables) */
@@ -197,10 +204,13 @@ extern int depth;
 
 
 
-
+/* dres.c */
 dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
+int     dres_set_prefix(dres_t *dres, char *prefix);
+
+
 
 
 /* target.c */
@@ -251,6 +261,8 @@ dres_graph_t *dres_build_graph(dres_t *dres, char *goal);
 void          dres_free_graph (dres_graph_t *graph);
 
 char *dres_name(dres_t *, int id, char *buf, size_t bufsize);
+char *dres_dump_varref(dres_t *dres, char *buf, size_t bufsize,
+                       dres_varref_t *vr);
 int  *dres_sort_graph(dres_t *dres, dres_graph_t *graph);
 void  dres_dump_sort(dres_t *dres, int *list);
 
