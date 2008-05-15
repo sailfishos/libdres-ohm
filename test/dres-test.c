@@ -249,13 +249,14 @@ static dres_selector_t *parse_selector(char *descr)
         if (c > 0x20 && c < 0x7f)
             *q++ = c;
     }
+    *q = '\0';
 
     if ((selector = malloc(sizeof(*selector))) == NULL)
         return NULL;
     memset(selector, 0, sizeof(*selector));
 
     for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
-        if ((p = strchr(name, '=')) == NULL)
+        if ((p = strchr(name, ':')) == NULL)
             DEBUG("Invalid selctor: '%s'", descr);
         else {
             *p++ = '\0';
@@ -373,8 +374,6 @@ static int find_facts(char *name, char *select, OhmFact **facts, int max)
 static void
 command_loop(dres_t *dres)
 {    
-    struct fact   *def;
-    struct member *m;
     GValue         gval;
     char          *str, *name, *member, *selfld, *selval, *value, *p, *q;
     char          *goal;
@@ -445,7 +444,8 @@ command_loop(dres_t *dres)
         
         if (!strcmp(buf, "quit"))
             break;
-        
+
+        selector[0] = '\0';
         if (strchr(buf, '=') != NULL) {
             /*
              * here we parse command lines like:
@@ -455,7 +455,6 @@ command_loop(dres_t *dres)
              *    'device' and 'status'
              */
 
-            strcpy(selector, buf);
             for (str = buf;   (name = strtok(str, ",")) != NULL;  str = NULL) {
                 if ((p = strchr(name, '=')) != NULL) {
                     *p++ = 0;
@@ -466,6 +465,11 @@ command_loop(dres_t *dres)
                         member = p;
 
                         if (p[-2] == ']' && (q = strchr(name, '[')) != NULL) {
+
+                            len = p - 2 - q - 1;
+                            strncpy(selector, q + 1, len);
+                            selector[len] = '\0';
+
                             *q = p[-2] = 0;
                             selfld = q + 1;
                             if ((p = strchr(selfld, ':')) == NULL) {
@@ -478,43 +482,20 @@ command_loop(dres_t *dres)
                             }
                         }
           
-                        for (def = facts;  def->name != NULL;  def++) {
-                            if (!strcmp(name, def->name)) {
-                                for (m = def->member;  m->name != NULL;  m++) {
-                                    if (!strcmp(member, m->name)) {
-                                        memberok = TRUE;
-                                        if (selfld == NULL) {
-                                            selok = TRUE;
-                                            break;
-                                        }
-                                    }
-                                    else if (!strcmp(selfld, m->name) &&
-                                             !strcmp(selval, m->value)  ) {
-                                        selok = TRUE;
-                                    }
-                                }
-                                if (memberok && selok)
-                                    break;
-                            }
-                        }
-                        if (def->name == NULL)
-                            printf("Can't find %s.%s\n", name, member);
+                        int      n = 128;
+                        OhmFact *facts[n];
+                            
+                        gval = ohm_value_from_string(value);
+                        
+                        printf("*** %s[%s]\n", name, selector ?: "");
+                        if ((n = find_facts(name, selector, facts, n)) < 0)
+                            printf("could not find facts matching %s[%s]\n",
+                                   name, selector ?: "");
                         else {
-                            int      n = 128;
-                            OhmFact *facts[n];
-                            
-                            gval = ohm_value_from_string(value);
-                            
-                            printf("*** %s[%s]\n", name, selector ?: "");
-                            if ((n = find_facts(name, selector, facts, n)) < 0)
-                                printf("could not find facts matching %s[%s]\n",
-                                       name, selector ?: "");
-                            else {
-                                int i;
-                                for (i = 0; i < n; i++) {
-                                    ohm_fact_set(facts[i], member, &gval);
-                                    printf("%s:%s = %s\n", name, member, value);
-                                }
+                            int i;
+                            for (i = 0; i < n; i++) {
+                                ohm_fact_set(facts[i], member, &gval);
+                                printf("%s:%s = %s\n", name, member, value);
                             }
                         }
                     }

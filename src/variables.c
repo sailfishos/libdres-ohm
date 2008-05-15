@@ -1121,6 +1121,7 @@ static dres_selector_t *parse_selector(char *descr)
         if (c > 0x20 && c < 0x7f)
             *q++ = c;
     }
+    *q = '\0';
 
     if ((selector = malloc(sizeof(*selector))) == NULL)
         return NULL;
