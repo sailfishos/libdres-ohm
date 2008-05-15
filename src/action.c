@@ -21,7 +21,8 @@ dres_new_action(int argument)
     if (ALLOC_OBJ(action) == NULL)
         return NULL;
     
-    action->lvalue = DRES_ID_NONE;
+    action->lvalue.variable = DRES_ID_NONE;
+    action->rvalue.variable = DRES_ID_NONE;
 
     if (argument != DRES_ID_NONE && dres_add_argument(action, argument)) {
         dres_free_actions(action);
@@ -165,27 +166,33 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     dres_action_t *a = action;
     dres_assign_t *v;
     int            i, j;
-    char           lval[64], arg[64], var[64], val[64], *t;
+    char           lvalbuf[128], *lval, rvalbuf[128], *rval;
+    char           arg[64], var[64], val[64], *t;
     char           actbuf[1024], *p;
 
     if (action == NULL)
         return;
     
     p = actbuf;
-    p += sprintf(p, "%s%s%s(",
-                 a->lvalue != DRES_ID_NONE ?
-                 dres_name(dres, a->lvalue, lval, sizeof(lval)): "",
-                 a->lvalue != DRES_ID_NONE ? " = " : "", a->name);
-    for (i = 0, t = ""; i < a->nargument; i++, t=",")
-        p += sprintf(p, "%s%s", t,
-                     dres_name(dres, a->arguments[i], arg, sizeof(arg)));
-    for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
-        p += sprintf(p, "%s%s=%s", t,
-                     dres_name(dres, v->var_id, var, sizeof(var)),
-                     dres_name(dres, v->val_id, val, sizeof(val)));
-    }
 
-    sprintf(p, ")");
+    lval = dres_dump_varref(dres, lvalbuf, sizeof(lvalbuf), &a->lvalue);
+    rval = dres_dump_varref(dres, rvalbuf, sizeof(rvalbuf), &a->rvalue);
+    if (lval)
+        p += sprintf(p, "%s = ", lval);
+    if (rval)
+        p += sprintf(p, "%s", rval);
+    else {
+        p += sprintf(p, "  %s(", a->name);
+        for (i = 0, t = ""; i < a->nargument; i++, t=",")
+            p += sprintf(p, "%s%s", t,
+                         dres_name(dres, a->arguments[i], arg, sizeof(arg)));
+        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
+            p += sprintf(p, "%s%s=%s", t,
+                         dres_name(dres, v->var_id, var, sizeof(var)),
+                         dres_name(dres, v->val_id, val, sizeof(val)));
+        }
+        sprintf(p, ")");
+    }
 
     DEBUG("action %s", actbuf);
 }

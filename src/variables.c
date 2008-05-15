@@ -90,23 +90,18 @@ dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
     OhmFactStore     *fs;
     OhmFactStoreView *view;
     GHashTable       *htbl;
-    char              buf[512];
 
     if (prefix == NULL)
         prefix = "";
-    else {
-        snprintf(buf, sizeof(buf), "%s.", prefix);
-        prefix = buf;
-    }
-
+    
     if ((store = (dres_store_t *)malloc(sizeof(*store))) == NULL)
         goto failed;            /* errno = ENOMEM; */
 
     memset(store, 0, sizeof(*store));
 
     htbl = g_hash_table_new_full(g_str_hash, g_str_equal, free, NULL);
-
-    if (!(store->any.htbl = htbl) || !(store->any.prefix = strdup(prefix))) {
+    
+    if (!(store->any.htbl = htbl) || !dres_store_set_prefix(store, prefix)) {
         errno = ENOMEM;
         goto failed;
     }
@@ -191,6 +186,37 @@ void dres_store_destroy(dres_store_t *store)
     }
 }
 
+int dres_store_set_prefix(dres_store_t *store, char *prefix)
+{
+    char buf[128];
+
+    if (store->any.refcnt > 1) {
+        errno = EBUSY;
+        return FALSE;
+    }
+    
+    if (store->any.prefix != NULL)
+        free(store->any.prefix);
+
+    if (prefix == NULL)
+        prefix = "";
+    else {
+        snprintf(buf, sizeof(buf), "%s.", prefix);
+        prefix = buf;
+    }
+
+    if ((store->any.prefix = strdup(prefix)) == NULL) {
+        errno = ENOMEM;
+        return FALSE;
+    }
+
+    return TRUE;
+}
+
+char *dres_store_get_prefix(dres_store_t *store)
+{
+    return store->any.prefix;
+}
 
 void dres_store_finish(dres_store_t *store)
 {
@@ -205,7 +231,6 @@ void dres_store_finish(dres_store_t *store)
         fstore->interested = TRUE;
     }
 }
-
 
 int dres_store_check(dres_store_t *store, char *name)
 {
