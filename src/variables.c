@@ -76,11 +76,35 @@ union dres_var_u {
     dres_local_var_t   local;
 }; /* dres_var_t */
 
-static void free_list_elem(gpointer, gpointer);
-static int  get_local_var(dres_local_var_t *, const char *,
-                          dres_vartype_t, void *);
-static int  get_fact_var(dres_fstore_var_t *, const char *,
-                         dres_vartype_t, void *);
+typedef struct {
+    char              *name;
+    char              *value;
+} dres_fldsel_t;
+
+typedef struct {
+    int                count;
+    dres_fldsel_t     *field;
+} dres_selector_t;
+
+
+static void               free_list_elem(gpointer, gpointer);
+static int                set_fact_var(dres_fstore_var_t *, dres_selector_t *,
+                                       dres_vartype_t, void *);
+static int                assign_fact_var(OhmFact **, OhmFact **, int);
+static int                set_local_var_field(dres_local_var_t *, const char *,
+                                              dres_vartype_t, void *);
+static int                set_fact_var_field(dres_fstore_var_t *,
+                                             const char *, dres_selector_t *,
+                                             dres_vartype_t, void *);
+static int                get_local_var_field(dres_local_var_t *, const char *,
+                                              dres_vartype_t, void *);
+static int                get_fact_var_field(dres_fstore_var_t *,
+                                             const char *, dres_selector_t *,
+                                             dres_vartype_t, void *);
+static dres_selector_t   *parse_selector(char *);
+static void               free_selector(dres_selector_t *);
+static int                is_matching(OhmFact *, dres_selector_t *);
+static int                is_selector_field(char *, dres_selector_t *);
 
 
 
@@ -357,23 +381,394 @@ void dres_var_destroy(dres_var_t *var)
     }
 }
 
-int dres_var_set_value(dres_var_t *var, const char *name,
+int dres_var_set(dres_var_t *var, char *selector,
+                 dres_vartype_t type, void *pval)
+{
+    dres_selector_t *select = parse_selector(selector);
+    int              retval = FALSE;
+
+    if (!var || !pval)
+        errno = EINVAL;
+    else {
+        switch (var->any.store->type) {
+
+        case STORE_LOCAL:
+            break;
+
+        case STORE_FACT:
+            retval = set_fact_var(&var->fact, select, type, pval);
+            break;
+
+        default:
+            errno = ENOSYS;
+            break;
+        }
+    }
+
+    free_selector(select);
+
+    return retval;
+}
+
+int dres_var_set_field(dres_var_t *var, const char *name, char *selector,
                        dres_vartype_t type, void *pval)
 {
-    static int   empty_int = 0;
-    static char *empty_str = "";
-
-    GValue gval;
+    dres_selector_t *select;
+    int              retval;
 
     if (!var || !name || !pval) {
         errno = EINVAL;
         return FALSE;
     }
 
-    if (!var->any.store || var->any.store->type != STORE_LOCAL) {
+    if (!var->any.store) {
         errno = ENOSYS;
         return FALSE;
     }
+
+    switch (var->any.store->type) {
+
+    case STORE_LOCAL:
+        retval = set_local_var_field(&var->local, name, type, pval);
+        break;
+
+    case STORE_FACT:
+        select = parse_selector(selector);
+        retval = set_fact_var_field(&var->fact, name, select, type, pval);
+        free_selector(select);
+        break;
+
+    default:
+        errno = ENOSYS;
+        return FALSE;
+    }
+
+    return retval;
+}
+
+int dres_var_get_field(dres_var_t *var, const char *name, char *selector,
+                       dres_vartype_t type, void *pval)
+{
+    dres_store_t    *store;
+    dres_selector_t *select;
+    int              retval = FALSE;
+
+    if (!var || !name || !pval)
+        errno = EINVAL;
+    else if ((store = var->any.store) == NULL)
+        errno = ENOSYS;
+    else {
+        switch (store->type) {
+
+        case STORE_LOCAL:
+            retval = get_local_var_field(&var->local, name, type, pval);
+            break;
+            
+        case STORE_FACT:
+            select = parse_selector(selector);
+            retval = get_fact_var_field(&var->fact, name, select, type, pval);
+            free_selector(select);
+            break;
+            
+        default:                    /* we should not really get ever here*/
+            errno = EINVAL;
+            break;
+        }
+    }
+
+    return retval;
+}
+
+int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
+{
+    dres_fact_store_t *store;
+    GSList            *facts;
+    OhmFact           *fact;
+
+    if (!var || !names || nname < 0)
+        return -1;
+
+    if ((store = &var->any.store->fact) == NULL) {
+        errno = EIO;
+        return FALSE;
+    }
+
+    switch (var->any.store->type) {
+
+    case STORE_LOCAL:
+        if (!(fact = var->local.fact))
+            return -1;
+
+        break;
+
+    case STORE_FACT:  
+        facts = ohm_fact_store_get_facts_by_name(store->fs, var->fact.name);
+
+        if (!facts || g_slist_length(facts) < 1 || !(fact = facts->data))
+            return -1;
+
+        break;
+        
+    default:
+        return -1;
+    }
+
+    return get_fields(fact, names, nname);
+}
+
+
+void *dres_fact_create(char *name, char *descr)
+{
+    GValue          gval;
+    OhmFact        *fact;
+    char            buf[1024];
+    char           *p, *q, *e;
+    char            c;
+    char           *str;
+    char           *field;
+    dres_vartype_t  type;
+    char           *value;
+    int             has_typedef;
+    long int        ival;
+    int             i;
+
+    if (!name || !descr) {
+        errno = EINVAL;
+        return NULL;
+    }
+
+    if ((fact = ohm_fact_new(name)) == NULL) {
+        DEBUG("ohm_fact_new() failed");
+        errno = EIO;
+        return NULL;
+    }
+
+    /*
+     * copy the descriptor to buf
+     * withuout whitespaces NL's etc
+     */
+    for (p = descr, e = (q = buf) + sizeof(buf)-1;  (c = *p) && q < e;   p++) {
+        if (c > 0x20 && c < 0x7f)
+            *q++ = c;
+    }
+    *q = '\0';
+
+
+    /*
+     * parse the fields
+     */
+    for (i = 0, str = buf; (field = strtok(str, ",")) != NULL; str = NULL) {
+        if ((p = strchr(field, ':')) != NULL) {
+            *p++  = '\0';
+            value = p;
+        }
+        else {
+            DEBUG("Invalid fact descriptor: missing ':' in '%s'", descr);
+            errno = EINVAL;
+            goto failed;
+        }
+
+        if (!strncmp(value, "string(", 7)) {
+            value += 7;
+            type = VAR_STRING;
+            has_typedef = TRUE;
+        }
+        else if (!strncmp(value, "int(", 4)) {
+            value += 4;
+            type = VAR_INT;
+            has_typedef = TRUE;
+        }
+        else {
+            type = VAR_STRING;
+            has_typedef = FALSE;
+        }
+
+        if (has_typedef && *(q = value + strlen(value) - 1) != ')') {
+            DEBUG("Invalid fact descriptor: missing ')' in '%s'", descr);
+            errno = EINVAL;
+            goto failed;
+        }
+        *q = '\0';
+
+        switch (type) {
+        case VAR_STRING:
+            gval = ohm_value_from_string(value);
+            break;
+        case VAR_INT:
+            ival = strtol(value, &e, 10);
+            gval = ohm_value_from_int(ival); 
+            if (*e != '\0') {
+                DEBUG("Invalid fact descriptor: invalid integer '%s'", value);
+                errno = EINVAL;
+                goto failed;
+            }
+            break;
+        default:
+            errno = EINVAL;
+            goto failed;
+        }
+
+        ohm_fact_set(fact, field, &gval);
+    }
+
+    return (void *)fact;
+
+ failed:
+    dres_fact_destroy(fact);
+    return NULL;
+}
+
+void dres_fact_destroy(void *vfact)
+{
+    OhmFact *fact = (OhmFact *)vfact;
+
+    if (fact != NULL) {
+    }
+}
+
+
+static void free_list_elem(gpointer data, gpointer user_data)
+{
+    g_object_unref(data);
+}
+
+
+static int set_fact_var(dres_fstore_var_t *var, dres_selector_t *selector,
+                        dres_vartype_t type, void *pval)
+{
+#define FACT_DIM  1024
+
+    dres_fact_store_t *store;
+    GSList            *list;
+    dres_vartype_t     btyp;
+    dres_array_t       single;
+    dres_array_t      *arr;
+    int                llen;
+    OhmFact           *fact;
+    OhmFact           *facts[FACT_DIM];
+    int                flen;
+    int                i, j;
+
+    if (!var || !pval) {
+        errno = EINVAL;
+        return FALSE;
+    }
+
+    if ((store = &var->store->fact) == NULL) {
+        errno = EIO;
+        return FALSE;
+    }
+
+    list   = ohm_fact_store_get_facts_by_name(store->fs, var->name);
+    llen   = list ? g_slist_length(list) : 0;
+    btyp   = VAR_BASE_TYPE(type);
+
+    if (VAR_IS_ARRAY(type)) {
+        arr = (dres_array_t *)pval;
+
+        for (i = flen = 0;    list != NULL;   i++, list = g_slist_next(list)) {
+            fact = (OhmFact *)list->data;
+
+            if (!selector || is_matching(fact, selector))
+                facts[flen++] = fact;
+
+            if (flen >= FACT_DIM) {
+                errno = EIO;
+                return FALSE;
+            }
+        }
+
+        if (flen != arr->len) {
+            errno = EINVAL;
+            return FALSE;
+        }
+    }
+    else {
+        single.len  = 1;
+        single.fact[0] = pval;
+
+        arr = &single;
+
+        if (!selector) {
+            flen = llen;
+            facts[0] = (OhmFact *)list->data;
+        }
+        else {       
+            for (flen = 0;   list != NULL;   list = g_slist_next(list)) {
+                if (is_matching(list->data, selector))
+                    facts[flen++] = (OhmFact *)list->data;
+
+                if (flen >= FACT_DIM) {
+                    errno = EIO;
+                    return FALSE;
+                }
+            }
+        }
+
+        if (flen != 1) {
+            errno = EINVAL;
+            return FALSE;
+        }
+    }
+
+    return assign_fact_var(facts, (OhmFact **)arr->fact, flen);
+
+#undef FACT_DIM
+}
+
+
+static int assign_fact_var(OhmFact **dst, OhmFact **src, int count)
+{
+#define FIELD_DIM 256
+    static GValue noval = {G_TYPE_INVALID, };
+
+    OhmFact *dfact;
+    OhmFact *sfact;
+    GValue  *gval;
+    char    *names[FIELD_DIM];
+    int      nname;
+    int      i, j;
+
+    for (i = 0;   i < count;  i++) {
+        dfact = dst[i];
+        sfact = src[i];
+        nname = get_fields(dfact, names, FIELD_DIM);
+        
+        for (j = 0;  j < nname;  j++)
+            ohm_fact_set(dfact, names[j], &noval);
+
+        nname = get_fields(sfact, names, FIELD_DIM);
+
+        for (j = 0;  j < nname;  j++) {
+            if ((gval = ohm_fact_get(sfact, names[j])) == NULL) {
+                errno = EIO;
+                return FALSE;
+            }
+
+            ohm_fact_set(dfact, names[j], gval);
+        }
+    }
+
+    return TRUE;
+
+#undef FIELD_DIM
+}
+
+static int set_fact_var_field(dres_fstore_var_t *var,
+                              const char *name, dres_selector_t *selector,
+                              dres_vartype_t type, void *pval)
+{
+
+}
+
+
+static int set_local_var_field(dres_local_var_t *var, const char *name,
+                               dres_vartype_t type, void *pval)
+{
+    static int   empty_int = 0;
+    static char *empty_str = "";
+
+    GValue gval;
 
     switch (type) {
 
@@ -391,49 +786,14 @@ int dres_var_set_value(dres_var_t *var, const char *name,
         return FALSE;
     }
 
-    if ((var->type = type) != VAR_UNDEFINED)
-        ohm_fact_set(var->local.fact, name, &gval);
+    ohm_fact_set(var->fact, name, &gval);
 
     return TRUE;
 }
 
-int dres_var_get_value(dres_var_t *var, const char *name, 
-                       dres_vartype_t type, void *pval)
-{
-    dres_store_t *store;
-    int retval = FALSE;
-
-    if (!var || !name || !pval)
-        errno = EINVAL;
-    else if ((store = var->any.store) == NULL)
-        errno = ENOSYS;
-    else {
-        switch (store->type) {
-
-        case STORE_LOCAL:
-            retval = get_local_var(&var->local, name, type, pval);
-            break;
-            
-        case STORE_FACT:
-            retval = get_fact_var(&var->fact, name, type, pval);
-            break;
-            
-        default:                    /* we should not really get ever here*/
-            errno = EINVAL;
-            break;
-        }
-    }
-
-    return retval;
-}
-
-static void free_list_elem(gpointer data, gpointer user_data)
-{
-    g_object_unref(data);
-}
-
-static int get_fact_var(dres_fstore_var_t *var, const char *name,
-                        dres_vartype_t type, void *pval)
+static int get_fact_var_field(dres_fstore_var_t *var,
+                              const char *name, dres_selector_t *selector,
+                              dres_vartype_t type, void *pval)
 {
     dres_fact_store_t *store;
     GSList            *list;
@@ -506,6 +866,24 @@ static int get_fact_var(dres_fstore_var_t *var, const char *name,
 
                 arr->string[i] = strdup(g_value_get_string(gval));
             }
+
+            arr->string[i] = NULL;
+
+            break;
+
+        case VAR_FACT:
+            if ((arr = malloc(sizeof(*arr) + (llen * sizeof(void *)))) == NULL)
+                return FALSE;
+            
+            arr->len = llen;
+            
+            for (i = 0;    list != NULL;   i++, list = g_slist_next(list)) {
+                fact = list->data;
+                arr->fact[i] = g_object_ref(fact);
+            }
+            
+            arr->fact[i] = NULL;
+
             break;
 
         default:
@@ -522,14 +900,32 @@ static int get_fact_var(dres_fstore_var_t *var, const char *name,
         *(dres_array_t **)pval = arr;
     }
     else {
-        if (llen != 1) {
-            errno = EINVAL;
-            return FALSE;
+        if (selector == NULL) {
+            if (llen != 1) {
+                errno = EINVAL;
+                return FALSE;
+            }
+            fact = (OhmFact *)list->data;
         }
+        else {
+            while (list != NULL) {
+                fact = (OhmFact *)list->data;
+                if (is_matching(fact, selector))
+                    break;
+                list = g_slist_next(list);
+            }
+            if (list == NULL) {
+                errno = EINVAL;
+                return FALSE;
+            }
+        }
+            
 
-        if ((gval = ohm_fact_get(list->data, name)) == NULL) {
-            errno = EIO;
-            return FALSE;
+        if (btyp != VAR_FACT) {
+            if ((gval = ohm_fact_get(fact, name)) == NULL) {
+                errno = EIO;
+                return FALSE;
+            }
         }
 
         switch (btyp) {
@@ -556,6 +952,11 @@ static int get_fact_var(dres_fstore_var_t *var, const char *name,
 
             break;
 
+        case VAR_FACT:
+            var->type = VAR_FACT;
+            *(OhmFact **)pval = g_object_ref(fact);
+            break;
+
         default:
             errno = EINVAL;
             return FALSE;
@@ -566,8 +967,8 @@ static int get_fact_var(dres_fstore_var_t *var, const char *name,
 }
 
 
-static int get_local_var(dres_local_var_t *var, const char *name,
-                         dres_vartype_t type, void *pval)
+static int get_local_var_field(dres_local_var_t *var, const char *name,
+                               dres_vartype_t type, void *pval)
 {
     OhmFact  *fact;
     GValue   *gval;
@@ -608,6 +1009,155 @@ static int get_local_var(dres_local_var_t *var, const char *name,
     }
 
     return TRUE;
+}
+
+
+/* static */
+int get_fields(OhmFact *fact, char **names, int nname)
+{
+    GList             *field;
+    GQuark             qk;
+    int                i;
+
+    if (!fact || !names || nname < 0)
+        return -1;
+
+    if ((field = ohm_fact_get_fields(fact)) == NULL)
+        return -1;
+
+    for (i = 0;   field != NULL;   i++, field = field->next) {
+        if (i < nname) {
+            qk = (GQuark)GPOINTER_TO_INT(field->data);
+            names[i] = (char *)g_quark_to_string(qk);
+        }
+    }
+
+    return i < nname ? i : -1;
+}
+
+
+static dres_selector_t *parse_selector(char *descr)
+{
+    dres_selector_t *selector;
+    dres_fldsel_t   *field;
+    char            *p, *q, c;
+    char            *str;
+    char            *name;
+    char            *value;
+    char             buf[1024];
+    int              i;
+
+    
+    if (descr == NULL) {
+        errno = 0;
+        return NULL;
+    }
+
+    for (p = descr, q = buf;  (c = *p) != '\0';   p++) {
+        if (c > 0x20 && c < 0x7f)
+            *q++ = c;
+    }
+
+    if ((selector = malloc(sizeof(*selector))) == NULL)
+        return NULL;
+    memset(selector, 0, sizeof(*selector));
+
+    for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
+        if ((p = strchr(name, '=')) == NULL)
+            DEBUG("Invalid selctor: '%s'", descr);
+        else {
+            *p++ = '\0';
+            value = p;
+
+            selector->count++;
+            selector->field = realloc(selector->field,
+                                      sizeof(dres_fldsel_t) * selector->count);
+
+            if (selector->field == NULL)
+                return NULL; /* maybe better not to attempt to free anything */
+            
+            field = selector->field + selector->count - 1;
+
+            field->name  = strdup(name);
+            field->value = strdup(value);
+        }
+    }
+   
+    return selector;
+}
+
+static void free_selector(dres_selector_t *selector)
+{
+    int i;
+
+    if (selector != NULL) {
+        for (i = 0;   i < selector->count;   i++) {
+            free(selector->field[i].name);
+            free(selector->field[i].value);
+        }
+
+        free(selector);
+    }
+}
+
+static int is_matching(OhmFact *fact, dres_selector_t *selector)
+{
+    dres_fldsel_t *fldsel;
+    GValue        *gval;
+    long int       ival;
+    char          *e;
+    int            i;
+    int            match;
+  
+    if (fact == NULL || selector == NULL)
+        match = FALSE;
+    else {
+        match = TRUE;
+
+        for (i = 0;    match && i < selector->count;    i++) {
+            fldsel = selector->field + i;
+
+            if ((gval = ohm_fact_get(fact, fldsel->name)) == NULL)
+                match = FALSE;
+            else {
+                switch (G_VALUE_TYPE(gval)) {
+                    
+                case G_TYPE_STRING:
+                    match = !strcmp(g_value_get_string(gval), fldsel->value);
+                    break;
+                    
+                case G_TYPE_INT:
+                    ival  = strtol(fldsel->value, &e, 10);
+                    match = (*e == '\0' && g_value_get_int(gval) == ival);
+                    break;
+
+                default:
+                    match = FALSE;
+                    break;
+                }
+            }
+        } /* for */
+    }
+
+    return match;
+}
+
+static int is_selector_field(char *name, dres_selector_t *selector)
+{
+    dres_fldsel_t *fldsel;
+    int            i;
+  
+    if (name == NULL || selector == NULL)
+        return FALSE;
+
+    for (i = 0;    i < selector->count;    i++) {
+        fldsel = selector->field + i;
+
+        if (!strcmp(name, fldsel->name))
+            return TRUE;
+    }
+
+    return FALSE;
 }
 
 
@@ -695,9 +1245,9 @@ int main(int argc, char **argv)
         return EINVAL;
     }
 
-    if (!dres_var_get_value(var1, "device", VAR_STRING_ARRAY, &arr_ret) ||
-        !dres_var_get_value(var2, "percent", VAR_INT, &val1_ret)) {
-        printf("dres_var_get_value() failed: %s\n", strerror(errno));
+    if (!dres_var_get_field(var1, "device",NULL, VAR_STRING_ARRAY, &arr_ret) ||
+        !dres_var_get_field(var2, "percent",NULL, VAR_INT, &val1_ret)) {
+        printf("dres_var_get_field() failed: %s\n", strerror(errno));
         return errno;
     }
 
@@ -720,15 +1270,15 @@ int main(int argc, char **argv)
 
     dres_store_finish(store);
 
-    if (!dres_var_set_value(var1, "value", VAR_INT, &val1) ||
-        !dres_var_set_value(var2, "value", VAR_STRING, &val2)) {
-        printf("dres_var_set_value() failed: %s\n", strerror(errno));
+    if (!dres_var_set_field(var1, "value",NULL, VAR_INT, &val1) ||
+        !dres_var_set_field(var2, "value",NULL, VAR_STRING, &val2)) {
+        printf("dres_var_set_field() failed: %s\n", strerror(errno));
         return errno;
     }
 
-    if (!dres_var_get_value(var1, "value", VAR_INT, &val1_ret) ||
-        !dres_var_get_value(var2, "value", VAR_STRING, &val2_ret)) {
-        printf("dres_var_get_value() failed: %s\n", strerror(errno));
+    if (!dres_var_get_field(var1, "value",NULL, VAR_INT, &val1_ret) ||
+        !dres_var_get_field(var2, "value",NULL, VAR_STRING, &val2_ret)) {
+        printf("dres_var_get_field() failed: %s\n", strerror(errno));
         return errno;
     }
 

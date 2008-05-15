@@ -45,7 +45,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
         DEBUG("setting local variable %s=%s", name, value);
         namep = value;
         if ((var = dres_var_init(scope->curr, name+1, NULL)) == NULL ||
-            !dres_var_set_value(var, DRES_VAR_FIELD, VAR_STRING, &namep))
+            !dres_var_set_field(var, DRES_VAR_FIELD,NULL, VAR_STRING, &namep))
             FAIL(errno);
     }
 
