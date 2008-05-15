@@ -355,7 +355,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
     if (strchr(name, '.') == NULL) {
         snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
         DEBUG("adding %s as %s", name, buf);
-        name = /*strdup(buf)*/buf;
+        name = strdup(buf);
     }
 
     if ((var = (dres_var_t *)g_hash_table_lookup(store->any.htbl, name))) {
