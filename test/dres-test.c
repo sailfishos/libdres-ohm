@@ -240,7 +240,7 @@ static dres_selector_t *parse_selector(char *descr)
     int              i;
 
     
-    if (descr == NULL) {
+    if (descr == NULL || !*descr) {
         errno = 0;
         return NULL;
     }
