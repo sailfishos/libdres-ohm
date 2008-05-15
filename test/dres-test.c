@@ -487,7 +487,7 @@ command_loop(dres_t *dres)
                             
                         gval = ohm_value_from_string(value);
                         
-                        printf("*** %s[%s]\n", name, selector ?: "");
+                        printf("*** %s[%s]\n", name, selector);
                         if ((n = find_facts(name, selector, facts, n)) < 0)
                             printf("could not find facts matching %s[%s]\n",
                                    name, selector ?: "");

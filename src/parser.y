@@ -110,6 +110,7 @@ initializer: TOKEN_FACTVAR assign_op TOKEN_INITIALIZER TOKEN_EOL {
 	    }
 	    
 	    dres_var_create(dres->fact_store, $1, value);
+	    g_object_unref(value);
         }
         ;
 
