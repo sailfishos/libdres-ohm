@@ -100,5 +100,6 @@ AC_OUTPUT([
 	Makefile
 	src/Makefile
 	src/libdres.pc
+	include/Makefile
 	test/Makefile
 ])

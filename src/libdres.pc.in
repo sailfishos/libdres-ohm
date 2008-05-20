@@ -6,5 +6,5 @@ includedir=@includedir@
 Name: libdres
 Description: A dependency resolver library.
 Version: @VERSION@
-Libs: -L${libdir} -ldres
+Libs: -L${libdir} -ldres -lfl
 Cflags: -I${includedir}
