@@ -132,6 +132,33 @@ playback_request(PolicyGroup, MediaType, Grant) :-
 /*
  * system state
  */
+
+privacy_override(X) :-
+    fact_exists('com.nokia.policy.privacy_override',
+		[value], [X]).
+
+connected(X) :-
+    fact_exists('com.nokia.policy.accessories',
+		[device, state], [X, '1']).
+
+active_policy_group(X) :-
+    fact_exists('com.nokia.policy.audio_active_policy_group',
+		[group, state], [X, '1']).
+
+current_route(SinkOrSource, Where) :-
+    fact_exists('com.nokia.policy.audio.route',
+		[type, device], [SinkOrSource, Where]).
+
+current_volume_limit(PolicyGroup, Limit) :-
+    fact_exists('com.nokia.policy.volume_limit',
+		[group, limit], [PolicyGroup, Limit]).
+
+current_cork(PolicyGroup, Corked) :-
+    fact_exists('com.nokia.policy.audio.cork',
+		[group, cork], [PolicyGroup, Corked]).
+
+
+/*
 privacy_override(X) :- related(privacy_override, [X]).
 
 connected(X) :- related(connected, [X, _]).
@@ -146,7 +173,7 @@ current_volume_limit(PolicyGroup, Limit) :-
 
 current_cork(PolicyGroup, Corked) :-
     related(audio_cork, [PolicyGroup, Corked]).
-
+*/
 
 /*
  * test predicates
