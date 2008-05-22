@@ -156,10 +156,10 @@ actions:  action                 { $$ = $1;   }
         }
 	;
 
-action: TOKEN_TAB expr { $$ = $2; }
+action: TOKEN_TAB expr TOKEN_EOL { $$ = $2; }
 	;
 
-expr:   lvalue "=" call   {
+expr:   lvalue "=" call {
             $$         = $3;
 	    $$->lvalue = $1;
         }
@@ -167,6 +167,7 @@ expr:   lvalue "=" call   {
             $$ = dres_new_action(DRES_ID_NONE);
 	    $$->lvalue = $1;
 	    $$->rvalue = $3;
+            $$->name   = STRDUP("__assign");
 	}
       | call {
             $$ = $1;
@@ -205,7 +206,7 @@ varref:   TOKEN_FACTVAR {
           }
         ;
 
-call: TOKEN_IDENT "(" arguments optional_locals ")" TOKEN_EOL {
+call: TOKEN_IDENT "(" arguments optional_locals ")" {
             $$ = dres_new_action(DRES_ID_NONE);
 	    $$->name = STRDUP($1);
 	    $$->arguments = $3.arguments;
