@@ -241,7 +241,7 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
     case DRES_TYPE_FACTVAR:
         prefix = dres_get_prefix(dres);
         dres_name(dres, action->lvalue.variable, name, sizeof(name));
-        snprintf(factname, sizeof(factname)-1, "%s%s", prefix, name + 1);
+        snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
         
         if (action->lvalue.field != NULL) {
             DEBUG("uh-oh... should set lvalue.field...");

@@ -56,6 +56,8 @@ typedef struct {
     char *field;                           /* field or NULL */
 } dres_varref_t;
 
+
+#define DRES_BUILTIN_ASSIGN "__assign"
 struct dres_action_s {
     char           *name;                  /* name(...) */
     dres_varref_t   lvalue;                /* variable to put the result to */

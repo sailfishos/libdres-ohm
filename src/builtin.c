@@ -2,13 +2,15 @@
 #include <stdlib.h>
 #include <errno.h>
 
+#include <prolog/ohm-fact.h>
 #include <dres/dres.h>
 
-
-static int dres_builtin_dres(dres_t *dres,
-                             char *name, dres_action_t *action, void **ret);
-static int dres_builtin_shell(dres_t *dres,
-                              char *name, dres_action_t *action, void **ret);
+static int dres_builtin_assign(dres_t *dres,
+                               char *name, dres_action_t *action, void **ret);
+static int dres_builtin_dres  (dres_t *dres,
+                               char *name, dres_action_t *action, void **ret);
+static int dres_builtin_shell (dres_t *dres,
+                               char *name, dres_action_t *action, void **ret);
 
 static int dres_builtin_unknown(dres_t *dres,
                                 char *name, dres_action_t *action, void **ret);
@@ -27,6 +29,7 @@ dres_register_builtins(dres_t *dres)
 {
 #define BUILTIN(n) { .name = #n, .handler = dres_builtin_##n }
     dres_handler_t builtins[] = {
+        { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
         BUILTIN(dres),
         BUILTIN(shell),
         { .name = NULL }
@@ -39,6 +42,41 @@ dres_register_builtins(dres_t *dres)
         if ((status = dres_register_handler(dres, h->name, h->handler)) != 0)
             return status;
 
+    return 0;
+}
+
+
+/********************
+ * dres_builtin_assign
+ ********************/
+static int
+dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
+{
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    GSList       *list;
+    
+    char      *prefix;
+    char      name[64], factname[64];
+    OhmFact **facts;
+    int       nfact, i;
+    
+    if (DRES_ID_TYPE(action->lvalue.variable) != DRES_TYPE_FACTVAR || !ret)
+        return EINVAL;
+    
+    prefix = dres_get_prefix(dres);
+    dres_name(dres, action->lvalue.variable, name, sizeof(name));
+    snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
+    
+    if ((list = ohm_fact_store_get_facts_by_name(store, factname)) != NULL) {
+        nfact = g_slist_length(list);
+        if ((facts = ALLOC_ARR(OhmFact *, nfact + 1)) == NULL)
+            return ENOMEM;
+        for (i = 0; i < nfact && list != NULL; i++, list = g_slist_next(list))
+            facts[i] = g_object_ref((OhmFact *)list->data);
+        facts[i] = NULL;
+    }
+    
+    *ret = facts;
     return 0;
 }
 
