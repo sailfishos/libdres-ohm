@@ -258,6 +258,11 @@ void           dres_dump_action (dres_t *dres, dres_action_t *action);
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
 
+/* scope.c */
+int dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
+int dres_scope_push_args(dres_t *dres, char **args);
+
+
 int dres_add_assignment(dres_action_t *action, int var, int val);
 
 
@@ -271,7 +276,7 @@ char *dres_dump_varref(dres_t *dres, char *buf, size_t bufsize,
 int  *dres_sort_graph(dres_t *dres, dres_graph_t *graph);
 void  dres_dump_sort(dres_t *dres, int *list);
 
-int dres_update_goal(dres_t *dres, char *goal);
+int dres_update_goal(dres_t *dres, char *goal, char **locals);
 
 dres_handler_t *dres_lookup_handler(dres_t *dres, char *name);
 

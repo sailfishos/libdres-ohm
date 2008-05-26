@@ -87,25 +87,25 @@ dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
 static int
 dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
 {
-    char  buf[64];
-    char *goal;
-
-    /* XXX TODO: factstore forking, local variables with nested scoping */
-
+    char goal[64];
+    int  status;
+    
+    /* XXX TODO: factstore transaction */
+    
     if (action->arguments == NULL)
         return EINVAL;
-
-    goal = dres_name(dres, action->arguments[0], buf, sizeof(buf));
-
+    
+    dres_name(dres, action->arguments[0], goal, sizeof(goal));
+    
     DEBUG("DRES recursing for goal %s", goal);
     depth++;
     dres_scope_push(dres, action->variables, action->nvariable);
-    dres_update_goal(dres, goal);
+    status = dres_update_goal(dres, goal, NULL);
     dres_scope_pop(dres);
     depth--;
     DEBUG("DRES back from goal %s", goal);
 
-    return 0;
+    return status;
 }
 
 
