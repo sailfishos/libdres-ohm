@@ -9,6 +9,8 @@ static int dres_builtin_assign(dres_t *dres,
                                char *name, dres_action_t *action, void **ret);
 static int dres_builtin_dres  (dres_t *dres,
                                char *name, dres_action_t *action, void **ret);
+static int dres_builtin_resolve(dres_t *dres,
+                                char *name, dres_action_t *action, void **ret);
 static int dres_builtin_shell (dres_t *dres,
                                char *name, dres_action_t *action, void **ret);
 
@@ -31,6 +33,7 @@ dres_register_builtins(dres_t *dres)
     dres_handler_t builtins[] = {
         { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
         BUILTIN(dres),
+        BUILTIN(resolve),
         BUILTIN(shell),
         { .name = NULL }
     }, *h;
@@ -107,6 +110,19 @@ dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
 
     return status;
 }
+
+
+/********************
+ * dres_builtin_resolve
+ ********************/
+static int
+dres_builtin_resolve(dres_t *dres,
+                     char *name, dres_action_t *action, void **ret)
+{
+    return dres_builtin_dres(dres, name, action, ret);
+}
+
+
 
 
 /********************
