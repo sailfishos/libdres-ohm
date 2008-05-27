@@ -15,7 +15,7 @@
  * with var1=val1, var2=val2, ..., and chain it to (ie. push it above) the
  * current local variable store.
  * 
- * Upon returning from the dres call the create local store will be destroyed.
+ * Upon returning from the dres call the created local store will be destroyed.
  */
 
 
@@ -42,13 +42,10 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
     for (i = 0, a = variables; i < nvariable; i++, a++) {
         dres_name(dres, a->var_id, name, sizeof(name));
         dres_name(dres, a->val_id, value, sizeof(value));
-        DEBUG("setting local variable %s=%s", name, value);
-        namep = value;
-        if ((var = dres_var_init(scope->curr, name+1, NULL)) == NULL ||
-            !dres_var_set_field(var, DRES_VAR_FIELD,NULL, VAR_STRING, &namep))
-            FAIL(errno);
+        if ((status = dres_scope_setvar(scope, name + 1, value)) != 0)
+            FAIL(status);
     }
-
+    
     scope->prev = dres->scope;
     dres->scope = scope;
 
@@ -89,8 +86,55 @@ dres_scope_pop(dres_t *dres)
 }
 
 
+/********************
+ * dres_scope_setvar
+ ********************/
+int
+dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
+{
+    dres_var_t *var;
+    char       *valuep;
+
+    DEBUG("setting local variable %s=%s", name, value);
+
+    valuep = value;
+    if ((var = dres_var_init(scope->curr, name, NULL)) == NULL)
+        return errno;
+    if (!dres_var_set_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &valuep))
+        return errno;
+    
+    return 0;
+}
 
 
+/********************
+ * dres_scope_push_args
+ ********************/
+int
+dres_scope_push_args(dres_t *dres, char **locals)
+{
+    char *name, *value;
+    int   i, status;
+
+    if (locals == NULL)
+        return 0;
+    
+    if ((status = dres_scope_push(dres, NULL, 0)) != 0)
+        return status;
+
+    for (i = 0; (name = locals[i]) != NULL; i += 2) {
+        if ((value = locals[i+1]) == NULL)
+            goto fail;
+        if ((status = dres_scope_setvar(dres->scope, name, &value)) != 0)
+            goto fail;
+    }
+
+    return 0;
+    
+ fail:
+    dres_scope_pop(dres);
+    return status;
+}
 
 
 /* 

@@ -184,7 +184,7 @@ finalize_actions(dres_t *dres)
  * dres_update_goal
  ********************/
 int
-dres_update_goal(dres_t *dres, char *goal)
+dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
     dres_graph_t  *graph;
     dres_target_t *target;
@@ -196,10 +196,8 @@ dres_update_goal(dres_t *dres, char *goal)
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
             return EINVAL;
-    
-#if 1
+
     dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
-#endif
 
     if ((target = dres_lookup_target(dres, goal)) == NULL)
         goto fail;
@@ -222,6 +220,9 @@ dres_update_goal(dres_t *dres, char *goal)
 
     printf("topological sort for goal %s:\n", goal);
     dres_dump_sort(dres, list);
+
+    if (locals != NULL && dres_scope_push_args(dres, locals) != 0)
+        goto fail;
     
     for (i = 0; list[i] != DRES_ID_NONE; i++) {
         id = list[i];
@@ -231,6 +232,9 @@ dres_update_goal(dres_t *dres, char *goal)
         
         dres_check_target(dres, id);
     }
+
+    if (locals != NULL)
+        dres_scope_pop(dres);
 
     free(list);
     dres_free_graph(graph);

@@ -6,6 +6,9 @@
 #include <dres/dres.h>
 
 
+static int assign_result(dres_t *dres, dres_action_t *action, void **facts);
+
+
 /*****************************************************************************
  *                        *** target action handling ***                     *
  *****************************************************************************/
@@ -140,20 +143,23 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     dres_action_t  *action;
     dres_handler_t *handler;
     void           *retval;
-    int             status;
+    int             err;
 
     DEBUG("executing actions for %s", target->name);
 
-    /* XXX TODO retval processing */
-    
-    status = 0;
-    for (action = target->actions; action != NULL; action = action->next) {
+    err = 0;
+    for (action = target->actions; !err && action; action = action->next) {
         dres_dump_action(dres, action);
+
         handler = action->handler;
-        status |= handler->handler(dres, handler->name, action, &retval);
+        if ((err = handler->handler(dres, handler->name, action, &retval)))
+            continue;
+    
+        if (retval != NULL)
+            err = assign_result(dres, action, retval);
     }
     
-    return status;
+    return err;
 }
 
 
@@ -198,7 +204,67 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
 }
 
 
+/********************
+ * assing_result
+ ********************/
+static int
+assign_result(dres_t *dres, dres_action_t *action, void **result)
+{
+#define MAX_FACTS 64
+#define FAIL(ec) do { err = ec; goto out; } while(0)
 
+    struct {
+        dres_array_t  head;
+        void         *facts[MAX_FACTS];
+    } arrbuf = { head: { len: 0 } };
+    dres_array_t     *facts = &arrbuf.head;
+    
+    dres_variable_t *var;
+    dres_vartype_t   type;
+    char             name[128], factname[128], *prefix;
+    int              nfact, i, err;
+    
+    
+    /*
+     * XXX TODO
+     *   This whole fact mangling/copying/converting to dres_array_t is so
+     *   butt-ugly that it needs to be cleaned up. The least worst might be
+     *   to put a dres_array_t to dres_action_t and use that everywhere.
+     */
+    
+    for (nfact = 0; result[nfact] != NULL; nfact++)
+        ;
+    
+    err = 0;
+    switch (DRES_ID_TYPE(action->lvalue.variable)) {
+
+    case DRES_TYPE_FACTVAR:
+        prefix = dres_get_prefix(dres);
+        dres_name(dres, action->lvalue.variable, name, sizeof(name));
+        snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
+        
+        if (action->lvalue.field != NULL) {
+            DEBUG("uh-oh... should set lvalue.field...");
+            FAIL(EINVAL);
+        }
+        
+        if ((var = dres_lookup_variable(dres, action->lvalue.variable)) == NULL)
+            FAIL(ENOENT);
+      
+        facts->len = nfact;
+        memcpy(&facts->fact[0], result, nfact * sizeof(result[0]));
+        type = VAR_FACT_ARRAY;
+        if (!dres_var_set(var->var, action->lvalue.selector, type, facts))
+            FAIL(EINVAL);
+    }
+
+ out:
+    for (i = 0; i < nfact; i++)
+        g_object_unref(result[i]);
+    FREE(result);
+
+    return err;
+}
 
 
 

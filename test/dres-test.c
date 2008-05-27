@@ -509,13 +509,13 @@ command_loop(dres_t *dres)
             dump_fact_store();
 
             printf("updating goal 'all'\n");
-            if (dres_update_goal(dres, "all") != 0)
+            if (dres_update_goal(dres, "all", NULL) != 0)
                 printf("failed to update goal 'all'\n");
         }
         else {
             goal = buf;
             printf("updating goal '%s'\n", goal);
-            if (dres_update_goal(dres, goal) != 0)
+            if (dres_update_goal(dres, goal, NULL) != 0)
                 printf("failed to update goal \"%s\"\n", goal);
         }
         

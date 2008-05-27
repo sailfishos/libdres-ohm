@@ -221,7 +221,7 @@ dres_check_target(dres_t *dres, int tid)
                 DEBUG("%s: %d > %s: %d ?",
                       target->name, target->stamp, t->name, t->stamp);
                 if (t->stamp > target->stamp) {
-                    DEBUG("=> %s newer, %s needs to be updates", t->name,
+                    DEBUG("=> %s newer, %s needs to be updated", t->name,
                           target->name);
                     update = TRUE;
                 }
