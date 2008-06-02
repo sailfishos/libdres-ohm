@@ -118,7 +118,7 @@ dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
     if (prefix == NULL)
         prefix = "";
     
-    if ((store = (dres_store_t *)malloc(sizeof(*store))) == NULL)
+    if ((store = malloc(sizeof(*store))) == NULL)
         goto failed;            /* errno = ENOMEM; */
 
     memset(store, 0, sizeof(*store));
