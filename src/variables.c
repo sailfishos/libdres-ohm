@@ -852,6 +852,7 @@ static int set_local_var_field(dres_local_var_t *var, const char *name,
         return FALSE;
     }
 
+    var->type = type;
     ohm_fact_set(var->fact, name, &gval);
 
     return TRUE;

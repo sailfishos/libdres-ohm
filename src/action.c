@@ -304,7 +304,7 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
      *   to put a dres_array_t to dres_action_t and use that everywhere.
      */
     
-    for (nfact = 0; result[nfact] != NULL; nfact++)
+    for (nfact = 0; result && result[nfact] != NULL; nfact++)
         ;
     
     err = 0;
@@ -337,6 +337,8 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
         type = VAR_FACT_ARRAY;
         if (!dres_var_set(var->var, action->lvalue.selector, type, facts))
             FAIL(EINVAL);
+
+        break;
     }
 
  out:
