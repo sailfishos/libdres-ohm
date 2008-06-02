@@ -172,6 +172,12 @@ expr:   lvalue "=" call {
       | call {
             $$ = $1;
         }
+      | lvalue "=" TOKEN_IDENT {
+          printf("*** damn...\n");
+        }
+      | lvalue "=" TOKEN_NUMBER {
+          printf("*** damn...\n");
+        }
       ;
 
 lvalue: varref { $$ = $1; }
@@ -203,7 +209,7 @@ varref:   TOKEN_FACTVAR {
               $$.variable = dres_factvar_id(dres, $1);
               $$.selector = STRDUP($2);
               $$.field    = STRDUP($4);
-          }
+        }
         ;
 
 call: TOKEN_IDENT "(" arguments optional_locals ")" {
@@ -258,6 +264,9 @@ value:    TOKEN_IDENT               { $$ = dres_literal_id(dres, $1); }
         }
         | TOKEN_DRESVAR ":" TOKEN_IDENT {
               $$ = dres_literal_id(dres, $3); /* XXX kludge */
+        }
+        | TOKEN_DRESVAR {
+              $$ = dres_dresvar_id(dres, $1);
         }
 	;
 
