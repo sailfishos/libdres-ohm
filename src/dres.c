@@ -204,12 +204,15 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     
     if (!DRES_IS_DEFINED(target->id))
         goto fail;
+
+    if (locals != NULL && dres_scope_push_args(dres, locals) != 0)
+        goto fail;
     
     if (target->prereqs == NULL) {
         DEBUG("%s has no prerequisites => needs to be updated", target->name);
         dres_run_actions(dres, target);
         target->stamp = dres->stamp;
-        return 0;
+        goto pop_locals;
     }
 
     if ((graph = dres_build_graph(dres, goal)) == NULL)
@@ -221,8 +224,6 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     printf("topological sort for goal %s:\n", goal);
     dres_dump_sort(dres, list);
 
-    if (locals != NULL && dres_scope_push_args(dres, locals) != 0)
-        goto fail;
     
     for (i = 0; list[i] != DRES_ID_NONE; i++) {
         id = list[i];
@@ -233,12 +234,13 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         dres_check_target(dres, id);
     }
 
-    if (locals != NULL)
-        dres_scope_pop(dres);
-
     free(list);
     dres_free_graph(graph);
 
+ pop_locals:
+    if (locals != NULL)
+        dres_scope_pop(dres);
+    
     return 0;
 
  fail:
