@@ -95,7 +95,7 @@ dres_dump_assignment(dres_t *dres, dres_assign_t *a, char *buf, size_t size)
     if (dres_dump_varref(dres, buf, size, &a->lvalue) == NULL)
         return NULL;
     len   = strlen(buf);
-    p    += len;
+    p     = buf + len;
     size -= len;
     
     if (size < 4)
@@ -315,12 +315,14 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
         dres_name(dres, action->lvalue.variable, name, sizeof(name));
         snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
         
+#if 0
         if (action->lvalue.field != NULL) {
             DEBUG("uh-oh... should set lvalue.field...");
             FAIL(EINVAL);
         }
+#endif
         
-        if ((var = dres_lookup_variable(dres, action->lvalue.variable)) == NULL)
+        if (!(var = dres_lookup_variable(dres, action->lvalue.variable)))
             FAIL(ENOENT);
       
         if (action->immediate != DRES_ID_NONE) {

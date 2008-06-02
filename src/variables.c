@@ -822,10 +822,47 @@ static int set_fact_var_field(dres_fstore_var_t *var,
                               const char *name, dres_selector_t *selector,
                               dres_vartype_t type, void *pval)
 {
+    dres_fact_store_t *store;
+    GSList            *list;
+    GValue             gval;
+    int                llen;
+    OhmFact           *fact;
+    int                i, j;
     
+
+    if (!var || !var->store || !name || !pval) {
+        errno = EINVAL;
+        return FALSE;
+    }
+
+    store = &var->store->fact;
+
+    list   = ohm_fact_store_get_facts_by_name(store->fs, var->name);
+    llen   = list ? g_slist_length(list) : 0;
+
+    if (VAR_IS_ARRAY(type)) {
+        errno = EINVAL;
+        return FALSE;
+    }
+    else {
+        switch (VAR_BASE_TYPE(type)) {
+        case VAR_INT:      gval = ohm_value_from_int(*(int *)pval);     break;
+        case VAR_STRING:   gval = ohm_value_from_string((char *)pval);  break;
+        default:           errno = ENOSYS; return FALSE;
+        }
+        
+        for (i = 0;    list != NULL;   i++, list = g_slist_next(list)) {
+            fact = (OhmFact *)list->data;
+
+            if (!selector || is_matching(fact, selector)) {
+                ohm_fact_set(fact, name, &gval);
+            }
+        }
+    }
 
     return TRUE;
 }
+
 
 
 static int set_local_var_field(dres_local_var_t *var, const char *name,
@@ -1131,7 +1168,7 @@ static dres_selector_t *parse_selector(char *descr)
     memset(selector, 0, sizeof(*selector));
 
     for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
-        if ((p = strchr(name, '=')) == NULL)
+        if ((p = strchr(name, ':')) == NULL)
             DEBUG("Invalid selctor: '%s'", descr);
         else {
             *p++ = '\0';

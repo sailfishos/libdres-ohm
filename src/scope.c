@@ -198,7 +198,7 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
     if (!dres_var_set_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &valuep))
         goto fail;
     
-    g_hash_table_insert(scope->names, name, var);
+    g_hash_table_insert(scope->names, key, var);
     
     return 0;
 
