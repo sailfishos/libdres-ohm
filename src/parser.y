@@ -29,11 +29,14 @@ extern FILE *yyin;
   dres_prereq_t  *prereq;
   dres_action_t  *action;
   dres_varref_t   varref;
-
+#if 1
+  dres_assign_t   assign;
+#else
   struct {
     int var;
     int val;
   } assign;
+#endif
   int             argument;
   dres_action_t   variables;
   dres_action_t   arguments;
@@ -172,6 +175,18 @@ expr:   lvalue "=" call {
       | call {
             $$ = $1;
         }
+      | lvalue "=" TOKEN_IDENT {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->lvalue    = $1;
+            $$->immediate = dres_literal_id(dres, $3); /* XXX kludge */
+            $$->name      = STRDUP("__assign");
+        }
+      | lvalue "=" TOKEN_NUMBER {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->lvalue    = $1;
+            $$->immediate = dres_literal_id(dres, $3); /* XXX kludge */
+            $$->name      = STRDUP("__assign");
+        }
       ;
 
 lvalue: varref { $$ = $1; }
@@ -203,7 +218,7 @@ varref:   TOKEN_FACTVAR {
               $$.variable = dres_factvar_id(dres, $1);
               $$.selector = STRDUP($2);
               $$.field    = STRDUP($4);
-          }
+        }
         ;
 
 call: TOKEN_IDENT "(" arguments optional_locals ")" {
@@ -211,10 +226,10 @@ call: TOKEN_IDENT "(" arguments optional_locals ")" {
 	    $$->name = STRDUP($1);
 	    $$->arguments = $3.arguments;
 	    $$->nargument = $3.nargument;
-	    #if 0
+#if 1
 	    $$->variables = $4.variables;
 	    $$->nvariable = $4.nvariable;
-	    #endif
+#endif
         }
 	;
 
@@ -233,34 +248,53 @@ argument: value            { $$ = $1; }
 	| TOKEN_DRESVAR    { $$ = dres_dresvar_id(dres, $1); }
 	;
 
+
+value:    TOKEN_IDENT   { $$ = dres_literal_id(dres, $1); }
+	| TOKEN_NUMBER  { $$ = dres_literal_id(dres, $1); }
+	;
+
 optional_locals: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
 	| "," locals          { $$ = $2; }
 	;
 
 locals:   local {
-              dres_add_assignment(&$$, $1.var, $1.val);
+              dres_add_assignment(&$$, &$1);
         }
         | locals "," local {
-              dres_add_assignment(&$1, $3.var, $3.val);
+              dres_add_assignment(&$1, &$3);
               $$ = $1;
         }
         ;
 
-local: TOKEN_DRESVAR "=" value {
-            
+local:    TOKEN_DRESVAR "=" TOKEN_IDENT {
+              $$.type            = DRES_ASSIGN_IMMEDIATE;
+              $$.lvalue.variable = dres_dresvar_id(dres, $1);
+	      $$.lvalue.selector = NULL;
+	      $$.lvalue.field    = NULL;
+              $$.val             = dres_literal_id(dres, $3);
+        }
+        | TOKEN_DRESVAR "=" TOKEN_NUMBER {
+              $$.type            = DRES_ASSIGN_IMMEDIATE;
+              $$.lvalue.variable = dres_dresvar_id(dres, $1);
+	      $$.lvalue.selector = NULL;
+	      $$.lvalue.field    = NULL;
+              $$.val             = dres_literal_id(dres, $3);
+        }
+        | TOKEN_DRESVAR "=" TOKEN_VARNAME {
+              $$.type            = DRES_ASSIGN_IMMEDIATE;
+              $$.lvalue.variable = dres_dresvar_id(dres, $1);
+	      $$.lvalue.selector = NULL;
+	      $$.lvalue.field    = NULL;
+              $$.val             = dres_literal_id(dres, $3);
+        }
+        | TOKEN_DRESVAR "=" varref {
+              $$.type   = DRES_ASSIGN_VARIABLE;
+              $$.lvalue.variable = dres_dresvar_id(dres, $1);
+	      $$.lvalue.selector = NULL;
+	      $$.lvalue.field    = NULL;
+              $$.var             = $3;
         }
         ;
-
-value:    TOKEN_IDENT               { $$ = dres_literal_id(dres, $1); }
-	| TOKEN_NUMBER              { $$ = dres_literal_id(dres, $1); }
-	| TOKEN_FACTVAR ":" TOKEN_IDENT {
-              $$ = dres_literal_id(dres, $3); /* XXX kludge */
-        }
-        | TOKEN_DRESVAR ":" TOKEN_IDENT {
-              $$ = dres_literal_id(dres, $3); /* XXX kludge */
-        }
-	;
-
 
 %%
 

@@ -102,7 +102,6 @@ dres_dump_targets(dres_t *dres)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
-    dres_assign_t *v;
     char          *sep, lvalbuf[128], *lval, rvalbuf[128], *rval;
     int            n;
     
@@ -134,49 +133,12 @@ dres_dump_targets(dres_t *dres)
             }
         }
 
-        if (t->actions == NULL) {
+        if (t->actions == NULL)
             printf("  has no actions\n");
-            continue;
-        }
-        
-        printf("has actions:\n");
-        for (a = t->actions; a; a = a->next) {
-            lval = dres_dump_varref(dres, lvalbuf, sizeof(lvalbuf), &a->lvalue);
-            rval = dres_dump_varref(dres, rvalbuf, sizeof(rvalbuf), &a->rvalue);
-            if (lval)
-                printf("  %s = ", lval);
-            if (rval) {
-                printf("%s\n", rval);
-                continue;
-            }
-                
-            printf("%s%s(", lval ? "" : "  ", a->name);
-            for (n = 0, sep=""; n < a->nargument; n++, sep=",") {
-                id  = a->arguments[n];
-                idx = DRES_INDEX(id);
-                switch (DRES_ID_TYPE(id)) {
-                case DRES_TYPE_FACTVAR:
-                    printf("%s$%s", sep, dres->factvars[idx].name);
-                    break;
-                case DRES_TYPE_DRESVAR:
-                    printf("%s$%s", sep, dres->dresvars[idx].name);
-                    break;
-                case DRES_TYPE_LITERAL:
-                    printf("%s%s", sep, dres->literals[idx].name);
-                    break;
-                default:
-                    printf("%s<unknown>", sep);
-                }
-            }
-
-            for (j = 0, v = a->variables; j < a->nvariable; j++, v++, sep=",") {
-                char var[32], val[32];
-                printf("%s%s=%s", sep,
-                       dres_name(dres, v->var_id, var, sizeof(var)),
-                       dres_name(dres, v->val_id, val, sizeof(val)));
-            }
-            
-            printf(")\n");
+        else {
+            printf("has actions:\n");
+            for (a = t->actions; a; a = a->next)
+                dres_dump_action(dres, a);
         }
     }
 }
