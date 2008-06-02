@@ -3,7 +3,34 @@
 #include <string.h>
 #include <errno.h>
 
+#include <glib.h>
+
 #include <dres/dres.h>
+
+
+/********************
+ * free_name
+ ********************/
+static void
+free_name(gpointer ptr)
+{
+    char *name = (char *)ptr;
+
+    FREE(name);
+}
+
+
+/********************
+ * free_var
+ ********************/
+static void
+free_var(gpointer ptr)
+{
+    dres_var_t *var = (dres_var_t *)ptr;
+
+    dres_var_destroy(var);
+}
+
 
 
 /*
@@ -40,6 +67,12 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 
     if ((scope->curr = dres_store_init(STORE_LOCAL, NULL)) == NULL)
         FAIL(ENOMEM);
+
+    scope->names = g_hash_table_new_full(g_str_hash, g_str_equal,
+                                         free_name, free_var);
+    if (scope->names == NULL)
+        FAIL(ENOMEM);
+                                         
 
     for (i = 0, a = variables; i < nvariable; i++, a++) {
         
@@ -134,6 +167,9 @@ dres_scope_pop(dres_t *dres)
     if (curr)
         dres_store_destroy(curr);
     
+    if (dres->scope->names)
+        g_hash_table_destroy(dres->scope->names);
+
     FREE(dres->scope);
     
     dres->scope = prev;
@@ -149,17 +185,50 @@ int
 dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
 {
     dres_var_t *var;
-    char       *valuep;
+    char       *key, *valuep;
 
     DEBUG("setting local variable %s=%s", name, value);
 
+    if ((key = STRDUP(name)) == NULL)
+        return ENOMEM;
+    
     valuep = value;
     if ((var = dres_var_init(scope->curr, name, NULL)) == NULL)
-        return errno;
+        goto fail;
     if (!dres_var_set_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &valuep))
-        return errno;
+        goto fail;
+    
+    g_hash_table_insert(scope->names, name, var);
     
     return 0;
+
+ fail:
+    if (key)
+        FREE(key);
+}
+
+
+/********************
+ * dres_scope_getvar
+ ********************/
+char *
+dres_scope_getvar(dres_scope_t *scope, char *name)
+{
+    dres_var_t *var;
+    char       *value;
+    
+    DEBUG("looking up local variable %s", name);
+
+    if (scope->names == NULL)
+        return NULL;
+
+    if ((var = (dres_var_t *)g_hash_table_lookup(scope->names, name)) == NULL)
+        return NULL;
+
+    if (dres_var_get_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &value))
+        return value;
+    else
+        return NULL;
 }
 
 

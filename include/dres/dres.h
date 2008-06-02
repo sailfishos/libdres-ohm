@@ -1,6 +1,7 @@
 #ifndef __POLICY_DRES_H__
 #define __POLICY_DRES_H__
 
+#include <glib.h>
 #include <dres/variables.h>
 
 enum {
@@ -141,6 +142,7 @@ enum {
 
 struct dres_scope_s {
     dres_store_t *curr;                     /* current variables */
+    GHashTable   *names;                    /* names of current variables */
     dres_scope_t *prev;                     /* previous scope */
 };
 
@@ -277,8 +279,10 @@ void           dres_dump_action (dres_t *dres, dres_action_t *action);
 int dres_register_builtins(dres_t *dres);
 
 /* scope.c */
-int dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
-int dres_scope_push_args(dres_t *dres, char **args);
+int   dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
+char *dres_scope_getvar   (dres_scope_t *scope, char *name);
+int   dres_scope_push_args(dres_t *dres, char **args);
+
 
 #if 1
 int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
