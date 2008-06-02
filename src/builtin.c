@@ -66,8 +66,17 @@ dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
     if (DRES_ID_TYPE(action->lvalue.variable) != DRES_TYPE_FACTVAR || !ret)
         return EINVAL;
     
+    if (action->immediate != DRES_ID_NONE) {
+        *ret = NULL;
+        return 0;              /* handled in action.c:assign_result */
+    }
+    
     prefix = dres_get_prefix(dres);
+#if 1
+    dres_name(dres, action->rvalue.variable, name, sizeof(name));
+#else
     dres_name(dres, action->lvalue.variable, name, sizeof(name));
+#endif
     snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
     
     if ((list = ohm_fact_store_get_facts_by_name(store, factname)) != NULL) {
@@ -142,41 +151,13 @@ static int
 dres_builtin_unknown(dres_t *dres,
                      char *name, dres_action_t *action, void **ret)
 {
-    dres_assign_t *v;
-    int            i, j;
-    char           lvalbuf[128], *lval, rvalbuf[128], *rval;
-    char           arg[64], var[64], val[64], *t;
-    char           buf[1024], *p;
-
     if (action == NULL)
         return 0;
 
     DEBUG("unknown action %s", name);
-
-    p  = buf;
-    lval = dres_dump_varref(dres, lvalbuf, sizeof(lvalbuf), &action->lvalue);
-    rval = dres_dump_varref(dres, rvalbuf, sizeof(rvalbuf), &action->rvalue);
-    if (lval)
-        p += sprintf(p, "%s = ", lval);
-    if (rval)
-        p += sprintf(p, "%s", rval);
-    else {
-        p += sprintf("  %s(", action->name);
-        for (i = 0, t = ""; i < action->nargument; i++, t=",")
-            p += sprintf(p, "%s%s", t,
-                         dres_name(dres, action->arguments[i],
-                                   arg, sizeof(arg)));
-        for (j = 0, v = action->variables;
-             j < action->nvariable;
-             j++, v++, t=",") {
-            p += sprintf(p, "%s%s=%s", t,
-                         dres_name(dres, v->var_id, var, sizeof(var)),
-                         dres_name(dres, v->val_id, val, sizeof(val)));
-        }
-        sprintf(p, ")");
-    }
     
-    DEBUG("%s", buf);
+    printf("*** unknown action %s", name);
+    dres_dump_action(dres, action);
 
     return 0;
 }

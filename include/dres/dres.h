@@ -46,15 +46,32 @@ typedef struct {
 typedef struct dres_action_s dres_action_t;
 
 typedef struct {
-    int           var_id;                  /* variable ID */
-    int           val_id;                  /* value ID */
-} dres_assign_t;
-
-typedef struct {
     int   variable;                        /* variable ID */
     char *selector;                        /* selector or NULL */
     char *field;                           /* field or NULL */
 } dres_varref_t;
+
+
+enum {
+    DRES_ASSIGN_IMMEDIATE = 0,
+    DRES_ASSIGN_VARIABLE,
+};
+
+
+typedef struct {
+#if 1
+    dres_varref_t lvalue;                  /* variable to assign to */
+    int           type;                    /* DRES_ASSIGN_* */
+    union {
+        dres_varref_t var;                 /* variable */
+        int           val;                 /* value */
+    };
+#else
+    int           var_id;                  /* variable ID */
+    int           val_id;                  /* value ID */
+#endif
+} dres_assign_t;
+
 
 
 #define DRES_BUILTIN_ASSIGN "__assign"
@@ -62,6 +79,7 @@ struct dres_action_s {
     char           *name;                  /* name(...) */
     dres_varref_t   lvalue;                /* variable to put the result to */
     dres_varref_t   rvalue;                /* variable to copy if any, or */
+    int             immediate;             /* immediate value XXX kludge */
     dres_handler_t *handler;               /* handler */
     int            *arguments;             /* name(arguments...) */
     int             nargument;             /* number of arguments */
@@ -262,10 +280,11 @@ int dres_register_builtins(dres_t *dres);
 int dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
 int dres_scope_push_args(dres_t *dres, char **args);
 
-
+#if 1
+int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
+#else
 int dres_add_assignment(dres_action_t *action, int var, int val);
-
-
+#endif
 
 dres_graph_t *dres_build_graph(dres_t *dres, char *goal);
 void          dres_free_graph (dres_graph_t *graph);

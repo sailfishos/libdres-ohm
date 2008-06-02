@@ -25,6 +25,61 @@
 int
 dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 {
+#if 1
+
+#define FAIL(err) do { status = err; goto fail; } while (0)
+    dres_scope_t  *scope;
+    dres_assign_t *a;
+    dres_var_t    *var;
+    char           name[64], value[64], *namep;
+    int            i, status;
+    
+    
+    if (ALLOC_OBJ(scope) == NULL)
+        FAIL(ENOMEM);
+
+    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL)) == NULL)
+        FAIL(ENOMEM);
+
+    for (i = 0, a = variables; i < nvariable; i++, a++) {
+        
+        if (a->lvalue.selector != NULL || a->lvalue.field != NULL)
+            FAIL(EINVAL);
+        
+        dres_name(dres, a->lvalue.variable, name, sizeof(name));
+
+        switch (a->type) {
+        case DRES_ASSIGN_IMMEDIATE:
+            dres_name(dres, a->val, value, sizeof(value));
+            if ((status = dres_scope_setvar(scope, name + 1, value)) != 0)
+                FAIL(status);
+            break;
+
+        case DRES_ASSIGN_VARIABLE:
+            printf("***** %s@%s:%d: we'd need a dres_get_field_type...\n",
+                   __FUNCTION__, __FILE__, __LINE__);
+            FAIL(EINVAL);
+            break;
+
+        default:
+            FAIL(EINVAL);
+        }
+    }
+    
+    scope->prev = dres->scope;
+    dres->scope = scope;
+
+    return 0;
+
+ fail:
+    if (scope && scope->curr)
+        dres_store_destroy(scope->curr);
+    FREE(scope);
+    
+    return status;
+
+#else
+
 #define FAIL(err) do { status = err; goto fail; } while (0)
     dres_scope_t  *scope;
     dres_assign_t *a;
@@ -57,6 +112,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
     FREE(scope);
     
     return status;
+#endif
 }
 
 
@@ -125,7 +181,7 @@ dres_scope_push_args(dres_t *dres, char **locals)
     for (i = 0; (name = locals[i]) != NULL; i += 2) {
         if ((value = locals[i+1]) == NULL)
             goto fail;
-        if ((status = dres_scope_setvar(dres->scope, name, &value)) != 0)
+        if ((status = dres_scope_setvar(dres->scope, name, value)) != 0)
             goto fail;
     }
 

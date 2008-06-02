@@ -26,6 +26,7 @@ dres_new_action(int argument)
     
     action->lvalue.variable = DRES_ID_NONE;
     action->rvalue.variable = DRES_ID_NONE;
+    action->immediate       = DRES_ID_NONE;
 
     if (argument != DRES_ID_NONE && dres_add_argument(action, argument)) {
         dres_free_actions(action);
@@ -54,6 +55,19 @@ dres_add_argument(dres_action_t *action, int argument)
 /********************
  * dres_add_assignment
  ********************/
+#if 1
+int
+dres_add_assignment(dres_action_t *action, dres_assign_t *assignment)
+{
+    if (!REALLOC_ARR(action->variables, action->nvariable, action->nvariable+1))
+        return ENOMEM;
+    
+    action->variables[action->nvariable] = *assignment;
+    action->nvariable++;
+    
+    return 0;
+}
+#else
 int
 dres_add_assignment(dres_action_t *action, int var, int val)
 {
@@ -65,7 +79,46 @@ dres_add_assignment(dres_action_t *action, int var, int val)
     action->nvariable++;
     
     return 0;
+}
+#endif
 
+
+/********************
+ * dres_dump_assignment
+ ********************/
+char *
+dres_dump_assignment(dres_t *dres, dres_assign_t *a, char *buf, size_t size)
+{
+    char *p;
+    int   len;
+
+    if (dres_dump_varref(dres, buf, size, &a->lvalue) == NULL)
+        return NULL;
+    len   = strlen(buf);
+    p    += len;
+    size -= len;
+    
+    if (size < 4)
+        return NULL;
+    
+    p[0] = ' ';
+    p[1] = '=';
+    p[2] = ' ';
+    p    += 3;
+    size += 3;
+    
+    switch (a->type) {
+    case DRES_ASSIGN_IMMEDIATE:
+        dres_name(dres, a->val, p, size);
+        break;
+
+    case DRES_ASSIGN_VARIABLE:
+        if (dres_dump_varref(dres, p, size, &a->var) == NULL)
+            return NULL;
+        break;
+    }
+
+    return buf;
 }
 
 
@@ -155,8 +208,7 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
         if ((err = handler->handler(dres, handler->name, action, &retval)))
             continue;
     
-        if (retval != NULL)
-            err = assign_result(dres, action, retval);
+        err = assign_result(dres, action, retval);
     }
     
     return err;
@@ -172,31 +224,50 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     dres_action_t *a = action;
     dres_assign_t *v;
     int            i, j;
-    char           lvalbuf[128], *lval, rvalbuf[128], *rval;
+    char           lvalbuf[128], *lval, rvalbuf[128], buf[128], *rval;
     char           arg[64], var[64], val[64], *t;
     char           actbuf[1024], *p;
 
     if (action == NULL)
         return;
     
+
+    /*
+     * XXX TODO rewrite with s/sprintf/snprintf/g ...
+     */
+
     p = actbuf;
 
     lval = dres_dump_varref(dres, lvalbuf, sizeof(lvalbuf), &a->lvalue);
     rval = dres_dump_varref(dres, rvalbuf, sizeof(rvalbuf), &a->rvalue);
     if (lval)
         p += sprintf(p, "%s = ", lval);
-    if (rval)
+
+    if (action->immediate != DRES_ID_NONE) {
+        dres_name(dres, action->immediate, val, sizeof(val));
+        p += sprintf(p, "%s", val);
+    }
+    else if (rval)
         p += sprintf(p, "%s", rval);
     else {
         p += sprintf(p, "  %s(", a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             p += sprintf(p, "%s%s", t,
-                         dres_name(dres, a->arguments[i], arg, sizeof(arg)));
+                         dres_name(dres, a->arguments[i], arg,sizeof(arg)));
+#if 1
+        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
+            if (dres_dump_assignment(dres, v, buf, sizeof(buf)) == NULL)
+                sprintf(buf, "<invalid assignment>");
+            
+            p += sprintf(p, "%s%s", t, buf);
+        }
+#else
         for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
             p += sprintf(p, "%s%s=%s", t,
                          dres_name(dres, v->var_id, var, sizeof(var)),
                          dres_name(dres, v->val_id, val, sizeof(val)));
         }
+#endif
         sprintf(p, ")");
     }
 
@@ -221,9 +292,10 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
     
     dres_variable_t *var;
     dres_vartype_t   type;
-    char             name[128], factname[128], *prefix;
+    char             name[128], factname[128], *prefix, value[128];
     int              nfact, i, err;
     
+
     
     /*
      * XXX TODO
@@ -251,6 +323,15 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
         if ((var = dres_lookup_variable(dres, action->lvalue.variable)) == NULL)
             FAIL(ENOENT);
       
+        if (action->immediate != DRES_ID_NONE) {
+            dres_name(dres, action->immediate, value, sizeof(value));
+            if (!dres_var_set_field(var->var, action->lvalue.field,
+                                    action->lvalue.selector,
+                                    VAR_STRING, &value))
+                FAIL(EINVAL);
+            return 0;
+        }
+
         facts->len = nfact;
         memcpy(&facts->fact[0], result, nfact * sizeof(result[0]));
         type = VAR_FACT_ARRAY;
