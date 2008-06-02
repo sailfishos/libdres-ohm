@@ -822,7 +822,9 @@ static int set_fact_var_field(dres_fstore_var_t *var,
                               const char *name, dres_selector_t *selector,
                               dres_vartype_t type, void *pval)
 {
+    
 
+    return TRUE;
 }
 
 
