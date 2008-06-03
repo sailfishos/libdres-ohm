@@ -117,6 +117,7 @@ dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
     depth--;
     DEBUG("DRES back from goal %s", goal);
 
+    *ret = NULL;
     return status;
 }
 

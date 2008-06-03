@@ -221,6 +221,7 @@ varref:   TOKEN_FACTVAR {
         }
         ;
 
+
 call: TOKEN_IDENT "(" arguments optional_locals ")" {
             $$ = dres_new_action(DRES_ID_NONE);
 	    $$->name = STRDUP($1);
@@ -293,6 +294,15 @@ local:    TOKEN_DRESVAR "=" TOKEN_IDENT {
 	      $$.lvalue.selector = NULL;
 	      $$.lvalue.field    = NULL;
               $$.var             = $3;
+        }
+	| TOKEN_DRESVAR "=" TOKEN_DRESVAR {
+              $$.type            = DRES_ASSIGN_VARIABLE;
+              $$.lvalue.variable = dres_dresvar_id(dres, $1);
+	      $$.lvalue.selector = NULL;
+	      $$.lvalue.field    = NULL;
+              $$.var.variable    = dres_dresvar_id(dres, $3);
+	      $$.var.selector    = NULL;
+	      $$.var.field       = NULL;
         }
         ;
 

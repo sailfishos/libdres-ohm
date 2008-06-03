@@ -58,7 +58,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
     dres_scope_t  *scope;
     dres_assign_t *a;
     dres_var_t    *var;
-    char           name[64], value[64], *namep;
+    char           name[64], value[64], *namep, *valuep;
     int            i, status;
     
     
@@ -89,9 +89,18 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
             break;
 
         case DRES_ASSIGN_VARIABLE:
-            printf("***** %s@%s:%d: we'd need a dres_get_field_type...\n",
-                   __FUNCTION__, __FILE__, __LINE__);
-            FAIL(EINVAL);
+            if (DRES_ID_TYPE(a->var.variable) != DRES_TYPE_DRESVAR)
+                FAIL(EINVAL);
+            
+            dres_name(dres, a->var.variable, value, sizeof(value));
+
+            if ((valuep = dres_scope_getvar(dres->scope, value + 1)) == NULL)
+                valuep = STRDUP("");
+            status = dres_scope_setvar(scope, name + 1, valuep);
+
+            FREE(valuep);
+            if (status != 0)
+                FAIL(status);
             break;
 
         default:
@@ -187,7 +196,7 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
     dres_var_t *var;
     char       *key, *valuep;
 
-    DEBUG("setting local variable %s=%s", name, value);
+    DEBUG("setting local variable %s=%s in scope %p", name, value, scope);
 
     if ((key = STRDUP(name)) == NULL)
         return ENOMEM;
@@ -217,7 +226,7 @@ dres_scope_getvar(dres_scope_t *scope, char *name)
     dres_var_t *var;
     char       *value;
     
-    DEBUG("looking up local variable %s", name);
+    DEBUG("looking up local variable %s in scope %p", name, scope);
 
     if (scope->names == NULL)
         return NULL;
