@@ -5,18 +5,27 @@
 #include <prolog/ohm-fact.h>
 #include <dres/dres.h>
 
-static int dres_builtin_assign(dres_t *dres,
-                               char *name, dres_action_t *action, void **ret);
-static int dres_builtin_dres  (dres_t *dres,
-                               char *name, dres_action_t *action, void **ret);
-static int dres_builtin_resolve(dres_t *dres,
-                                char *name, dres_action_t *action, void **ret);
-static int dres_builtin_shell (dres_t *dres,
-                               char *name, dres_action_t *action, void **ret);
+#define BUILTIN_HANDLER(b) \
+    static int dres_builtin_##b(dres_t *dres, \
+                                char *name, dres_action_t *action, void **ret)
 
-static int dres_builtin_unknown(dres_t *dres,
-                                char *name, dres_action_t *action, void **ret);
+BUILTIN_HANDLER(assign);
+BUILTIN_HANDLER(dres);
+BUILTIN_HANDLER(resolve);
+BUILTIN_HANDLER(echo);
+BUILTIN_HANDLER(shell);
+BUILTIN_HANDLER(unknown);
 
+#define BUILTIN(b) { .name = #b, .handler = dres_builtin_##b }
+
+static dres_handler_t builtins[] = {
+    { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
+    BUILTIN(dres),
+    BUILTIN(resolve),
+    BUILTIN(echo),
+    BUILTIN(shell),
+    { .name = NULL, .handler = NULL }
+};
 
 
 /*****************************************************************************
@@ -29,17 +38,8 @@ static int dres_builtin_unknown(dres_t *dres,
 int
 dres_register_builtins(dres_t *dres)
 {
-#define BUILTIN(n) { .name = #n, .handler = dres_builtin_##n }
-    dres_handler_t builtins[] = {
-        { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
-        BUILTIN(dres),
-        BUILTIN(resolve),
-        BUILTIN(shell),
-        { .name = NULL }
-    }, *h;
-#undef BUILTIN
-
-    int status;
+    dres_handler_t *h;
+    int             status;
 
     for (h = builtins; h->name; h++)
         if ((status = dres_register_handler(dres, h->name, h->handler)) != 0)
@@ -52,14 +52,13 @@ dres_register_builtins(dres_t *dres)
 /********************
  * dres_builtin_assign
  ********************/
-static int
-dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
+BUILTIN_HANDLER(assign)
 {
     OhmFactStore *store = ohm_fact_store_get_fact_store();
     GSList       *list;
     
-    char      *prefix;
-    char      name[64], factname[64];
+    char     *prefix;
+    char      rval[64], factname[64];
     OhmFact **facts;
     int       nfact, i;
     
@@ -72,12 +71,8 @@ dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
     }
     
     prefix = dres_get_prefix(dres);
-#if 1
-    dres_name(dres, action->rvalue.variable, name, sizeof(name));
-#else
-    dres_name(dres, action->lvalue.variable, name, sizeof(name));
-#endif
-    snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
+    dres_name(dres, action->rvalue.variable, rval, sizeof(rval));
+    snprintf(factname, sizeof(factname), "%s%s", prefix, rval + 1);
     
     if ((list = ohm_fact_store_get_facts_by_name(store, factname)) != NULL) {
         nfact = g_slist_length(list);
@@ -96,8 +91,7 @@ dres_builtin_assign(dres_t *dres, char *act, dres_action_t *action, void **ret)
 /********************
  * dres_builtin_dres
  ********************/
-static int
-dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
+BUILTIN_HANDLER(dres)
 {
     char goal[64];
     int  status;
@@ -125,21 +119,89 @@ dres_builtin_dres(dres_t *dres, char *name, dres_action_t *action, void **ret)
 /********************
  * dres_builtin_resolve
  ********************/
-static int
-dres_builtin_resolve(dres_t *dres,
-                     char *name, dres_action_t *action, void **ret)
+BUILTIN_HANDLER(resolve)
 {
     return dres_builtin_dres(dres, name, action, ret);
 }
 
 
+/********************
+ * dres_builtin_echo
+ ********************/
+BUILTIN_HANDLER(echo)
+{
+#define MAX_LENGTH 64
+#define PRINT(s)              \
+    do {                      \
+        int l = strlen(s);    \
+        if (l < (e-p)-1) {    \
+            strcpy(p, s);     \
+            p += l;           \
+        }                     \
+        else if (e-p > 0) {   \
+            l = (e-p) - 1;    \
+            strncpy(p, s, l); \
+            p[l] = '\0';      \
+            p += l;           \
+        }                     \
+    } while(0)
+
+    dres_variable_t *var;
+    char             arg[MAX_LENGTH];
+    char             buf[4096];
+    char            *p, *e, *str;
+    int              i;
+
+    buf[0] = '\0';
+
+    for (i = 0, e = (p = buf) + sizeof(buf); i < action->nargument; i++) {
+        
+        dres_name(dres, action->arguments[i], arg, MAX_LENGTH);
+
+        switch (arg[0]) {
+        case '&':
+            if ((str = dres_scope_getvar(dres->scope, arg+1)) == NULL)
+                PRINT("???");
+            else {
+                PRINT(str);
+                free(str);
+            }
+            break;
+
+        case '$':
+            if (!(var = dres_lookup_variable(dres, action->arguments[i])) ||
+                !dres_var_get_field(var->var, "value", NULL, VAR_STRING, &str))
+                PRINT("???");
+            else {
+                PRINT(str);
+                free(str);
+            }
+            break;
+
+        default:
+            PRINT(arg);
+            break;
+        }
+
+        PRINT(" ");
+    }
+
+    DEBUG("%s", buf);
+
+    if (ret != NULL)
+        *ret = NULL;
+
+    return 0;
+
+#undef PRINT
+#undef MAX_LENGTH
+}
 
 
 /********************
  * dres_builtin_shell
  ********************/
-static int
-dres_builtin_shell(dres_t *dres, char *name, dres_action_t *action, void **ret)
+BUILTIN_HANDLER(shell)
 {
     return dres_builtin_unknown(dres, name, action, ret);
 }
@@ -148,9 +210,7 @@ dres_builtin_shell(dres_t *dres, char *name, dres_action_t *action, void **ret)
 /********************
  * dres_builtin_unknown
  ********************/
-static int
-dres_builtin_unknown(dres_t *dres,
-                     char *name, dres_action_t *action, void **ret)
+BUILTIN_HANDLER(unknown)
 {
     if (action == NULL)
         return 0;
