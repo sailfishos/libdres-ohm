@@ -75,7 +75,8 @@ typedef struct {
 
 
 
-#define DRES_BUILTIN_ASSIGN "__assign"
+#define DRES_BUILTIN_ASSIGN  "__assign"
+#define DRES_BUILTIN_UNKNOWN "__unknown"
 struct dres_action_s {
     char           *name;                  /* name(...) */
     dres_varref_t   lvalue;                /* variable to put the result to */
@@ -130,7 +131,7 @@ typedef struct {
 
 enum {
     DRES_FLAG_UNKNOWN      = 0x0,
-    DRES_ACTIONS_FINALIZED = 0x1,
+    DRES_ACTIONS_FINALIZED = 0x1,           /* actions resolved to handlers */
 };
 
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
@@ -165,6 +166,7 @@ struct dres_s {
 
     dres_handler_t  *handlers;
     int              nhandler;
+    dres_handler_t   fallback;
 
     unsigned long    flags;
 };
@@ -305,6 +307,10 @@ dres_handler_t *dres_lookup_handler(dres_t *dres, char *name);
 
 int dres_register_handler(dres_t *dres, char *name,
                           int (*)(dres_t *, char *, dres_action_t *, void **));
+int dres_fallback_handler(dres_t *dres,
+                          int (*handler)(dres_t *,
+                                         char *, dres_action_t *, void **));
+
 int dres_run_actions(dres_t *dres, dres_target_t *target);
 
 
