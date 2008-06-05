@@ -218,11 +218,15 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
+#if 0
 #define DEBUG(fmt, args...) do {                                        \
         if (depth > 0)                                                  \
             printf("%*.*s ", depth*2, depth*2, "                  ");   \
         printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
     } while (0)
+#else
+#define DEBUG(fmt, args...)
+#endif
 
 
 
