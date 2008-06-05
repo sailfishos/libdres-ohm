@@ -167,12 +167,16 @@ finalize_actions(dres_t *dres)
 {
     dres_target_t  *target;
     dres_action_t  *action;
-    int             i;
+    void           *unknown = dres_lookup_handler(dres, DRES_BUILTIN_UNKNOWN);
+    int             i, status;
     
+    status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
         for (action = target->actions; action; action = action->next)
-            if (!(action->handler = dres_lookup_handler(dres, action->name)))
-                return ENOENT;
+            if (!(action->handler = dres_lookup_handler(dres, action->name))) {
+                action->handler = unknown;
+                status = ENOENT;
+            }
 
     DRES_SET_FLAG(dres, ACTIONS_FINALIZED);
     return 0;
@@ -195,8 +199,9 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
-            return EINVAL;
-
+            if (!dres->fallback.handler == NULL)
+                return EINVAL;
+    
     dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
 
     if ((target = dres_lookup_target(dres, goal)) == NULL)

@@ -24,6 +24,7 @@ static dres_handler_t builtins[] = {
     BUILTIN(resolve),
     BUILTIN(echo),
     BUILTIN(shell),
+    { .name = DRES_BUILTIN_UNKNOWN, .handler = dres_builtin_unknown },
     { .name = NULL, .handler = NULL }
 };
 
@@ -31,6 +32,20 @@ static dres_handler_t builtins[] = {
 /*****************************************************************************
  *                            *** builtin handlers ***                       *
  *****************************************************************************/
+
+/********************
+ * dres_fallback_handler
+ ********************/
+int
+dres_fallback_handler(dres_t *dres,
+                      int (*handler)(dres_t *,
+                                     char *, dres_action_t *, void **))
+{
+    dres->fallback.name    = "fallback";
+    dres->fallback.handler = handler;
+    return 0;
+}
+
 
 /********************
  * dres_register_builtins
@@ -212,15 +227,19 @@ BUILTIN_HANDLER(shell)
  ********************/
 BUILTIN_HANDLER(unknown)
 {
-    if (action == NULL)
-        return 0;
-
-    DEBUG("unknown action %s", name);
+    if (dres->fallback.handler != NULL)
+        return dres->fallback.handler(dres, name, action, ret);
+    else {
+        if (action == NULL)
+            return 0;
     
-    printf("*** unknown action %s", name);
-    dres_dump_action(dres, action);
-
-    return 0;
+        DEBUG("unknown action %s", name);
+    
+        printf("*** unknown action %s", name);
+        dres_dump_action(dres, action);
+        
+        return EINVAL;
+    }
 }
 
 
