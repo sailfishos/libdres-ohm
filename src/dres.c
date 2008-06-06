@@ -199,7 +199,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
-            if (!dres->fallback.handler == NULL)
+            if (dres->fallback.handler == NULL)
                 return EINVAL;
     
     dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
