@@ -183,6 +183,41 @@ finalize_actions(dres_t *dres)
 }
 
 
+/********************
+ * finalize_targets
+ ********************/
+static int
+finalize_targets(dres_t *dres)
+{
+    dres_target_t *target;
+    dres_graph_t  *graph;
+    char           goal[64];
+    int            i;
+
+    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
+        dres_name(dres, target->id, goal, sizeof(goal));
+
+        if ((graph = dres_build_graph(dres, target)) == NULL) {
+            printf("*** failed to build dependency graph for goal %s\n", goal);
+            return EINVAL;
+        }
+
+        target->dependencies = dres_sort_graph(dres, graph);
+        dres_free_graph(graph);
+
+        if (target->dependencies == NULL) {
+            printf("*** failed to sort dependency graph for goal %s\n", goal);
+            return EINVAL;
+        }
+
+        printf("topological sort for goal %s:\n", goal);
+        dres_dump_sort(dres, target->dependencies);
+    }
+
+    DRES_SET_FLAG(dres, TARGETS_FINALIZED);
+    return 0;
+}
+
 
 /********************
  * dres_update_goal
@@ -192,17 +227,18 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
     dres_graph_t  *graph;
     dres_target_t *target;
-    int           *list, id, i, status;
-
-    graph = NULL;
-    list  = NULL;
+    int           *list, id, i, status, updates;
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
             if (dres->fallback.handler == NULL)
-                return EINVAL;
+                return status;
     
-    dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
+    if (!DRES_TST_FLAG(dres, TARGETS_FINALIZED))
+        if ((status = finalize_targets(dres)) != 0)
+            return status;
+    
+    updates = dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
 
     if ((target = dres_lookup_target(dres, goal)) == NULL)
         goto fail;
@@ -220,27 +256,17 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         goto pop_locals;
     }
 
-    if ((graph = dres_build_graph(dres, goal)) == NULL)
-        goto fail;
+    if (!updates)
+        goto pop_locals;
     
-    if ((list = dres_sort_graph(dres, graph)) == NULL)
-        goto fail;
-
-    printf("topological sort for goal %s:\n", goal);
-    dres_dump_sort(dres, list);
-
-    
-    for (i = 0; list[i] != DRES_ID_NONE; i++) {
-        id = list[i];
-
+    for (i = 0; target->dependencies[i] != DRES_ID_NONE; i++) {
+        id = target->dependencies[i];
+        
         if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
             continue;
         
         dres_check_target(dres, id);
     }
-
-    free(list);
-    dres_free_graph(graph);
 
  pop_locals:
     if (locals != NULL)
@@ -249,10 +275,6 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     return 0;
 
  fail:
-    if (list)
-        free(list);
-    dres_free_graph(graph);
-    
     return EINVAL;
 }
 

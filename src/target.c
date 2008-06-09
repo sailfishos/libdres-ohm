@@ -84,6 +84,7 @@ dres_free_targets(dres_t *dres)
         FREE(target->name);
         dres_free_prereq(target->prereqs);
         dres_free_actions(target->actions);
+        FREE(target->dependencies);
     }
 
     FREE(dres->targets);
@@ -140,6 +141,12 @@ dres_dump_targets(dres_t *dres)
             for (a = t->actions; a; a = a->next)
                 dres_dump_action(dres, a);
         }
+
+        /* XXX TODO:
+           if (DRES_TST_FLAG(dres, TARGETS_FINALIZED)) {
+               dump(t->dependencies);
+           }
+        */
     }
 }
 
