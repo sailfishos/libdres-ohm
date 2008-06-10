@@ -1,4 +1,4 @@
-SUBDIRS        = src include test
+SUBDIRS        = src include #test
 
 pkgconfigdir   = ${libdir}/pkgconfig
 pkgconfig_DATA = src/libdres.pc
