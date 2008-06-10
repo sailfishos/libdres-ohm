@@ -254,11 +254,13 @@ value:    TOKEN_IDENT   { $$ = dres_literal_id(dres, $1); }
 	| TOKEN_NUMBER  { $$ = dres_literal_id(dres, $1); }
 	;
 
-optional_locals: /* empty */  { $$.arguments = NULL; $$.nargument = 0; }
+optional_locals: /* empty */  { $$.variables = NULL; $$.nvariable = 0; }
 	| "," locals          { $$ = $2; }
 	;
 
 locals:   local {
+	      $$.variables = NULL;
+	      $$.nvariable = 0;
               dres_add_assignment(&$$, &$1);
         }
         | locals "," local {

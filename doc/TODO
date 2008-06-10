@@ -1,7 +1,7 @@
 + DRES-level variables in addition to keystore variables
   o syntax &foo
 
-- precalculate and store toplogical sort order per target
++ precalculate and store toplogical sort order per target
 
 + DRES-level recursion in actions
   o syntax dres(goal, &var1, &val1, &var2, &val2), it'd be more intuitive
@@ -21,31 +21,7 @@
   o shell("command arguments...", timeout)
   o prolog(predicate, arguments..., retval)
 
+- add an include-directive to the DRES-parser/lexer
 
+- allow $variables as targets
 
-
-
-- allow syntactically more complex/complete expressions, eg.
-      $v1 = prolog("foo", $b + 12, $c / 3, 4)
-      $v2 = prolog("bar", 123, 45.17)
-      $v = $v1 + $v2
-      or directly
-      $v = prolog("foo", $b + 12, $c / 3, 4) + prolog("bar", 123, 45.17)
-
-  o maybe expressions should be very versatile, eg.
-    expr: '(' expr ')'
-         | expr op expr
-         | expr ',' expr
-         | expr ';' expr
-         | '+' expr
-         | '-' expr
-         | lvalue '=' expr
-         | function '(' args ')'
-
-    op:    '+'|'-'|'*'|'/'
-    args: /* empty */
-         | arg
-         | args ',' arg
-    
-    arg: expr
-  

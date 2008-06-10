@@ -201,6 +201,7 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     DEBUG("executing actions for %s", target->name);
 
     err = 0;
+    dres_store_tx_new(dres->fact_store);
     for (action = target->actions; !err && action; action = action->next) {
         dres_dump_action(dres, action);
 
@@ -210,6 +211,10 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     
         err = assign_result(dres, action, retval);
     }
+    if (err)
+        dres_store_tx_rollback(dres->fact_store);
+    else
+        dres_store_tx_commit(dres->fact_store);
     
     return err;
 }

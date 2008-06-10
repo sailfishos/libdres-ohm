@@ -12,7 +12,6 @@
 #include <dres/variables.h>
 
 
-
 /*
  * Storage
  */
@@ -106,6 +105,7 @@ static void               free_selector(dres_selector_t *);
 static int                is_matching(OhmFact *, dres_selector_t *);
 static int                is_selector_field(char *, dres_selector_t *);
 
+static int                is_acyclic(GSList *head);
 
 
 dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
@@ -261,46 +261,81 @@ int dres_store_check(dres_store_t *store, char *name)
     return ohm_fact_store_get_facts_by_name(store->fact.fs, name) != NULL;
 }
 
-
-void dres_store_update_timestamps(dres_store_t *store, int stamp)
+int dres_store_update_timestamps(dres_store_t *store, int stamp)
 {
     dres_fact_store_t     *fstore = &store->fact;
     OhmFactStoreView      *view;
-    OhmFactStoreChangeSet *chset;
     OhmPatternMatch       *pm;
     OhmFact               *fact;
-    GSList                *list;
+    GSList                *list, *changeset;
     const char            *name;
     dres_fstore_var_t     *var;
+    int                    updated = FALSE;
 
     if (!store || store->type != STORE_FACT)
         return;
 
     if ((view = fstore->view) != NULL && fstore->interested) {
-        if ((chset = view->change_set) != NULL) {
-            for (list  = ohm_fact_store_change_set_get_matches(chset);
+        if ((changeset = ohm_view_get_changes(view)) != NULL) {
+            if (!is_acyclic(changeset)) {
+                printf("***** %s@%s:%d CYCLIC changeset %p *****\n",
+                       __FUNCTION__, __FILE__, __LINE__, changeset);
+                abort();
+            }
+            for (list  = changeset;
                  list != NULL;
-                 list  = g_slist_next(list))
-            {
+                 list  = g_slist_next(list)) {
                 if (OHM_PATTERN_IS_MATCH(list->data)) {
                     pm   = OHM_PATTERN_MATCH(list->data);
                     fact = ohm_pattern_match_get_fact(pm);
                     name = ohm_structure_get_name(OHM_STRUCTURE(fact));
                     var  = g_hash_table_lookup(store->fact.htbl, name);
 
-#if 0
-                    printf("***** updating stamp of %s to %d *****\n",
-                           name, stamp);
-#endif
-
-                    if (var != NULL && var->pstamp != NULL)
+                    if (var != NULL && var->pstamp != NULL) {
                         *(var->pstamp) = stamp;
+                        updated = TRUE;
+                    }
                 }
             }
-
-            ohm_fact_store_change_set_reset(chset);
+        reset:
+            ohm_view_reset_changes(view);
         }
     }
+    
+    return updated;
+}
+
+int dres_store_tx_new(dres_store_t *store)
+{
+    if (store->type == STORE_LOCAL) {
+        errno = EINVAL;
+        return FALSE;
+    }
+    
+    ohm_fact_store_transaction_push(store->fact.fs);
+    return TRUE;
+}
+
+int dres_store_tx_commit(dres_store_t *store)
+{
+    if (store->type == STORE_LOCAL) {
+        errno = EINVAL;
+        return FALSE;
+    }
+
+    ohm_fact_store_transaction_pop(store->fact.fs, FALSE);
+    return TRUE;
+}
+
+int dres_store_tx_rollback(dres_store_t *store)
+{
+    if (store->type == STORE_LOCAL) {
+        errno = EINVAL;
+        return FALSE;
+    }
+
+    ohm_fact_store_transaction_pop(store->fact.fs, TRUE);
+    return TRUE;
 }
 
 int dres_var_create(dres_store_t *store, char *name, void *pval)
@@ -585,7 +620,7 @@ int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
 
 void *dres_fact_create(char *name, char *descr)
 {
-    GValue          gval;
+    GValue         *gval;
     OhmFact        *fact;
     char            buf[1024];
     char           *p, *q, *e;
@@ -674,7 +709,7 @@ void *dres_fact_create(char *name, char *descr)
             goto failed;
         }
 
-        ohm_fact_set(fact, field, &gval);
+        ohm_fact_set(fact, field, gval);
     }
 
     return (void *)fact;
@@ -786,14 +821,13 @@ static int set_fact_var(dres_fstore_var_t *var, dres_selector_t *selector,
 static int assign_fact_var(OhmFact **dst, OhmFact **src, int count)
 {
 #define FIELD_DIM 256
-    static GValue noval = {G_TYPE_INVALID, };
-
-    OhmFact *dfact;
-    OhmFact *sfact;
-    GValue  *gval;
-    char    *names[FIELD_DIM];
-    int      nname;
-    int      i, j;
+    OhmFact      *dfact;
+    OhmFact      *sfact;
+    GValue       *sval;
+    GValue       *dval;
+    char         *names[FIELD_DIM];
+    int           nname;
+    int           i, j;
 
     for (i = 0;   i < count;  i++) {
         dfact = dst[i];
@@ -801,17 +835,18 @@ static int assign_fact_var(OhmFact **dst, OhmFact **src, int count)
         nname = get_fields(dfact, names, FIELD_DIM);
         
         for (j = 0;  j < nname;  j++)
-            ohm_fact_set(dfact, names[j], &noval);
+            ohm_fact_del(dfact, names[j]);
 
         nname = get_fields(sfact, names, FIELD_DIM);
 
         for (j = 0;  j < nname;  j++) {
-            if ((gval = ohm_fact_get(sfact, names[j])) == NULL) {
+            if ((sval = ohm_fact_get(sfact, names[j])) == NULL) {
                 errno = EIO;
                 return FALSE;
             }
-
-            ohm_fact_set(dfact, names[j], gval);
+            
+            dval = ohm_copy_value(sval);
+            ohm_fact_set(dfact, names[j], dval);
         }
     }
 
@@ -826,7 +861,7 @@ static int set_fact_var_field(dres_fstore_var_t *var,
 {
     dres_fact_store_t *store;
     GSList            *list;
-    GValue             gval;
+    GValue            *gval;
     int                llen;
     OhmFact           *fact;
     int                i, j;
@@ -848,16 +883,26 @@ static int set_fact_var_field(dres_fstore_var_t *var,
     }
     else {
         switch (VAR_BASE_TYPE(type)) {
-        case VAR_INT:      gval = ohm_value_from_int(*(int *)pval);     break;
-        case VAR_STRING:   gval = ohm_value_from_string((char *)pval);  break;
-        default:           errno = ENOSYS; return FALSE;
+        case VAR_INT:   
+        case VAR_STRING:                 break;
+        default:         errno = ENOSYS; return FALSE;
         }
         
         for (i = 0;    list != NULL;   i++, list = g_slist_next(list)) {
             fact = (OhmFact *)list->data;
 
             if (!selector || is_matching(fact, selector)) {
-                ohm_fact_set(fact, name, &gval);
+                switch (VAR_BASE_TYPE(type)) {
+                case VAR_INT:
+                    gval = ohm_value_from_int(*(int *)pval);
+                    break;
+                case VAR_STRING:
+                    gval = ohm_value_from_string((char *)pval);
+                    break;
+                default:
+                    continue;
+                }
+                ohm_fact_set(fact, name, gval);
             }
         }
     }
@@ -872,9 +917,8 @@ static int set_local_var_field(dres_local_var_t *var, const char *name,
 {
     static int   empty_int = 0;
     static char *empty_str = "";
-
-    GValue gval;
-
+    GValue      *gval;
+    
     switch (type) {
 
     case VAR_INT:
@@ -892,7 +936,7 @@ static int set_local_var_field(dres_local_var_t *var, const char *name,
     }
 
     var->type = type;
-    ohm_fact_set(var->fact, name, &gval);
+    ohm_fact_set(var->fact, name, gval);
 
     return TRUE;
 }
@@ -1266,6 +1310,22 @@ static int is_selector_field(char *name, dres_selector_t *selector)
 
     return FALSE;
 }
+
+
+static int is_acyclic(GSList *head)
+{
+    GSList *lh, *li;
+
+    
+    /* O(n^2), nice... */
+    for (lh = head; lh != NULL; lh = g_slist_next(lh))
+        for (li = g_slist_next(lh); li != NULL; li = g_slist_next(li))
+            if (li == lh)
+                return FALSE;
+
+    return TRUE;
+}
+
 
 
 #if TEST

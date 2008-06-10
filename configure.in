@@ -49,9 +49,7 @@ AC_SUBST(GLIB_LIBS)
 
 # Checks for libprolog, librelation, libfact, libfactmap.
 PKG_CHECK_MODULES(LIBPROLOG, libprolog >= 0.0.0)
-PKG_CHECK_MODULES(LIBRELATION, librelation >= 0.0.0)
 PKG_CHECK_MODULES(LIBFACT, libfact >= 0.0.0)
-PKG_CHECK_MODULES(LIBFACTMAP, libfactmap >= 0.0.0)
 
 # SWI-prolog support
 

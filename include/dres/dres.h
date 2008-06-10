@@ -120,6 +120,7 @@ typedef struct {
     dres_prereq_t *prereqs;                 /* prerequisites */
     dres_action_t *actions;                 /* associated actions */
     int            stamp;                   /* last update stamp */
+    int           *dependencies;            /* sorted depedencies */
 } dres_target_t;
 
 typedef struct {
@@ -130,8 +131,9 @@ typedef struct {
 } dres_graph_t;
 
 enum {
-    DRES_FLAG_UNKNOWN      = 0x0,
-    DRES_ACTIONS_FINALIZED = 0x1,           /* actions resolved to handlers */
+    DRES_FLAG_UNKNOWN       = 0x0,
+    DRES_ACTIONS_FINALIZED  = 0x1,          /* actions resolved to handlers */
+    DRES_TARGETS_FINALIZED  = 0x2,          /* sorted dependency graph */
 };
 
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
@@ -296,7 +298,7 @@ int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
 int dres_add_assignment(dres_action_t *action, int var, int val);
 #endif
 
-dres_graph_t *dres_build_graph(dres_t *dres, char *goal);
+dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);
 void          dres_free_graph (dres_graph_t *graph);
 
 char *dres_name(dres_t *, int id, char *buf, size_t bufsize);

@@ -23,16 +23,12 @@ static int graph_add_leafs(dres_t *dres, dres_graph_t *graph);
  * dres_build_graph
  ********************/
 dres_graph_t *
-dres_build_graph(dres_t *dres, char *goal)
+dres_build_graph(dres_t *dres, dres_target_t *target)
 {
-    dres_graph_t  *graph;
-    dres_target_t *target;
-    int            prid, i, n;
+    dres_graph_t *graph;
+    int           prid, i, n;
 
     graph = NULL;
-
-    if ((target = dres_lookup_target(dres, goal)) == NULL)
-        goto fail;
 
     if (!DRES_IS_DEFINED(target->id))
         goto fail;

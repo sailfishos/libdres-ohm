@@ -228,9 +228,9 @@ dres_scope_getvar(dres_scope_t *scope, char *name)
     
     DEBUG("looking up local variable %s in scope %p", name, scope);
 
-    if (scope->names == NULL)
+    if (scope == NULL || scope->names == NULL)
         return NULL;
-
+    
     if ((var = (dres_var_t *)g_hash_table_lookup(scope->names, name)) == NULL)
         return NULL;
 

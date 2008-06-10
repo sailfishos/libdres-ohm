@@ -39,7 +39,10 @@ typedef struct {
 dres_store_t *dres_store_init(dres_storetype_t, char *);
 void          dres_store_destroy(dres_store_t *);
 void          dres_store_finish(dres_store_t *);
-void          dres_store_update_timestamps(dres_store_t *, int);
+int           dres_store_update_timestamps(dres_store_t *, int);
+int           dres_store_tx_new(dres_store_t *store);
+int           dres_store_tx_commit(dres_store_t *store);
+int           dres_store_tx_rollback(dres_store_t *store);
 int           dres_store_set_prefix(dres_store_t *store, char *prefix);
 char         *dres_store_get_prefix(dres_store_t *store);
 
