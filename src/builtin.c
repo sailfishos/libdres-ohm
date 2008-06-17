@@ -4,6 +4,7 @@
 
 #include <prolog/ohm-fact.h>
 #include <dres/dres.h>
+#include "dres-debug.h"
 
 #define BUILTIN_HANDLER(b) \
     static int dres_builtin_##b(dres_t *dres, \
@@ -118,13 +119,13 @@ BUILTIN_HANDLER(dres)
     
     dres_name(dres, action->arguments[0], goal, sizeof(goal));
     
-    DEBUG("DRES recursing for goal %s", goal);
+    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
     depth++;
     dres_scope_push(dres, action->variables, action->nvariable);
     status = dres_update_goal(dres, goal, NULL);
     dres_scope_pop(dres);
     depth--;
-    DEBUG("DRES back from goal %s", goal);
+    DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 
     *ret = NULL;
     return status;
@@ -201,7 +202,7 @@ BUILTIN_HANDLER(echo)
         PRINT(" ");
     }
 
-    DEBUG("%s", buf);
+    printf("%s", buf);
 
     if (ret != NULL)
         *ret = NULL;
@@ -233,7 +234,7 @@ BUILTIN_HANDLER(unknown)
         if (action == NULL)
             return 0;
     
-        DEBUG("unknown action %s", name);
+        DEBUG(DBG_RESOLVE, "unknown action %s", name);
     
         printf("*** unknown action %s", name);
         dres_dump_action(dres, action);

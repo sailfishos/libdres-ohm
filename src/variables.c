@@ -6,10 +6,12 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include "prolog/ohm-fact.h"
+#include <prolog/ohm-fact.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
 #include <dres/variables.h>
+#include "dres-debug.h"
 
 
 /*
@@ -305,7 +307,7 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
     return updated;
 }
 
-int dres_store_tx_new(dres_store_t *store)
+EXPORTED int dres_store_tx_new(dres_store_t *store)
 {
     if (store->type == STORE_LOCAL) {
         errno = EINVAL;
@@ -316,7 +318,7 @@ int dres_store_tx_new(dres_store_t *store)
     return TRUE;
 }
 
-int dres_store_tx_commit(dres_store_t *store)
+EXPORTED int dres_store_tx_commit(dres_store_t *store)
 {
     if (store->type == STORE_LOCAL) {
         errno = EINVAL;
@@ -327,7 +329,7 @@ int dres_store_tx_commit(dres_store_t *store)
     return TRUE;
 }
 
-int dres_store_tx_rollback(dres_store_t *store)
+EXPORTED int dres_store_tx_rollback(dres_store_t *store)
 {
     if (store->type == STORE_LOCAL) {
         errno = EINVAL;
@@ -356,7 +358,7 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
     
     if (strchr(name, '.') == NULL) {
         snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
-        DEBUG("adding %s as %s", name, buf);
+        DEBUG(DBG_VAR, "adding %s as %s", name, buf);
         name = /*strdup(buf)*/buf;
     }
     
@@ -391,7 +393,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
 
     if (strchr(name, '.') == NULL) {
         snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
-        DEBUG("adding %s as %s", name, buf);
+        DEBUG(DBG_VAR, "adding %s as %s", name, buf);
         name = strdup(buf);
     }
 
@@ -547,8 +549,8 @@ int dres_var_set_field(dres_var_t *var, const char *name, char *selector,
     return retval;
 }
 
-int dres_var_get_field(dres_var_t *var, const char *name, char *selector,
-                       dres_vartype_t type, void *pval)
+EXPORTED int dres_var_get_field(dres_var_t *var, const char *name,
+                                char *selector, dres_vartype_t type, void *pval)
 {
     dres_store_t    *store;
     dres_selector_t *select;
@@ -580,7 +582,7 @@ int dres_var_get_field(dres_var_t *var, const char *name, char *selector,
     return retval;
 }
 
-int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
+EXPORTED int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
 {
     dres_fact_store_t *store;
     GSList            *facts;
@@ -618,7 +620,7 @@ int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
 }
 
 
-void *dres_fact_create(char *name, char *descr)
+EXPORTED void *dres_fact_create(char *name, char *descr)
 {
     GValue         *gval;
     OhmFact        *fact;
@@ -639,7 +641,7 @@ void *dres_fact_create(char *name, char *descr)
     }
 
     if ((fact = ohm_fact_new(name)) == NULL) {
-        DEBUG("ohm_fact_new() failed");
+        DEBUG(DBG_VAR, "ohm_fact_new() failed");
         errno = EIO;
         return NULL;
     }
@@ -664,7 +666,8 @@ void *dres_fact_create(char *name, char *descr)
             value = p;
         }
         else {
-            DEBUG("Invalid fact descriptor: missing ':' in '%s'", descr);
+            DEBUG(DBG_VAR, "invalid fact descriptor: missing ':' in '%s'",
+                  descr);
             errno = EINVAL;
             goto failed;
         }
@@ -685,7 +688,8 @@ void *dres_fact_create(char *name, char *descr)
         }
 
         if (has_typedef && *(q = value + strlen(value) - 1) != ')') {
-            DEBUG("Invalid fact descriptor: missing ')' in '%s'", descr);
+            DEBUG(DBG_VAR, "invalid fact descriptor: missing ')' in '%s'",
+                  descr);
             errno = EINVAL;
             goto failed;
         }
@@ -699,7 +703,8 @@ void *dres_fact_create(char *name, char *descr)
             ival = strtol(value, &e, 10);
             gval = ohm_value_from_int(ival); 
             if (*e != '\0') {
-                DEBUG("Invalid fact descriptor: invalid integer '%s'", value);
+                DEBUG(DBG_VAR, "invalid fact descriptor: invalid integer '%s'",
+                      value);
                 errno = EINVAL;
                 goto failed;
             }
@@ -719,7 +724,7 @@ void *dres_fact_create(char *name, char *descr)
     return NULL;
 }
 
-void dres_fact_destroy(void *vfact)
+EXPORTED void dres_fact_destroy(void *vfact)
 {
     OhmFact *fact = (OhmFact *)vfact;
 
@@ -1215,7 +1220,7 @@ static dres_selector_t *parse_selector(char *descr)
 
     for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
         if ((p = strchr(name, ':')) == NULL)
-            DEBUG("Invalid selctor: '%s'", descr);
+            DEBUG(DBG_VAR, "invalid selctor: '%s'", descr);
         else {
             *p++ = '\0';
             value = p;

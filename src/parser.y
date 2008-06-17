@@ -6,7 +6,7 @@
 #include <dres/dres.h>
 
 #if !defined(DEBUG)
-#  if defined(__TEST_PARSER__) || 1
+#  if defined(__TEST_PARSER__) || 0
 #    define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
 #  else
 #    define DEBUG(fmt, args...)

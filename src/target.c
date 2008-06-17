@@ -3,6 +3,8 @@
 #include <string.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
+#include "dres-debug.h"
 
 
 /*****************************************************************************
@@ -96,7 +98,7 @@ dres_free_targets(dres_t *dres)
 /********************
  * dres_dump_targets
  ********************/
-void
+EXPORTED void
 dres_dump_targets(dres_t *dres)
 {
     int            i, j, id, idx;
@@ -162,7 +164,8 @@ dres_check_target(dres_t *dres, int tid)
     int            i, id, update;
     char           buf[32];
 
-    DEBUG("checking target %s", dres_name(dres, tid, buf, sizeof(buf)));
+    DEBUG(DBG_RESOLVE, "checking target %s",
+          dres_name(dres, tid, buf, sizeof(buf)));
 
     target = dres->targets + DRES_INDEX(tid);
     
@@ -175,28 +178,31 @@ dres_check_target(dres_t *dres, int tid)
             switch (DRES_ID_TYPE(id)) {
             case DRES_TYPE_FACTVAR:
                 if (dres_check_factvar(dres, id, target->stamp)) {
-                    DEBUG("=> newer, %s needs to be updated", target->name);
+                    DEBUG(DBG_RESOLVE, "=> newer, %s needs to be updated",
+                          target->name);
                     update = TRUE;
                 }
                 break;
             case DRES_TYPE_DRESVAR:
                 if (dres_check_dresvar(dres, id, target->stamp)) {
-                    DEBUG("=> newer, %s needs to be updated", target->name);
+                    DEBUG(DBG_RESOLVE, "=> newer, %s needs to be updated",
+                          target->name);
                     update = TRUE;
                 }
                 break;
             case DRES_TYPE_TARGET:
                 t = dres->targets + DRES_INDEX(id);
-                DEBUG("%s: %d > %s: %d ?",
+                DEBUG(DBG_RESOLVE, "%s: %d > %s: %d ?",
                       target->name, target->stamp, t->name, t->stamp);
                 if (t->stamp > target->stamp) {
-                    DEBUG("=> %s newer, %s needs to be updated", t->name,
-                          target->name);
+                    DEBUG(DBG_RESOLVE, "=> %s newer, %s needs to be updated",
+                          t->name, target->name);
                     update = TRUE;
                 }
                 break;
             default:
-                DEBUG("### BUG: invalid prereq 0x%x for %s", id, target->name);
+                printf("*** BUG: invalid prereq 0x%x for %s ***\n",
+                       id, target->name);
                 break;
             }
         }

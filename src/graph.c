@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
-
+#include "dres-debug.h"
 
 static int graph_build_prereq(dres_t *dres, dres_graph_t *graph,
                               dres_target_t *target, int prereq);
@@ -109,8 +109,8 @@ graph_build_prereq(dres_t *dres,
     if (graph_has_prereq(graph, target->id, prereq))
         return 0;
 
-    DEBUG("0x%x (%s) -> %s", prereq, dres_name(dres, prereq, name,sizeof(name)),
-          target->name);
+    DEBUG(DBG_GRAPH, "0x%x (%s) -> %s",
+          prereq, dres_name(dres, prereq, name,sizeof(name)), target->name);
     
     /* add edge prereq -> target */
     if ((status = graph_add_prereq(dres, graph, target->id, prereq)) != 0)
@@ -213,7 +213,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
                 target = graph->depends + DRES_INDEX(id);
                 if (target->nid < 0) {
                     target->nid = 0;            /* unmark as not present */
-                    DEBUG("leaf target %s (0x%x) pulled in",
+                    DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
                 }
             }
@@ -230,7 +230,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
                 target = graph->depends + DRES_INDEX(id);
                 if (target->nid < 0) {
                     target->nid = 0;              /* unmark as not present */
-                    DEBUG("leaf target %s (0x%x) pulled in",
+                    DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
                 }
             }
@@ -246,7 +246,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
                 target = graph->depends + DRES_INDEX(id);
                 if (target->nid < 0) {
                     target->nid = 0;              /* unmark as not present */
-                    DEBUG("leaf target %s (0x%x) pulled in",
+                    DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
                 }
             }
@@ -315,7 +315,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         int __t = t##q;                                       \
         int __size = n;                                       \
                                                               \
-        DEBUG("PUSH(%s, %s), as item #%d...", #q,             \
+        DEBUG(DBG_GRAPH, "PUSH(%s, %s), as item #%d...", #q,  \
               dres_name(dres, item, buf, sizeof(buf)),  __t); \
         q[__t++]  =   item;                                   \
         __t      %= __size;                                   \
@@ -333,7 +333,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
                 __item = q[__h++];                                 \
                 __h %= __size;                                     \
             }                                                      \
-            DEBUG("POP(%s): %s, head is #%d...", #q,               \
+            DEBUG(DBG_GRAPH, "POP(%s): %s, head is #%d...", #q,    \
                   dres_name(dres, __item, buf, sizeof(buf)), __h); \
             h##q = __h;                                            \
             __item;                                                \
@@ -387,7 +387,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         PUSH(Q, dres->dresvars[i].id); /* variables don't depend on anything */
         
         for (j = 0; j < prq->nid; j++) {
-            DEBUG("edge %s -> %s",
+            DEBUG(DBG_GRAPH, "edge %s -> %s",
                   dres_name(dres, DRES_DRESVAR(i), buf, sizeof(buf)),
                   dres_name(dres, prq->ids[j], buf1, sizeof(buf1)));
             
@@ -406,7 +406,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         PUSH(Q, dres->factvars[i].id); /* variables don't depend on anything */
         
         for (j = 0; j < prq->nid; j++) {
-            DEBUG("edge %s -> %s",
+            DEBUG(DBG_GRAPH, "edge %s -> %s",
                   dres_name(dres, DRES_FACTVAR(i), buf, sizeof(buf)),
                   dres_name(dres, prq->ids[j], buf1, sizeof(buf1)));
             
@@ -426,7 +426,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         if (prq->nid == -1)                     /* not in the graph at all */
             continue;
         
-        DEBUG("checking target #%d (%s)...", i,
+        DEBUG(DBG_GRAPH, "checking target #%d (%s)...", i,
               dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)));
 
 #if 0 /* hmm... t->prereqs == NULL also indicates no incoming edges */
@@ -437,7 +437,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
             PUSH(Q, t->id);
 #endif
         for (j = 0; j < prq->nid; j++) {
-            DEBUG("edge %s -> %s",
+            DEBUG(DBG_GRAPH, "edge %s -> %s",
                   dres_name(dres, DRES_TARGET(i), buf, sizeof(buf)),
                   dres_name(dres, prq->ids[j], buf1, sizeof(buf1)));
                    
@@ -450,17 +450,17 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
 
     
     for (i = 0; i < dres->ntarget; i++)
-        DEBUG("E[%s] = %d",
+        DEBUG(DBG_GRAPH, "E[%s] = %d",
               dres_name(dres, dres->targets[i].id, buf, sizeof(buf)),
               *NEDGE(dres->targets[i].id));
     
     for (i = 0; i < dres->nfactvar; i++)
-        DEBUG("E[%s] = %d",
+        DEBUG(DBG_GRAPH, "E[%s] = %d",
               dres_name(dres, dres->factvars[i].id, buf, sizeof(buf)),
               *NEDGE(dres->factvars[i].id));
 
     for (i = 0; i < dres->ndresvar; i++)
-        DEBUG("E[%s] = %d",
+        DEBUG(DBG_GRAPH, "E[%s] = %d",
               dres_name(dres, dres->dresvars[i].id, buf, sizeof(buf)),
               *NEDGE(dres->dresvars[i].id));
     
@@ -472,7 +472,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         prq = graph->depends + PRQ_IDX(node);
         for (i = 0; i < prq->nid; i++) {
             if (!DRES_IS_DELETED(prq->ids[i])) {
-                DEBUG("  DELETE edge %s -> %s",
+                DEBUG(DBG_GRAPH, "  DELETE edge %s -> %s",
                       dres_name(dres, node, buf, sizeof(buf)),
                       dres_name(dres, prq->ids[i], buf1, sizeof(buf1)));
                 prq->ids[i] = DRES_DELETED(prq->ids[i]);
@@ -483,12 +483,12 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
                 else
                     *NEDGE(prq->ids[i]) -= 1;
                 
-                DEBUG("  # of edges to %s: %d",
+                DEBUG(DBG_GRAPH, "  # of edges to %s: %d",
                       dres_name(dres, prq->ids[i], buf, sizeof(buf)),
                       *NEDGE(prq->ids[i]));
             }
             else {
-                DEBUG("  edge %s -> %s already deleted",
+                DEBUG(DBG_GRAPH, "  edge %s -> %s already deleted",
                       dres_name(dres, node, buf, sizeof(buf)),
                       dres_name(dres, prq->ids[i], buf1, sizeof(buf1)));
             }
@@ -499,8 +499,8 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
     /* check that we exhausted all edges */
     for (i = 0; i < n; i++) {
         if (E[i] != 0) {
-            DEBUG("error: graph has cycles");
-            DEBUG("still has %d edges for %s #%d", E[i],
+            DEBUG(DBG_GRAPH, "error: graph has cycles");
+            DEBUG(DBG_GRAPH, "still has %d edges for %s #%d", E[i],
                   i < graph->ntarget ? "target" :
                   (i < graph->ntarget + graph->nfactvar ?
                    "FACT variable" : "DRES varariable"),

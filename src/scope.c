@@ -6,7 +6,9 @@
 #include <glib.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
 
+#include "dres-debug.h"
 
 /********************
  * free_name
@@ -49,7 +51,7 @@ free_var(gpointer ptr)
 /********************
  * dres_scope_push
  ********************/
-int
+EXPORTED int
 dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 {
 #if 1
@@ -161,7 +163,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 /********************
  * dres_scope_pop
  ********************/
-int
+EXPORTED int
 dres_scope_pop(dres_t *dres)
 {
     dres_scope_t *prev;
@@ -190,13 +192,14 @@ dres_scope_pop(dres_t *dres)
 /********************
  * dres_scope_setvar
  ********************/
-int
+EXPORTED int
 dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
 {
     dres_var_t *var;
     char       *key, *valuep;
 
-    DEBUG("setting local variable %s=%s in scope %p", name, value, scope);
+    DEBUG(DBG_VAR, "setting local variable %s=%s in scope %p",
+          name, value, scope);
 
     if ((key = STRDUP(name)) == NULL)
         return ENOMEM;
@@ -220,13 +223,13 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
 /********************
  * dres_scope_getvar
  ********************/
-char *
+EXPORTED char *
 dres_scope_getvar(dres_scope_t *scope, char *name)
 {
     dres_var_t *var;
     char       *value;
     
-    DEBUG("looking up local variable %s in scope %p", name, scope);
+    DEBUG(DBG_VAR, "looking up local variable %s in scope %p", name, scope);
 
     if (scope == NULL || scope->names == NULL)
         return NULL;

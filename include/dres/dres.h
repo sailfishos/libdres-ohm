@@ -176,7 +176,6 @@ struct dres_s {
 
 extern int depth;
 
-
 #ifndef TRUE
 #    define FALSE 0
 #    define TRUE  1
@@ -222,12 +221,13 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
+#if 0
 #define DEBUG(fmt, args...) do {                                        \
         if (depth > 0)                                                  \
             printf("%*.*s ", depth*2, depth*2, "                  ");   \
         printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
     } while (0)
-
+#endif
 
 
 /* dres.c */
@@ -238,8 +238,6 @@ int     dres_set_prefix(dres_t *dres, char *prefix);
 char *  dres_get_prefix(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
-
-
 
 
 /* target.c */

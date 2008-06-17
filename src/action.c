@@ -4,7 +4,8 @@
 #include <errno.h>
 
 #include <dres/dres.h>
-
+#include <dres/compiler.h>
+#include "dres-debug.h"
 
 static int assign_result(dres_t *dres, dres_action_t *action, void **facts);
 
@@ -151,7 +152,7 @@ dres_free_actions(dres_action_t *actions)
 /********************
  * dres_register_handler
  ********************/
-int
+EXPORTED int
 dres_register_handler(dres_t *dres, char *name,
                       int (*handler)(dres_t *,
                                      char *, dres_action_t *, void **))
@@ -173,7 +174,7 @@ dres_register_handler(dres_t *dres, char *name,
 /********************
  * dres_lookup_handler
  ********************/
-dres_handler_t *
+EXPORTED dres_handler_t *
 dres_lookup_handler(dres_t *dres, char *name)
 {
     dres_handler_t *h;
@@ -198,7 +199,7 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     void           *retval;
     int             err;
 
-    DEBUG("executing actions for %s", target->name);
+    DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
 
     err = 0;
     dres_store_tx_new(dres->fact_store);
@@ -276,7 +277,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         sprintf(p, ")");
     }
 
-    DEBUG("action %s", actbuf);
+    printf("action %s\n", actbuf);
 }
 
 
@@ -322,7 +323,7 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
         
 #if 0
         if (action->lvalue.field != NULL) {
-            DEBUG("uh-oh... should set lvalue.field...");
+            DEBUG(DBG_RESOLVE, "uh-oh... should set lvalue.field...");
             FAIL(EINVAL);
         }
 #endif
