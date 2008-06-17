@@ -1,4 +1,4 @@
-AC_DEFUN([AC_CHECK_CC_VISIBILITY],
+AC_DEFUN([AC_CHECK_CCOPT_VISIBILITY],
     [AC_CACHE_CHECK([whether ${CC-cc} supports -fvisibility=hidden],
          [ac_cv_cc_visibility],
          [echo 'void f(){}' > conftest.c
