@@ -134,6 +134,7 @@ enum {
     DRES_FLAG_UNKNOWN       = 0x0,
     DRES_ACTIONS_FINALIZED  = 0x1,          /* actions resolved to handlers */
     DRES_TARGETS_FINALIZED  = 0x2,          /* sorted dependency graph */
+    DRES_TRANSACTION_ACTIVE = 0x4,          /* has an active transaction */
 };
 
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
@@ -234,6 +235,7 @@ extern int depth;
 dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
+int     dres_finalize(dres_t *dres);
 int     dres_set_prefix(dres_t *dres, char *prefix);
 char *  dres_get_prefix(dres_t *dres);
 

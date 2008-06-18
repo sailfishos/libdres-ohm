@@ -59,6 +59,9 @@ dres_build_graph(dres_t *dres, dres_target_t *target)
     /*
      * make sure targets that have only prerequisites but are not
      * prerequisites themselves (eg. our goal) are also part of the graph
+     *
+     * XXX Is this really needed ? I think it'd be enough to add just our
+     * XXX goal...
      */
     
     if (graph_add_leafs(dres, graph) != 0)
@@ -511,9 +514,12 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         }
     }
     
-
-    if (status == 0)
+    
+    if (status == 0) {
+        free(Q);
+        free(E);
         return L;
+    }
     
     
  fail:

@@ -161,7 +161,7 @@ dres_check_target(dres_t *dres, int tid)
 {
     dres_target_t *target, *t;
     dres_prereq_t *prq;
-    int            i, id, update;
+    int            i, id, update, status;
     char           buf[32];
 
     DEBUG(DBG_RESOLVE, "checking target %s",
@@ -207,13 +207,15 @@ dres_check_target(dres_t *dres, int tid)
             }
         }
     }
-        
+    
+    status = 0;
+
     if (update) {
-        dres_run_actions(dres, target);
-        target->stamp = dres->stamp;
+        if ((status = dres_run_actions(dres, target)) == 0)
+            target->stamp = dres->stamp;
     }
     
-    return update;
+    return status;
 }
 
 

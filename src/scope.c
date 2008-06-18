@@ -260,9 +260,8 @@ dres_scope_push_args(dres_t *dres, char **locals)
         return status;
 
     for (i = 0; (name = locals[i]) != NULL; i += 2) {
-        if ((value = locals[i+1]) == NULL)
-            goto fail;
-        if ((status = dres_scope_setvar(dres->scope, name, value)) != 0)
+        if ((value  = locals[i+1]) == NULL ||
+            (status = dres_scope_setvar(dres->scope, name, value)) != 0)
             goto fail;
     }
 

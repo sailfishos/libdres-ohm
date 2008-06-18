@@ -309,34 +309,37 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
 
 EXPORTED int dres_store_tx_new(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
-    
+
     ohm_fact_store_transaction_push(store->fact.fs);
+    DEBUG(DBG_VAR, "created new transaction");
     return TRUE;
 }
 
 EXPORTED int dres_store_tx_commit(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
 
     ohm_fact_store_transaction_pop(store->fact.fs, FALSE);
+    DEBUG(DBG_VAR, "committed transaction");
     return TRUE;
 }
 
 EXPORTED int dres_store_tx_rollback(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
 
     ohm_fact_store_transaction_pop(store->fact.fs, TRUE);
+    DEBUG(DBG_VAR, "rolled back transaction");
     return TRUE;
 }
 

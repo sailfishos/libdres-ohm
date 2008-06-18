@@ -202,20 +202,24 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
 
     err = 0;
+#if NESTED_TRANSACTIONS_DONT_WORK
     dres_store_tx_new(dres->fact_store);
-    for (action = target->actions; !err && action; action = action->next) {
-        dres_dump_action(dres, action);
+#endif
 
+    for (action = target->actions; !err && action; action = action->next) {
         handler = action->handler;
         if ((err = handler->handler(dres, handler->name, action, &retval)))
             continue;
     
         err = assign_result(dres, action, retval);
     }
+
+#if NESTED_TRANSACTIONS_DONT_WORK
     if (err)
         dres_store_tx_rollback(dres->fact_store);
     else
         dres_store_tx_commit(dres->fact_store);
+#endif
     
     return err;
 }
@@ -256,7 +260,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     else if (rval)
         p += sprintf(p, "%s", rval);
     else {
-        p += sprintf(p, "  %s(", a->name);
+        p += sprintf(p, "%s(", a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             p += sprintf(p, "%s%s", t,
                          dres_name(dres, a->arguments[i], arg,sizeof(arg)));
@@ -277,7 +281,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         sprintf(p, ")");
     }
 
-    printf("action %s\n", actbuf);
+    printf("  %s\n", actbuf);
 }
 
 

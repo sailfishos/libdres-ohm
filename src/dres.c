@@ -229,6 +229,21 @@ finalize_targets(dres_t *dres)
 
 
 /********************
+ * dres_finalize
+ ********************/
+EXPORTED int
+dres_finalize(dres_t *dres)
+{
+    int status;
+    
+    if ((status = finalize_actions(dres)) || (status = finalize_targets(dres)))
+        return status;
+    else
+        return 0;
+}
+
+
+/********************
  * dres_update_goal
  ********************/
 EXPORTED int
@@ -236,7 +251,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
     dres_graph_t  *graph;
     dres_target_t *target;
-    int           *list, id, i, status, updates;
+    int           *list, id, i, status, own_tx;
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
@@ -247,44 +262,72 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         if ((status = finalize_targets(dres)) != 0)
             return status;
     
-    updates = dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
-
     if ((target = dres_lookup_target(dres, goal)) == NULL)
-        goto fail;
+        return EINVAL;
     
     if (!DRES_IS_DEFINED(target->id))
-        goto fail;
+        return EINVAL;
 
-    if (locals != NULL && dres_scope_push_args(dres, locals) != 0)
-        goto fail;
+    dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
+    
+    if (!DRES_TST_FLAG(dres, TRANSACTION_ACTIVE)) {
+        if (!dres_store_tx_new(dres->fact_store))
+            return EINVAL;
+        own_tx = 1;
+    }
+
+    if (locals != NULL && (status = dres_scope_push_args(dres, locals)) != 0)
+        goto rollback;
     
     if (target->prereqs == NULL) {
-        DEBUG(DBG_RESOLVE, "%s has no prereqi => updating", target->name);
-        dres_run_actions(dres, target);
+        DEBUG(DBG_RESOLVE, "%s has no prereqs => updating", target->name);
+        status = dres_run_actions(dres, target);
         target->stamp = dres->stamp;
-        goto pop_locals;
     }
-
-    if (!updates)
-        goto pop_locals;
+    else {
+        for (i = 0; target->dependencies[i] != DRES_ID_NONE; i++) {
+            id = target->dependencies[i];
+        
+            if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
+                continue;
+        
+            dres_check_target(dres, id);
+        }
+    }
     
-    for (i = 0; target->dependencies[i] != DRES_ID_NONE; i++) {
-        id = target->dependencies[i];
-        
-        if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
-            continue;
-        
-        dres_check_target(dres, id);
-    }
-
- pop_locals:
     if (locals != NULL)
         dres_scope_pop(dres);
     
-    return 0;
+    /*
+     * XXX TODO
+     * Notes:
+     *   IMHO the timestamp updating semantics are now broken wrt.
+     *   transactions.
+     *
+     *   We update the timestamp of the top-level target here but might
+     *   later roll back the transaction without undoing the timestamp
+     *   update. This can break targets that recursively invoke dres as
+     *   one of their actions. Unfortunately, in general, the same is
+     *   true for all targets (not only the top-level ones) that get
+     *   checked by dres_check_target because of its similar logic.
+     */
 
- fail:
-    return EINVAL;
+    if (status == 0) {
+        target->stamp = dres->stamp;
+        if (own_tx) {
+            dres_store_tx_commit(dres->fact_store);
+            DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
+        }
+    }
+    else {
+    rollback:
+        if (own_tx) {
+            dres_store_tx_rollback(dres->fact_store);
+            DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
+        }
+    }
+    
+    return status;
 }
 
 
