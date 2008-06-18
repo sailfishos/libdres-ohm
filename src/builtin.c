@@ -202,7 +202,7 @@ BUILTIN_HANDLER(echo)
         PRINT(" ");
     }
 
-    printf("%s", buf);
+    printf("%s\n", buf);
 
     if (ret != NULL)
         *ret = NULL;
