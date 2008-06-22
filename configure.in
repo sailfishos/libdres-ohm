@@ -27,7 +27,10 @@ AM_PROG_CC_C_O
 AM_PROG_LIBTOOL
 AM_PROG_LEX
 
-# Checks for libraries.
+# Enable extra GCC flags.
+if test "$GCC" = "yes"; then
+    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
+fi
 
 # Checks for header files.
 AC_HEADER_STDC
