@@ -122,7 +122,7 @@ OWS		[ \t]*
 COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
 EOL		\n+
-IDENT		[a-zA-Z_]+[a-zA-Z0-9_]
+IDENT		[a-zA-Z_]+[a-zA-Z0-9_]+
 NUMBER          [+-]?[0-9]+
 VARNAME         {IDENT}(\.{IDENT})*
 FACTVAR		\${VARNAME}
