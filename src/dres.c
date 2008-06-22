@@ -249,9 +249,8 @@ dres_finalize(dres_t *dres)
 EXPORTED int
 dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
-    dres_graph_t  *graph;
     dres_target_t *target;
-    int           *list, id, i, status, own_tx;
+    int            id, i, status, own_tx;
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
@@ -291,7 +290,8 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
             if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
                 continue;
         
-            dres_check_target(dres, id);
+            if ((status = dres_check_target(dres, id)) != 0)
+                break;
         }
     }
     
@@ -412,7 +412,7 @@ dres_dump_varref(dres_t *dres, char *buf, size_t bufsize, dres_varref_t *vr)
     dres_name(dres, vr->variable, buf, bufsize);
     len = strlen(buf);
     
-    snprintf(buf + len, bufsize - len, "%s%s%s",
+    snprintf(buf + len, bufsize - len, "%s%s%s%s%s",
              vr->selector ? "[" : "",
              vr->selector ?: "",
              vr->selector ? "]" : "",
@@ -444,6 +444,7 @@ EXPORTED void
 yyerror(dres_t *dres, const char *msg)
 {
     extern int lineno;
+    extern void dres_parse_error(dres_t *, int, const char *, const char *);
 
     dres_parse_error(dres, lineno, msg, yylval.string);
 }
