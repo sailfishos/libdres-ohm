@@ -60,17 +60,12 @@ enum {
 
 
 typedef struct {
-#if 1
     dres_varref_t lvalue;                  /* variable to assign to */
     int           type;                    /* DRES_ASSIGN_* */
     union {
         dres_varref_t var;                 /* variable */
         int           val;                 /* value */
     };
-#else
-    int           var_id;                  /* variable ID */
-    int           val_id;                  /* value ID */
-#endif
 } dres_assign_t;
 
 
@@ -222,14 +217,6 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
-#if 0
-#define DEBUG(fmt, args...) do {                                        \
-        if (depth > 0)                                                  \
-            printf("%*.*s ", depth*2, depth*2, "                  ");   \
-        printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
-    } while (0)
-#endif
-
 
 /* dres.c */
 dres_t *dres_init(char *prefix);
@@ -237,7 +224,7 @@ void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
 int     dres_finalize(dres_t *dres);
 int     dres_set_prefix(dres_t *dres, char *prefix);
-char *  dres_get_prefix(dres_t *dres);
+char   *dres_get_prefix(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
 
@@ -286,13 +273,12 @@ int dres_register_builtins(dres_t *dres);
 int   dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
 char *dres_scope_getvar   (dres_scope_t *scope, char *name);
 int   dres_scope_push_args(dres_t *dres, char **args);
+int   dres_scope_push     (dres_t *dres,
+                           dres_assign_t *variables, int nvariable);
+int   dres_scope_pop      (dres_t *dres);
 
 
-#if 1
 int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
-#else
-int dres_add_assignment(dres_action_t *action, int var, int val);
-#endif
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);
 void          dres_free_graph (dres_graph_t *graph);
@@ -326,4 +312,4 @@ int dres_run_actions(dres_t *dres, dres_target_t *target);
  */
 
 
-#endif /* __DEPENDENCY_H__ */
+#endif /* __POLICY_DRES_H__ */
