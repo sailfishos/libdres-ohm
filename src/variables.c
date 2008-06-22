@@ -14,6 +14,7 @@
 #include "dres-debug.h"
 
 
+
 /*
  * Storage
  */
@@ -105,9 +106,11 @@ static int                get_fact_var_field(dres_fstore_var_t *,
 static dres_selector_t   *parse_selector(char *);
 static void               free_selector(dres_selector_t *);
 static int                is_matching(OhmFact *, dres_selector_t *);
-static int                is_selector_field(char *, dres_selector_t *);
+static int                is_selector_field(char *, dres_selector_t *) UNUSED;
 
 static int                is_acyclic(GSList *head);
+
+int get_fields(OhmFact *fact, char **names, int nname);
 
 
 dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
@@ -275,7 +278,7 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
     int                    updated = FALSE;
 
     if (!store || store->type != STORE_FACT)
-        return;
+        return FALSE;
 
     if ((view = fstore->view) != NULL && fstore->interested) {
         if ((changeset = ohm_view_get_changes(view)) != NULL) {
@@ -299,7 +302,6 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
                     }
                 }
             }
-        reset:
             ohm_view_reset_changes(view);
         }
     }
@@ -756,7 +758,7 @@ static int set_fact_var(dres_fstore_var_t *var, dres_selector_t *selector,
     OhmFact           *fact;
     OhmFact           *facts[FACT_DIM];
     int                flen;
-    int                i, j;
+    int                i;
 
     if (!var || !pval) {
         errno = EINVAL;
@@ -872,7 +874,7 @@ static int set_fact_var_field(dres_fstore_var_t *var,
     GValue            *gval;
     int                llen;
     OhmFact           *fact;
-    int                i, j;
+    int                i;
     
 
     if (!var || !var->store || !name || !pval) {
@@ -1301,7 +1303,8 @@ static int is_matching(OhmFact *fact, dres_selector_t *selector)
     return match;
 }
 
-static int is_selector_field(char *name, dres_selector_t *selector)
+static __attribute__ ((unused))
+int is_selector_field(char *name, dres_selector_t *selector)
 {
     dres_fldsel_t *fldsel;
     int            i;

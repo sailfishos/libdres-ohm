@@ -59,8 +59,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 #define FAIL(err) do { status = err; goto fail; } while (0)
     dres_scope_t  *scope;
     dres_assign_t *a;
-    dres_var_t    *var;
-    char           name[64], value[64], *namep, *valuep;
+    char           name[64], value[64], *valuep;
     int            i, status;
     
     
@@ -217,6 +216,8 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
  fail:
     if (key)
         FREE(key);
+
+    return EINVAL;
 }
 
 

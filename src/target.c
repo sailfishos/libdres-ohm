@@ -105,8 +105,6 @@ dres_dump_targets(dres_t *dres)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
-    char          *sep, lvalbuf[128], *lval, rvalbuf[128], *rval;
-    int            n;
     
     printf("Found %d targets:\n", dres->ntarget);
 

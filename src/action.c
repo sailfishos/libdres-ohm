@@ -3,6 +3,8 @@
 #include <string.h>
 #include <errno.h>
 
+#include <glib-object.h>
+
 #include <dres/dres.h>
 #include <dres/compiler.h>
 #include "dres-debug.h"
@@ -235,7 +237,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     dres_assign_t *v;
     int            i, j;
     char           lvalbuf[128], *lval, rvalbuf[128], buf[128], *rval;
-    char           arg[64], var[64], val[64], *t;
+    char           arg[64], val[64], *t;
     char           actbuf[1024], *p;
 
     if (action == NULL)

@@ -4,6 +4,7 @@
 #include <string.h>
 
 #include <dres/dres.h>
+#include <glib-object.h>
 
 #if !defined(DEBUG)
 #  if defined(__TEST_PARSER__) || 0
