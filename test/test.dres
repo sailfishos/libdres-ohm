@@ -6,40 +6,79 @@ $fact1 = { name: fact1, value: 1 }
 $fact2 = { name: fact2, value: 2 }
 $fact3 = { name: fact3, value: 3 }
 $fact4 = { name: fact4, value: 4 }
+$fact5 = { name: fact5, value: 5 }
 
-all: test1 test2 test3 test4
 
-test1: 
-	echo(test1, start)
-	$fact1 = fact(fact1, value, 1, foo, bar)
-	echo(test1, end)
+test1: touch1 fact1
+	echo(checking1)
+	check(fact4, stamp, 1)
+	check(fact3, stamp, 2)
+	check(fact2, stamp, 3)
+	check(fact1, stamp, 4)
+	echo(test1OK)
 
-test2: 
-	echo(test2, start)
-	$fact2 = fact(fact2, value, 2, bar, foo)
-	echo(test2, end)
-
-test3: 
-	echo(test3, start)
-	$fact3 = fact(fact3, value, 3, foobar, barfoo)
-	echo(test3, end)
-
-test4: 
-	echo(test4, start)
-	$fact4 = fact(fact4, value, 5, barfoo, foobar)
-	fail(foo)
-	echo(test4, end)
-
-# rules for updating facts
 touch1:
+	echo(touch1)
+	stamp(101)
 	touch(fact1)
+	touch(fact2)
+	touch(fact3)
+	touch(fact4)
+	stamp(1)
+
+test2: touch2 fact3
+	echo(checking2)
+	check(fact2, stamp, 201)
+	check(fact4, stamp, 1)
+	check(fact3, stamp, 2)
+	echo(test2OK)
 
 touch2:
+	echo(touch2)
+	stamp(201)
 	touch(fact2)
+	touch(fact3)
+	touch(fact4)
+	stamp(1)
+
+test3: touch3 fact5
+	echo(checking3)
+	check(fact1, stamp, 201)
+	check(fact2, stamp, 202)
+	check(fact4, stamp, 1)
+	check(fact3, stamp, 2)
+	echo(test2OK)
 
 touch3:
+	echo(touch3)
+	stamp(301)
+	touch(fact1)
+	touch(fact2)
 	touch(fact3)
-
-touch4:
 	touch(fact4)
+	stamp(1)
 
+fact1: fact2
+	echo(fact1)
+	$fact1 = fact(fact1, value, foo1)
+
+fact2: fact3
+	echo(fact2)
+	$fact2 = fact(fact2, value, foo2)
+
+fact3: fact4
+	echo(fact3)
+	$fact3 = fact(fact3, value, foo3)
+
+fact4:
+	echo(fact4)
+	$fact4 = fact(fact4, value, foo4)
+
+fact5: fact1
+	echo(fact5)
+	$fact5 = fact(fact5, value, foo4)
+	fail(foo)
+
+fail: fact1
+	echo(fail)
+	fail(foo)

@@ -21,13 +21,15 @@
 static OhmFactStore *store;
 static dres_t       *dres;
 
+static int           stamp = 0;
 
+static int  stamp_handler(dres_t *, char *, dres_action_t *, void **);
 static int  touch_handler(dres_t *, char *, dres_action_t *, void **);
 static int  fact_handler (dres_t *, char *, dres_action_t *, void **);
+static int  check_handler(dres_t *, char *, dres_action_t *, void **);
 static int  dump_handler (dres_t *, char *, dres_action_t *, void **);
 static int  test_handler (dres_t *, char *, dres_action_t *, void **);
 static int  fail_handler (dres_t *, char *, dres_action_t *, void **);
-static int  touch_fact   (char *name);
 static void dump_facts   (char *format, ...);
 
 
@@ -47,12 +49,18 @@ main(int argc, char *argv[])
     
     if ((dres = dres_init(TEST_PREFIX)) == NULL)
         fatal(2, "failed to initialize DRES library");
+
+    if (dres_register_handler(dres, "stamp", stamp_handler) != 0)
+        fatal(3, "failed to register DRES stamp handler");
     
     if (dres_register_handler(dres, "touch", touch_handler) != 0)
         fatal(3, "failed to register DRES touch handler");
 
     if (dres_register_handler(dres, "fact", fact_handler) != 0)
         fatal(3, "failed to register DRES fact handler");
+    
+    if (dres_register_handler(dres, "check", check_handler) != 0)
+        fatal(3, "failed to register DRES check handler");
     
     if (dres_register_handler(dres, "dump", dump_handler) != 0)
         fatal(3, "failed to register DRES dump handler");
@@ -71,11 +79,6 @@ main(int argc, char *argv[])
     
     dres_dump_targets(dres);
     printf("======================================\n");
-
-#if 0
-    touch_fact("fact3");
-    touch_fact("fact4");
-#endif
 
     if (argc < 2) {
         dres_update_goal(dres, "all", NULL);
@@ -106,25 +109,80 @@ main(int argc, char *argv[])
 
 
 /********************
+ * stamp_handler
+ ********************/
+static int
+stamp_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+{
+    char  value[64], *end;
+    int   new_stamp;
+
+    if (action->nargument != 1)
+        return EINVAL;
+    
+    value[0] = '\0';
+    dres_name(dres, action->arguments[0], value, sizeof(value));
+    
+    new_stamp = (int)strtol(value, &end, 10);
+    
+    if (end && *end)
+        return EINVAL;
+
+    stamp = new_stamp;
+    printf("stamp set to %d\n", stamp);
+
+    *ret = NULL;
+    return 0;
+}
+
+
+/********************
  * touch_handler
  ********************/
 static int
 touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
-    int  i;
-    char name[32];
+#define FAIL(ec) do { status = (ec); goto fail; } while (0)
+    GSList   *facts = NULL;
+    OhmFact  *fact  = NULL;
+    GValue   *gval;
+    char      name[32], fullname[64], field[64], value[64];
+    int       i, status;
 
-    if (action->nargument < 1)
-        return EINVAL;
+    if (action->nargument < 1 || !(action->nargument & 0x1))
+        FAIL(EINVAL);
 
-    for (i = 0; i < action->nargument; i++) {
-        name[0] = '\0';
-        dres_name(dres, action->arguments[i], name, sizeof(name));
-        touch_fact(name);
-    }
+    name[0] = '\0';
+    dres_name(dres, action->arguments[0], name, sizeof(name));
+    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+
     
+    for (facts = ohm_fact_store_get_facts_by_name(store, fullname);
+         facts != NULL;
+         facts = g_slist_next(facts)) {
+
+        fact = (OhmFact *)facts->data;
+    
+        snprintf(value, sizeof(value), "%d", stamp++);
+        gval = ohm_value_from_string(value);
+        ohm_fact_set(fact, "stamp", gval);
+
+        for (i = 1; i < action->nargument; i += 2) {
+            field[0] = '\0';
+            value[0] = '\0';
+        
+            dres_name(dres, action->arguments[i]  , field, sizeof(field));
+            dres_name(dres, action->arguments[i+1], value, sizeof(value));
+            gval = ohm_value_from_string(value);
+            ohm_fact_set(fact, field, gval);
+        }
+    }
+
     *ret = NULL;
     return 0;
+    
+ fail:
+    return status;
 }
 
 
@@ -147,16 +205,20 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 
     if ((facts = ALLOC_ARR(OhmFact *, 2)) == NULL)
         FAIL(EINVAL);
-
-    if ((fact = ohm_fact_new(fullname)) == NULL)
-        FAIL(ENOMEM);
     
     name[0] = '\0';
     dres_name(dres, action->arguments[0], name, sizeof(name));
     snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+
+    if ((fact = ohm_fact_new(fullname)) == NULL)
+        FAIL(ENOMEM);
     
     gval = ohm_value_from_string(name);
     ohm_fact_set(fact, "name", gval);
+
+    snprintf(value, sizeof(value), "%d", stamp++);
+    gval = ohm_value_from_string(value);
+    ohm_fact_set(fact, "stamp", gval);
 
     for (i = 1; i < action->nargument; i += 2) {
         field[0] = '\0';
@@ -181,6 +243,56 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
         FREE(facts);
 
     return EINVAL;
+}
+
+
+/********************
+ * check_handler
+ ********************/
+static int
+check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+{
+#define FAIL(ec) do { status = (ec); goto fail; } while (0)
+
+    GSList  *facts = NULL;
+    OhmFact *fact  = NULL;
+    GValue  *gval;
+    char     name[32], fullname[64], field[64], value[64];
+    int      i;
+
+    *ret = NULL;
+
+    if (action->nargument < 3 || !(action->nargument & 0x1))
+        return EINVAL;
+    
+    name[0] = '\0';
+    dres_name(dres, action->arguments[0], name, sizeof(name));
+    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+
+    if ((facts = ohm_fact_store_get_facts_by_name(store, fullname)) == NULL)
+        return ENOENT;
+    
+    while (facts) {
+        fact = (OhmFact *)facts->data;
+        
+        for (i = 1; i < action->nargument; i += 2) {
+            field[0] = '\0';
+            value[0] = '\0';
+            dres_name(dres, action->arguments[i], field, sizeof(field));
+            dres_name(dres, action->arguments[i+1], value, sizeof(value));
+            
+            gval = ohm_fact_get(fact, field);
+            if (strcmp(g_value_get_string(gval), value)) {
+                printf("mismatch: %s:%s, %s != %s\n", fullname, field,
+                       g_value_get_string(gval), value);
+                return EINVAL;
+            }
+        }
+        
+        facts = g_slist_next(facts);
+    }
+
+    return 0;
 }
 
 
@@ -226,39 +338,8 @@ test_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 static int
 fail_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
+    *ret = NULL;
     return EINVAL;
-}
-
-
-/********************
- * touch_fact
- ********************/
-static int
-touch_fact(char *name)
-{
-    static int n = 10;
-    
-    GSList  *facts;
-    OhmFact *fact;
-    GValue  *value;
-    char     nstr[32], fullname[128];
-    int      cnt;
-    
-    sprintf(nstr, "%d", n++);
-    value = ohm_value_from_string(nstr);
-    
-    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
-    
-    printf("touching fact %s...\n", fullname);
-
-    for (facts = ohm_fact_store_get_facts_by_name(store, fullname), cnt = 0;
-         facts != NULL;
-         facts = g_slist_next(facts), cnt++) {
-        fact = (OhmFact *)facts->data;
-        ohm_fact_set(fact, "value", value);
-    }
-    
-    return cnt;
 }
 
 
