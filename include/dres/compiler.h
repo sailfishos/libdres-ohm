@@ -24,7 +24,8 @@
  *          either by putting the NOEXPORT_BY_DEFAULT in the beginning
  *          of every module or a commonly included header or by instructing your
  *          compiler/linker to do so (eg. with -fvisibility=hidden for GCC)
- *        - marking symbols to be exported by the EXPORTED macro
+
+ *        - Mark symbols to be exported by the EXPORTED macro.
  *
  *      Depending on the ratio of exported vs. all non-static variables it
  *      might make more sense to do it the other way around, ie. export by
@@ -61,6 +62,10 @@
 #    define likely(cond) __builtin_expect(cond, 1)
 #  endif
 
+#  ifndef UNUSED
+#    define UNUSED __attribute__ ((unused))
+#  endif
+
 #else /* !__GNUC__ */
 
 #  warning "Compiler specific macros are not defined for your compiler."
@@ -75,6 +80,7 @@
 #  define unlikely(cond) (cond)
 #  define likely(cond)   (cond)
 
+#  define UNUSED
 #endif /* !__GNUC__ */
 
 
