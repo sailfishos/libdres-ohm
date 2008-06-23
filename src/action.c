@@ -266,24 +266,16 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             p += sprintf(p, "%s%s", t,
                          dres_name(dres, a->arguments[i], arg,sizeof(arg)));
-#if 1
         for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
             if (dres_dump_assignment(dres, v, buf, sizeof(buf)) == NULL)
                 sprintf(buf, "<invalid assignment>");
             
             p += sprintf(p, "%s%s", t, buf);
         }
-#else
-        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
-            p += sprintf(p, "%s%s=%s", t,
-                         dres_name(dres, v->var_id, var, sizeof(var)),
-                         dres_name(dres, v->val_id, val, sizeof(val)));
-        }
-#endif
         sprintf(p, ")");
     }
 
-    printf("  %s\n", actbuf);
+    printf("    %s\n", actbuf);
 }
 
 

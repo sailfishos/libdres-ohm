@@ -101,52 +101,47 @@ dres_free_targets(dres_t *dres)
 EXPORTED void
 dres_dump_targets(dres_t *dres)
 {
-    int            i, j, id, idx;
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
+    int            i, j, id, idx;
+    char          *sep, name[64];
+
     
     printf("Found %d targets:\n", dres->ntarget);
 
     for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++) {
-        printf("target #%d: %s (0x%x, %p, %p)\n", i, t->name, t->id,
-               t->prereqs, t->actions);
+        printf("target #%d: %s (0x%x)\n", i, t->name, t->id);
         if ((d = t->prereqs) != NULL) {
-            for (j = 0; j < d->nid; j++) {
-                id  = d->ids[j];
-                idx = DRES_INDEX(id);
-                switch (DRES_ID_TYPE(id)) {
-                case DRES_TYPE_TARGET:
-                    printf("  depends on target %s\n",
-                           dres->targets[idx].name);
-                    break;
-                case DRES_TYPE_FACTVAR:
-                    printf("  depends on FACT variable $%s\n",
-                           dres->factvars[idx].name);
-                    break;
-                case DRES_TYPE_DRESVAR:
-                    printf("  depends on DRES variable &%s\n",
-                           dres->dresvars[idx].name);
-                    break;
-                default:
-                    printf("  depends on unknown object 0x%x\n", id);
-                }
+            printf("  depends on: ");
+            for (j = 0, sep = ""; j < d->nid; j++, sep=", ") {
+                dres_name(dres, d->ids[j], name, sizeof(name));
+                printf("%s%s", sep, name);
             }
-        }
+            printf("\n");
 
+            printf("  updated as:");
+            if (t->dependencies) {
+                for (id = t->dependencies[j=0], sep = " ";
+                     id != DRES_ID_NONE;
+                     id = t->dependencies[++j], sep = ", ") {
+                    idx = DRES_INDEX(id);
+                    dres_name(dres, id, name, sizeof(name));
+                    printf("%s%s", sep, name);
+                }
+                printf("\n");
+            }
+            else
+                printf(" still unresolved...\n");
+        }
+        
         if (t->actions == NULL)
-            printf("  has no actions\n");
+            printf("  no actions\n");
         else {
-            printf("has actions:\n");
+            printf("  actions:\n");
             for (a = t->actions; a; a = a->next)
                 dres_dump_action(dres, a);
         }
-
-        /* XXX TODO:
-           if (DRES_TST_FLAG(dres, TARGETS_FINALIZED)) {
-               dump(t->dependencies);
-           }
-        */
     }
 }
 
