@@ -3,8 +3,11 @@
 #include <string.h>
 #include <errno.h>
 
-#include <dres/dres.h>
+#include <glib-object.h>
 
+#include <dres/dres.h>
+#include <dres/compiler.h>
+#include "dres-debug.h"
 
 static int assign_result(dres_t *dres, dres_action_t *action, void **facts);
 
@@ -151,7 +154,7 @@ dres_free_actions(dres_action_t *actions)
 /********************
  * dres_register_handler
  ********************/
-int
+EXPORTED int
 dres_register_handler(dres_t *dres, char *name,
                       int (*handler)(dres_t *,
                                      char *, dres_action_t *, void **))
@@ -173,7 +176,7 @@ dres_register_handler(dres_t *dres, char *name,
 /********************
  * dres_lookup_handler
  ********************/
-dres_handler_t *
+EXPORTED dres_handler_t *
 dres_lookup_handler(dres_t *dres, char *name)
 {
     dres_handler_t *h;
@@ -198,23 +201,27 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     void           *retval;
     int             err;
 
-    DEBUG("executing actions for %s", target->name);
+    DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
 
     err = 0;
+#if NESTED_TRANSACTIONS_DONT_WORK
     dres_store_tx_new(dres->fact_store);
-    for (action = target->actions; !err && action; action = action->next) {
-        dres_dump_action(dres, action);
+#endif
 
+    for (action = target->actions; !err && action; action = action->next) {
         handler = action->handler;
         if ((err = handler->handler(dres, handler->name, action, &retval)))
             continue;
     
         err = assign_result(dres, action, retval);
     }
+
+#if NESTED_TRANSACTIONS_DONT_WORK
     if (err)
         dres_store_tx_rollback(dres->fact_store);
     else
         dres_store_tx_commit(dres->fact_store);
+#endif
     
     return err;
 }
@@ -230,7 +237,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     dres_assign_t *v;
     int            i, j;
     char           lvalbuf[128], *lval, rvalbuf[128], buf[128], *rval;
-    char           arg[64], var[64], val[64], *t;
+    char           arg[64], val[64], *t;
     char           actbuf[1024], *p;
 
     if (action == NULL)
@@ -255,7 +262,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
     else if (rval)
         p += sprintf(p, "%s", rval);
     else {
-        p += sprintf(p, "  %s(", a->name);
+        p += sprintf(p, "%s(", a->name);
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             p += sprintf(p, "%s%s", t,
                          dres_name(dres, a->arguments[i], arg,sizeof(arg)));
@@ -276,7 +283,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         sprintf(p, ")");
     }
 
-    DEBUG("action %s", actbuf);
+    printf("  %s\n", actbuf);
 }
 
 
@@ -322,7 +329,7 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
         
 #if 0
         if (action->lvalue.field != NULL) {
-            DEBUG("uh-oh... should set lvalue.field...");
+            DEBUG(DBG_RESOLVE, "uh-oh... should set lvalue.field...");
             FAIL(EINVAL);
         }
 #endif

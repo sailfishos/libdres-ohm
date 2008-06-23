@@ -60,17 +60,12 @@ enum {
 
 
 typedef struct {
-#if 1
     dres_varref_t lvalue;                  /* variable to assign to */
     int           type;                    /* DRES_ASSIGN_* */
     union {
         dres_varref_t var;                 /* variable */
         int           val;                 /* value */
     };
-#else
-    int           var_id;                  /* variable ID */
-    int           val_id;                  /* value ID */
-#endif
 } dres_assign_t;
 
 
@@ -104,6 +99,8 @@ typedef union {
 typedef struct {
     int          id;
     int          stamp;                     /* last update stamp */
+    int          txid;                      /*   of stamp */
+    int          txstamp;                   /* stamp before txid */
     char        *name;
     dres_var_t  *var;
     dres_val_t   val;
@@ -120,6 +117,8 @@ typedef struct {
     dres_prereq_t *prereqs;                 /* prerequisites */
     dres_action_t *actions;                 /* associated actions */
     int            stamp;                   /* last update stamp */
+    int            txid;                    /* of stamp */
+    int            txstamp;                 /* stamp before txid */
     int           *dependencies;            /* sorted depedencies */
 } dres_target_t;
 
@@ -134,6 +133,7 @@ enum {
     DRES_FLAG_UNKNOWN       = 0x0,
     DRES_ACTIONS_FINALIZED  = 0x1,          /* actions resolved to handlers */
     DRES_TARGETS_FINALIZED  = 0x2,          /* sorted dependency graph */
+    DRES_TRANSACTION_ACTIVE = 0x4,          /* has an active transaction */
 };
 
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
@@ -160,6 +160,7 @@ struct dres_s {
     int              nliteral;
 
     int              stamp;
+    int              txid;                  /* transaction id */
 
     dres_store_t    *fact_store;
     dres_store_t    *dres_store;
@@ -175,7 +176,6 @@ struct dres_s {
 
 
 extern int depth;
-
 
 #ifndef TRUE
 #    define FALSE 0
@@ -222,27 +222,18 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
-#if 0
-#define DEBUG(fmt, args...) do {                                        \
-        if (depth > 0)                                                  \
-            printf("%*.*s ", depth*2, depth*2, "                  ");   \
-        printf("[%s] "fmt"\n", __FUNCTION__, ## args);                  \
-    } while (0)
-#else
-#define DEBUG(fmt, args...)
-#endif
-
-
 
 /* dres.c */
 dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);
+int     dres_finalize(dres_t *dres);
 int     dres_set_prefix(dres_t *dres, char *prefix);
-char *  dres_get_prefix(dres_t *dres);
+char   *dres_get_prefix(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
-
+void dres_update_var_stamp(void *dresp, void *varp);
+void dres_update_target_stamp(dres_t *dres, dres_target_t *target);
 
 
 
@@ -290,13 +281,12 @@ int dres_register_builtins(dres_t *dres);
 int   dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
 char *dres_scope_getvar   (dres_scope_t *scope, char *name);
 int   dres_scope_push_args(dres_t *dres, char **args);
+int   dres_scope_push     (dres_t *dres,
+                           dres_assign_t *variables, int nvariable);
+int   dres_scope_pop      (dres_t *dres);
 
 
-#if 1
 int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
-#else
-int dres_add_assignment(dres_action_t *action, int var, int val);
-#endif
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);
 void          dres_free_graph (dres_graph_t *graph);
@@ -330,4 +320,4 @@ int dres_run_actions(dres_t *dres, dres_target_t *target);
  */
 
 
-#endif /* __DEPENDENCY_H__ */
+#endif /* __POLICY_DRES_H__ */

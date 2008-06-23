@@ -1,19 +1,18 @@
-noinst_PROGRAMS = dres-test
+noinst_PROGRAMS = dres-test tx-test
 
 dres_test_SOURCES = dres-test.c
-dres_test_CFLAGS  = @LIBPROLOG_CFLAGS@    \
-                    @LIBFACT_CFLAGS@      \
-                    @LIBFACTMAP_CFLAGS@   \
-                    @LIBRELATION_CFLAGS@  \
-                    @SWIPROLOG_CFLAGS@    \
+dres_test_CFLAGS  = @LIBFACT_CFLAGS@      \
                     @GLIB_CFLAGS@
 
 dres_test_LDADD   = ../src/libdres.la     \
-                    @LIBPROLOG_LIBS@      \
                     @LIBFACT_LIBS@        \
-                    @LIBFACTMAP_LIBS@     \
-                    @LIBRELATION_LIBS@    \
-                    @SWIPROLOG_LDFLAGS@   \
                     @GLIB_LIBS@ @LEXLIB@
+
+tx_test_SOURCES = tx-test.c
+tx_test_CFLAGS  = @LIBFACT_CFLAGS@      \
+                  @GLIB_CFLAGS@
+
+tx_test_LDADD   = @LIBFACT_LIBS@        \
+                  @GLIB_LIBS@ @LEXLIB@
 
 INCLUDES = -I$(top_builddir)/include

@@ -6,10 +6,13 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include "prolog/ohm-fact.h"
+#include <prolog/ohm-fact.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
 #include <dres/variables.h>
+#include "dres-debug.h"
+
 
 
 /*
@@ -31,6 +34,7 @@ typedef struct {
     OhmFactStoreView  *view;
     GSList            *patls;
     int                interested;
+    void             (*update_stamp)(void *, void *);
 } dres_fact_store_t;
 
 typedef struct {
@@ -60,7 +64,7 @@ typedef struct {
 typedef struct {
     VARIABLE_COMMON_FIELDS;
     char              *name;
-    int               *pstamp;
+    void              *pvar;
 } dres_fstore_var_t;
 
 typedef struct {
@@ -103,12 +107,15 @@ static int                get_fact_var_field(dres_fstore_var_t *,
 static dres_selector_t   *parse_selector(char *);
 static void               free_selector(dres_selector_t *);
 static int                is_matching(OhmFact *, dres_selector_t *);
-static int                is_selector_field(char *, dres_selector_t *);
+static int                is_selector_field(char *, dres_selector_t *) UNUSED;
 
 static int                is_acyclic(GSList *head);
 
+int get_fields(OhmFact *fact, char **names, int nname);
 
-dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
+
+dres_store_t *dres_store_init(dres_storetype_t type, char *prefix,
+                              void (*update_stamp)(void *, void *))
 {
     dres_store_t     *store;
     OhmFactStore     *fs;
@@ -142,9 +149,9 @@ dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
             goto failed;
         }
 
-        store->fact.fs   = fs;
-        store->fact.view = view;
-
+        store->fact.fs           = fs;
+        store->fact.view         = view;
+        store->fact.update_stamp = update_stamp;
         break;
 
     case STORE_LOCAL:
@@ -261,7 +268,7 @@ int dres_store_check(dres_store_t *store, char *name)
     return ohm_fact_store_get_facts_by_name(store->fact.fs, name) != NULL;
 }
 
-int dres_store_update_timestamps(dres_store_t *store, int stamp)
+int dres_store_update_timestamps(dres_store_t *store, void *update_data)
 {
     dres_fact_store_t     *fstore = &store->fact;
     OhmFactStoreView      *view;
@@ -273,7 +280,7 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
     int                    updated = FALSE;
 
     if (!store || store->type != STORE_FACT)
-        return;
+        return FALSE;
 
     if ((view = fstore->view) != NULL && fstore->interested) {
         if ((changeset = ohm_view_get_changes(view)) != NULL) {
@@ -290,14 +297,13 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
                     fact = ohm_pattern_match_get_fact(pm);
                     name = ohm_structure_get_name(OHM_STRUCTURE(fact));
                     var  = g_hash_table_lookup(store->fact.htbl, name);
-
-                    if (var != NULL && var->pstamp != NULL) {
-                        *(var->pstamp) = stamp;
+                
+                    if (var && var->pvar && store->fact.update_stamp) {
+                        store->fact.update_stamp(update_data, var->pvar);
                         updated = TRUE;
                     }
                 }
             }
-        reset:
             ohm_view_reset_changes(view);
         }
     }
@@ -305,36 +311,39 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
     return updated;
 }
 
-int dres_store_tx_new(dres_store_t *store)
+EXPORTED int dres_store_tx_new(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
-    
+
     ohm_fact_store_transaction_push(store->fact.fs);
+    DEBUG(DBG_VAR, "created new transaction");
     return TRUE;
 }
 
-int dres_store_tx_commit(dres_store_t *store)
+EXPORTED int dres_store_tx_commit(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
 
     ohm_fact_store_transaction_pop(store->fact.fs, FALSE);
+    DEBUG(DBG_VAR, "committed transaction");
     return TRUE;
 }
 
-int dres_store_tx_rollback(dres_store_t *store)
+EXPORTED int dres_store_tx_rollback(dres_store_t *store)
 {
-    if (store->type == STORE_LOCAL) {
+    if (store->type != STORE_FACT) {
         errno = EINVAL;
         return FALSE;
     }
 
     ohm_fact_store_transaction_pop(store->fact.fs, TRUE);
+    DEBUG(DBG_VAR, "rolled back transaction");
     return TRUE;
 }
 
@@ -356,7 +365,7 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
     
     if (strchr(name, '.') == NULL) {
         snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
-        DEBUG("adding %s as %s", name, buf);
+        DEBUG(DBG_VAR, "adding %s as %s", name, buf);
         name = /*strdup(buf)*/buf;
     }
     
@@ -376,7 +385,7 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
 }
 
 
-dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
+dres_var_t *dres_var_init(dres_store_t *store, char *name, void *pvar)
 {
     dres_var_t *var = NULL;
     char        buf[512];
@@ -384,14 +393,14 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
     OhmFact    *fact;
     GSList     *list;
 
-    if (!store || !name || (store->type == STORE_FACT && !pstamp)) {
+    if (!store || !name || (store->type == STORE_FACT && !pvar)) {
         errno = EINVAL;
         return NULL;
     }
 
     if (strchr(name, '.') == NULL) {
         snprintf(buf, sizeof(buf), "%s%s", store->any.prefix, name);
-        DEBUG("adding %s as %s", name, buf);
+        DEBUG(DBG_VAR, "adding %s as %s", name, buf);
         name = strdup(buf);
     }
 
@@ -425,7 +434,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
         }
         store->fact.patls = g_slist_prepend(store->fact.patls, pat);
         var->fact.name    = strdup(name);
-        var->fact.pstamp  = pstamp;
+        var->fact.pvar    = pvar;
         break;
 
     case STORE_LOCAL:
@@ -547,8 +556,8 @@ int dres_var_set_field(dres_var_t *var, const char *name, char *selector,
     return retval;
 }
 
-int dres_var_get_field(dres_var_t *var, const char *name, char *selector,
-                       dres_vartype_t type, void *pval)
+EXPORTED int dres_var_get_field(dres_var_t *var, const char *name,
+                                char *selector, dres_vartype_t type, void *pval)
 {
     dres_store_t    *store;
     dres_selector_t *select;
@@ -580,7 +589,7 @@ int dres_var_get_field(dres_var_t *var, const char *name, char *selector,
     return retval;
 }
 
-int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
+EXPORTED int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
 {
     dres_fact_store_t *store;
     GSList            *facts;
@@ -618,7 +627,7 @@ int dres_var_get_field_names(dres_var_t *var, char **names, int nname)
 }
 
 
-void *dres_fact_create(char *name, char *descr)
+EXPORTED void *dres_fact_create(char *name, char *descr)
 {
     GValue         *gval;
     OhmFact        *fact;
@@ -639,7 +648,7 @@ void *dres_fact_create(char *name, char *descr)
     }
 
     if ((fact = ohm_fact_new(name)) == NULL) {
-        DEBUG("ohm_fact_new() failed");
+        DEBUG(DBG_VAR, "ohm_fact_new() failed");
         errno = EIO;
         return NULL;
     }
@@ -664,7 +673,8 @@ void *dres_fact_create(char *name, char *descr)
             value = p;
         }
         else {
-            DEBUG("Invalid fact descriptor: missing ':' in '%s'", descr);
+            DEBUG(DBG_VAR, "invalid fact descriptor: missing ':' in '%s'",
+                  descr);
             errno = EINVAL;
             goto failed;
         }
@@ -685,7 +695,8 @@ void *dres_fact_create(char *name, char *descr)
         }
 
         if (has_typedef && *(q = value + strlen(value) - 1) != ')') {
-            DEBUG("Invalid fact descriptor: missing ')' in '%s'", descr);
+            DEBUG(DBG_VAR, "invalid fact descriptor: missing ')' in '%s'",
+                  descr);
             errno = EINVAL;
             goto failed;
         }
@@ -699,7 +710,8 @@ void *dres_fact_create(char *name, char *descr)
             ival = strtol(value, &e, 10);
             gval = ohm_value_from_int(ival); 
             if (*e != '\0') {
-                DEBUG("Invalid fact descriptor: invalid integer '%s'", value);
+                DEBUG(DBG_VAR, "invalid fact descriptor: invalid integer '%s'",
+                      value);
                 errno = EINVAL;
                 goto failed;
             }
@@ -719,7 +731,7 @@ void *dres_fact_create(char *name, char *descr)
     return NULL;
 }
 
-void dres_fact_destroy(void *vfact)
+EXPORTED void dres_fact_destroy(void *vfact)
 {
     OhmFact *fact = (OhmFact *)vfact;
 
@@ -748,7 +760,7 @@ static int set_fact_var(dres_fstore_var_t *var, dres_selector_t *selector,
     OhmFact           *fact;
     OhmFact           *facts[FACT_DIM];
     int                flen;
-    int                i, j;
+    int                i;
 
     if (!var || !pval) {
         errno = EINVAL;
@@ -864,7 +876,7 @@ static int set_fact_var_field(dres_fstore_var_t *var,
     GValue            *gval;
     int                llen;
     OhmFact           *fact;
-    int                i, j;
+    int                i;
     
 
     if (!var || !var->store || !name || !pval) {
@@ -1215,7 +1227,7 @@ static dres_selector_t *parse_selector(char *descr)
 
     for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
         if ((p = strchr(name, ':')) == NULL)
-            DEBUG("Invalid selctor: '%s'", descr);
+            DEBUG(DBG_VAR, "invalid selctor: '%s'", descr);
         else {
             *p++ = '\0';
             value = p;
@@ -1293,7 +1305,8 @@ static int is_matching(OhmFact *fact, dres_selector_t *selector)
     return match;
 }
 
-static int is_selector_field(char *name, dres_selector_t *selector)
+static __attribute__ ((unused))
+int is_selector_field(char *name, dres_selector_t *selector)
 {
     dres_fldsel_t *fldsel;
     int            i;
@@ -1329,6 +1342,7 @@ static int is_acyclic(GSList *head)
 
 
 #if TEST
+#define PREFIX "com.nokia.policy"
 int main(int argc, char **argv)
 {
     static char *accessories[] = { "ihf", "earpiece", "microphone", NULL };
@@ -1357,7 +1371,7 @@ int main(int argc, char **argv)
     fs = ohm_fact_store_get_fact_store();
 
     for (acc = accessories; *acc;  acc++) {
-        fact = ohm_fact_new("com.nokia.policy.accessories");
+        fact = ohm_fact_new(PREFIX".accessories");
         gval = ohm_value_from_string(*acc);
         ohm_fact_set(fact, "device", &gval);
         if (!ohm_fact_store_insert(fs, fact)) {
@@ -1366,7 +1380,7 @@ int main(int argc, char **argv)
         }
     }
 
-    fact = ohm_fact_new("com.nokia.policy.cpu_load");
+    fact = ohm_fact_new(PREFIX".cpu_load");
     gval = ohm_value_from_int(46);
     ohm_fact_set(fact, "percent", &gval);
     if (!ohm_fact_store_insert(fs, fact)) {
@@ -1375,7 +1389,7 @@ int main(int argc, char **argv)
     }
 
 
-    if ((store = dres_store_init(STORE_FACT, "com.nokia.policy")) == NULL) {
+    if ((store = dres_store_init(STORE_FACT, PREFIX, NULL)) == NULL) {
         printf("dres_store_init() failed: %s\n", strerror(errno));
         return errno;
     }
@@ -1390,14 +1404,14 @@ int main(int argc, char **argv)
 
     stamp1 = stamp2 = 0;
 
-    dres_store_update_timestamps(store, 1);
+    dres_store_update_timestamps(store, 1, 1);
 
     if (stamp1 || stamp2) {
         printf("invalid timestamp change (1)\n");
         return EINVAL;
     }
 
-    fact = ohm_fact_new("com.nokia.policy.accessories");
+    fact = ohm_fact_new(PREFIX".accessories");
     gval = ohm_value_from_string("usb");
     ohm_fact_set(fact, "device", &gval);
     if (!ohm_fact_store_insert(fs, fact)) {
@@ -1405,7 +1419,7 @@ int main(int argc, char **argv)
         return EIO;
     }
 
-    dres_store_update_timestamps(store, 2);
+    dres_store_update_timestamps(store, 2, 1);
 
     if (stamp1 != 2 || stamp2 != 0) {
         printf("invalid timestamp change (2)\n");
@@ -1424,7 +1438,7 @@ int main(int argc, char **argv)
      */
     printf("Testing local store variables\n");
 
-    if ((store = dres_store_init(STORE_LOCAL, NULL)) == NULL) {
+    if ((store = dres_store_init(STORE_LOCAL, NULL, NULL)) == NULL) {
         printf("dres_store_init() failed: %s\n", strerror(errno));
         return errno;
     }

@@ -6,7 +6,9 @@
 #include <glib.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
 
+#include "dres-debug.h"
 
 /********************
  * free_name
@@ -49,7 +51,7 @@ free_var(gpointer ptr)
 /********************
  * dres_scope_push
  ********************/
-int
+EXPORTED int
 dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 {
 #if 1
@@ -57,15 +59,14 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 #define FAIL(err) do { status = err; goto fail; } while (0)
     dres_scope_t  *scope;
     dres_assign_t *a;
-    dres_var_t    *var;
-    char           name[64], value[64], *namep, *valuep;
+    char           name[64], value[64], *valuep;
     int            i, status;
     
     
     if (ALLOC_OBJ(scope) == NULL)
         FAIL(ENOMEM);
 
-    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL)) == NULL)
+    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL, NULL)) == NULL)
         FAIL(ENOMEM);
 
     scope->names = g_hash_table_new_full(g_str_hash, g_str_equal,
@@ -161,7 +162,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
 /********************
  * dres_scope_pop
  ********************/
-int
+EXPORTED int
 dres_scope_pop(dres_t *dres)
 {
     dres_scope_t *prev;
@@ -190,13 +191,14 @@ dres_scope_pop(dres_t *dres)
 /********************
  * dres_scope_setvar
  ********************/
-int
+EXPORTED int
 dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
 {
     dres_var_t *var;
     char       *key, *valuep;
 
-    DEBUG("setting local variable %s=%s in scope %p", name, value, scope);
+    DEBUG(DBG_VAR, "setting local variable %s=%s in scope %p",
+          name, value, scope);
 
     if ((key = STRDUP(name)) == NULL)
         return ENOMEM;
@@ -214,19 +216,21 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
  fail:
     if (key)
         FREE(key);
+
+    return EINVAL;
 }
 
 
 /********************
  * dres_scope_getvar
  ********************/
-char *
+EXPORTED char *
 dres_scope_getvar(dres_scope_t *scope, char *name)
 {
     dres_var_t *var;
     char       *value;
     
-    DEBUG("looking up local variable %s in scope %p", name, scope);
+    DEBUG(DBG_VAR, "looking up local variable %s in scope %p", name, scope);
 
     if (scope == NULL || scope->names == NULL)
         return NULL;
@@ -257,9 +261,8 @@ dres_scope_push_args(dres_t *dres, char **locals)
         return status;
 
     for (i = 0; (name = locals[i]) != NULL; i += 2) {
-        if ((value = locals[i+1]) == NULL)
-            goto fail;
-        if ((status = dres_scope_setvar(dres->scope, name, value)) != 0)
+        if ((value  = locals[i+1]) == NULL ||
+            (status = dres_scope_setvar(dres->scope, name, value)) != 0)
             goto fail;
     }
 

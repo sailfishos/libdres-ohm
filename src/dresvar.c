@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
+#include "dres-debug.h"
 
 /*****************************************************************************
  *                          *** variable handling ***                        *
@@ -84,8 +85,8 @@ dres_check_dresvar(dres_t *dres, int id, int refstamp)
     dres_variable_t *var = dres->dresvars + DRES_INDEX(id);
     char             name[64];
     
-    DEBUG("%s: %d > %d ?", dres_name(dres, id, name, sizeof(name)),
-          var->stamp, refstamp);
+    DEBUG(DBG_RESOLVE, "%s: %d > %d ?",
+          dres_name(dres, id, name, sizeof(name)), var->stamp, refstamp);
     
 #ifdef STAMP_FORCED_UPDATE
     var->stamp = dres->stamp + 1;       /* fake that variables have changed */
@@ -94,7 +95,6 @@ dres_check_dresvar(dres_t *dres, int id, int refstamp)
     
     return var->stamp > refstamp;
 }
-
 
 
 /* 

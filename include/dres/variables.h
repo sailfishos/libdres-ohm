@@ -36,10 +36,11 @@ typedef struct {
 } dres_array_t;
 
 
-dres_store_t *dres_store_init(dres_storetype_t, char *);
+dres_store_t *dres_store_init(dres_storetype_t, char *,
+                              void (*)(void *, void *));
 void          dres_store_destroy(dres_store_t *);
 void          dres_store_finish(dres_store_t *);
-int           dres_store_update_timestamps(dres_store_t *, int);
+int           dres_store_update_timestamps(dres_store_t *, void *);
 int           dres_store_tx_new(dres_store_t *store);
 int           dres_store_tx_commit(dres_store_t *store);
 int           dres_store_tx_rollback(dres_store_t *store);
@@ -47,7 +48,7 @@ int           dres_store_set_prefix(dres_store_t *store, char *prefix);
 char         *dres_store_get_prefix(dres_store_t *store);
 
 int           dres_var_create(dres_store_t *, char *, void *);
-dres_var_t   *dres_var_init(dres_store_t *, char *, int *);
+dres_var_t   *dres_var_init(dres_store_t *, char *, void *);
 void          dres_var_destroy(dres_var_t *);
 int           dres_var_set(dres_var_t *, char *, dres_vartype_t, void *);
 int           dres_var_set_field(dres_var_t *, const char *,
