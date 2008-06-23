@@ -208,10 +208,9 @@ dres_check_target(dres_t *dres, int tid)
     
     status = 0;
 
-    if (update) {
+    if (update)
         if ((status = dres_run_actions(dres, target)) == 0)
-            target->stamp = dres->stamp;
-    }
+            dres_update_target_stamp(dres, target);
     
     return status;
 }

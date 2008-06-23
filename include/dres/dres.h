@@ -99,6 +99,8 @@ typedef union {
 typedef struct {
     int          id;
     int          stamp;                     /* last update stamp */
+    int          txid;                      /*   of stamp */
+    int          txstamp;                   /* stamp before txid */
     char        *name;
     dres_var_t  *var;
     dres_val_t   val;
@@ -115,6 +117,8 @@ typedef struct {
     dres_prereq_t *prereqs;                 /* prerequisites */
     dres_action_t *actions;                 /* associated actions */
     int            stamp;                   /* last update stamp */
+    int            txid;                    /* of stamp */
+    int            txstamp;                 /* stamp before txid */
     int           *dependencies;            /* sorted depedencies */
 } dres_target_t;
 
@@ -156,6 +160,7 @@ struct dres_s {
     int              nliteral;
 
     int              stamp;
+    int              txid;                  /* transaction id */
 
     dres_store_t    *fact_store;
     dres_store_t    *dres_store;
@@ -227,6 +232,9 @@ int     dres_set_prefix(dres_t *dres, char *prefix);
 char   *dres_get_prefix(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
+void dres_update_var_stamp(void *dresp, void *varp);
+void dres_update_target_stamp(dres_t *dres, dres_target_t *target);
+
 
 
 /* target.c */

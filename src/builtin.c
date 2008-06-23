@@ -15,6 +15,7 @@ BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
 BUILTIN_HANDLER(shell);
+BUILTIN_HANDLER(fail);
 BUILTIN_HANDLER(unknown);
 
 #define BUILTIN(b) { .name = #b, .handler = dres_builtin_##b }
@@ -25,6 +26,7 @@ static dres_handler_t builtins[] = {
     BUILTIN(resolve),
     BUILTIN(echo),
     BUILTIN(shell),
+    BUILTIN(fail),
     { .name = DRES_BUILTIN_UNKNOWN, .handler = dres_builtin_unknown },
     { .name = NULL, .handler = NULL }
 };
@@ -220,6 +222,16 @@ BUILTIN_HANDLER(echo)
 BUILTIN_HANDLER(shell)
 {
     return dres_builtin_unknown(dres, name, action, ret);
+}
+
+
+/********************
+ * dres_builtin_fail
+ ********************/
+BUILTIN_HANDLER(fail)
+{
+    *ret = NULL;
+    return EINVAL;
 }
 
 

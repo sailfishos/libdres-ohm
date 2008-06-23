@@ -66,7 +66,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
     if (ALLOC_OBJ(scope) == NULL)
         FAIL(ENOMEM);
 
-    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL)) == NULL)
+    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL, NULL)) == NULL)
         FAIL(ENOMEM);
 
     scope->names = g_hash_table_new_full(g_str_hash, g_str_equal,

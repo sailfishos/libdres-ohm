@@ -27,6 +27,11 @@ extern int   yyparse(dres_t *dres);
 static int  finalize_variables(dres_t *dres);
 static int  finalize_actions(dres_t *dres);
 
+static void transaction_commit  (dres_t *dres);
+static void transaction_rollback(dres_t *dres);
+
+
+
 int depth = 0;
 
 
@@ -47,8 +52,8 @@ dres_init(char *prefix)
         return NULL;
     }
     
-    dres->fact_store = dres_store_init(STORE_FACT , prefix);
-    dres->dres_store = dres_store_init(STORE_LOCAL, NULL);
+    dres->fact_store = dres_store_init(STORE_FACT,prefix,dres_update_var_stamp);
+    dres->dres_store = dres_store_init(STORE_LOCAL, NULL, NULL);
 
     if ((status = dres_register_builtins(dres)) != 0)
         goto fail;
@@ -162,7 +167,7 @@ finalize_variables(dres_t *dres)
     int              i;
 
     for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++)
-        if (!(v->var = dres_var_init(dres->fact_store, v->name, &v->stamp)))
+        if (!(v->var = dres_var_init(dres->fact_store, v->name, v)))
             return EIO;
     
     dres_store_finish(dres->fact_store);
@@ -267,21 +272,22 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     if (!DRES_IS_DEFINED(target->id))
         return EINVAL;
 
-    dres_store_update_timestamps(dres->fact_store, ++(dres->stamp));
-    
     if (!DRES_TST_FLAG(dres, TRANSACTION_ACTIVE)) {
         if (!dres_store_tx_new(dres->fact_store))
             return EINVAL;
+        dres->txid++;
         own_tx = 1;
     }
 
+    dres->stamp++;
+    dres_store_update_timestamps(dres->fact_store, dres);
+    
     if (locals != NULL && (status = dres_scope_push_args(dres, locals)) != 0)
         goto rollback;
     
     if (target->prereqs == NULL) {
         DEBUG(DBG_RESOLVE, "%s has no prereqs => updating", target->name);
         status = dres_run_actions(dres, target);
-        target->stamp = dres->stamp;
     }
     else {
         for (i = 0; target->dependencies[i] != DRES_ID_NONE; i++) {
@@ -298,33 +304,15 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     if (locals != NULL)
         dres_scope_pop(dres);
     
-    /*
-     * XXX TODO
-     * Notes:
-     *   IMHO the timestamp updating semantics are now broken wrt.
-     *   transactions.
-     *
-     *   We update the timestamp of the top-level target here but might
-     *   later roll back the transaction without undoing the timestamp
-     *   update. This can break targets that recursively invoke dres as
-     *   one of their actions. Unfortunately, in general, the same is
-     *   true for all targets (not only the top-level ones) that get
-     *   checked by dres_check_target because of its similar logic.
-     */
-
     if (status == 0) {
-        target->stamp = dres->stamp;
-        if (own_tx) {
-            dres_store_tx_commit(dres->fact_store);
-            DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
-        }
+        dres_update_target_stamp(dres, target);
+        if (own_tx)
+            transaction_commit(dres);
     }
     else {
     rollback:
-        if (own_tx) {
-            dres_store_tx_rollback(dres->fact_store);
-            DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
-        }
+        if (own_tx)
+            transaction_rollback(dres);
     }
     
     return status;
@@ -348,6 +336,73 @@ dres_lookup_variable(dres_t *dres, int id)
 
     return NULL;
 }
+
+
+/********************
+ * transaction_commit
+ ********************/
+static void
+transaction_commit(dres_t *dres)
+{
+    dres_store_tx_commit(dres->fact_store);
+    DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
+}
+
+
+/********************
+ * transaction_rollback
+ ********************/
+static void
+transaction_rollback(dres_t *dres)
+{
+    dres_target_t   *t;
+    dres_variable_t *var;
+    int              i;
+
+    dres_store_tx_rollback(dres->fact_store);
+    DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
+
+    for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++)
+        if (t->txid == dres->txid)
+            t->stamp = t->txstamp;
+
+    for (i = 0, var = dres->dresvars; i < dres->ndresvar; i++, var++)
+        if (var->txid == dres->txid)
+            var->stamp = var->txstamp;
+}
+
+
+/********************
+ * dres_update_var_stamp
+ ********************/
+void
+dres_update_var_stamp(void *dresp, void *varp)
+{
+    dres_t          *dres = (dres_t *)dresp;
+    dres_variable_t *var  = (dres_variable_t *)varp;
+    
+    if (var->txid != dres->txid) {
+        var->txid    = dres->txid;
+        var->txstamp = var->stamp;
+    }
+    var->stamp = dres->stamp;
+}
+
+
+/********************
+ * dres_update_target_stamp
+ ********************/
+void
+dres_update_target_stamp(dres_t *dres, dres_target_t *target)
+{
+    if (target->txid != dres->txid) {
+        target->txid    = dres->txid;
+        target->txstamp = target->stamp;
+    }
+    target->stamp = dres->stamp;
+}
+
+
 
 
 /*****************************************************************************

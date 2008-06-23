@@ -97,7 +97,6 @@ dres_check_dresvar(dres_t *dres, int id, int refstamp)
 }
 
 
-
 /* 
  * Local Variables:
  * c-basic-offset: 4

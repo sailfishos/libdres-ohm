@@ -29,7 +29,6 @@ static int  fact_handler (dres_t *, char *, dres_action_t *, void **);
 static int  check_handler(dres_t *, char *, dres_action_t *, void **);
 static int  dump_handler (dres_t *, char *, dres_action_t *, void **);
 static int  test_handler (dres_t *, char *, dres_action_t *, void **);
-static int  fail_handler (dres_t *, char *, dres_action_t *, void **);
 static void dump_facts   (char *format, ...);
 
 
@@ -67,9 +66,6 @@ main(int argc, char *argv[])
     
     if (dres_register_handler(dres, "test", test_handler) != 0)
         fatal(3, "failed to register DRES test handler");
-
-    if (dres_register_handler(dres, "fail", fail_handler) != 0)
-        fatal(3, "failed to register DRES fail handler");
 
     if (dres_parse_file(dres, rulefile))
         fatal(4, "failed to parse DRES rule file %s", rulefile);
@@ -329,17 +325,6 @@ test_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 
     *ret = NULL;
     return 0;
-}
-
-
-/********************
- * fail_handler
- ********************/
-static int
-fail_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
-{
-    *ret = NULL;
-    return EINVAL;
 }
 
 

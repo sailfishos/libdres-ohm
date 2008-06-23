@@ -34,6 +34,7 @@ typedef struct {
     OhmFactStoreView  *view;
     GSList            *patls;
     int                interested;
+    void             (*update_stamp)(void *, void *);
 } dres_fact_store_t;
 
 typedef struct {
@@ -63,7 +64,7 @@ typedef struct {
 typedef struct {
     VARIABLE_COMMON_FIELDS;
     char              *name;
-    int               *pstamp;
+    void              *pvar;
 } dres_fstore_var_t;
 
 typedef struct {
@@ -113,7 +114,8 @@ static int                is_acyclic(GSList *head);
 int get_fields(OhmFact *fact, char **names, int nname);
 
 
-dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
+dres_store_t *dres_store_init(dres_storetype_t type, char *prefix,
+                              void (*update_stamp)(void *, void *))
 {
     dres_store_t     *store;
     OhmFactStore     *fs;
@@ -147,9 +149,9 @@ dres_store_t *dres_store_init(dres_storetype_t type, char *prefix)
             goto failed;
         }
 
-        store->fact.fs   = fs;
-        store->fact.view = view;
-
+        store->fact.fs           = fs;
+        store->fact.view         = view;
+        store->fact.update_stamp = update_stamp;
         break;
 
     case STORE_LOCAL:
@@ -266,7 +268,7 @@ int dres_store_check(dres_store_t *store, char *name)
     return ohm_fact_store_get_facts_by_name(store->fact.fs, name) != NULL;
 }
 
-int dres_store_update_timestamps(dres_store_t *store, int stamp)
+int dres_store_update_timestamps(dres_store_t *store, void *update_data)
 {
     dres_fact_store_t     *fstore = &store->fact;
     OhmFactStoreView      *view;
@@ -296,8 +298,8 @@ int dres_store_update_timestamps(dres_store_t *store, int stamp)
                     name = ohm_structure_get_name(OHM_STRUCTURE(fact));
                     var  = g_hash_table_lookup(store->fact.htbl, name);
                 
-                    if (var != NULL && var->pstamp != NULL) {
-                        *(var->pstamp) = stamp;
+                    if (var && var->pvar && store->fact.update_stamp) {
+                        store->fact.update_stamp(update_data, var->pvar);
                         updated = TRUE;
                     }
                 }
@@ -383,7 +385,7 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
 }
 
 
-dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
+dres_var_t *dres_var_init(dres_store_t *store, char *name, void *pvar)
 {
     dres_var_t *var = NULL;
     char        buf[512];
@@ -391,7 +393,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
     OhmFact    *fact;
     GSList     *list;
 
-    if (!store || !name || (store->type == STORE_FACT && !pstamp)) {
+    if (!store || !name || (store->type == STORE_FACT && !pvar)) {
         errno = EINVAL;
         return NULL;
     }
@@ -432,7 +434,7 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, int *pstamp)
         }
         store->fact.patls = g_slist_prepend(store->fact.patls, pat);
         var->fact.name    = strdup(name);
-        var->fact.pstamp  = pstamp;
+        var->fact.pvar    = pvar;
         break;
 
     case STORE_LOCAL:
@@ -1340,6 +1342,7 @@ static int is_acyclic(GSList *head)
 
 
 #if TEST
+#define PREFIX "com.nokia.policy"
 int main(int argc, char **argv)
 {
     static char *accessories[] = { "ihf", "earpiece", "microphone", NULL };
@@ -1368,7 +1371,7 @@ int main(int argc, char **argv)
     fs = ohm_fact_store_get_fact_store();
 
     for (acc = accessories; *acc;  acc++) {
-        fact = ohm_fact_new("com.nokia.policy.accessories");
+        fact = ohm_fact_new(PREFIX".accessories");
         gval = ohm_value_from_string(*acc);
         ohm_fact_set(fact, "device", &gval);
         if (!ohm_fact_store_insert(fs, fact)) {
@@ -1377,7 +1380,7 @@ int main(int argc, char **argv)
         }
     }
 
-    fact = ohm_fact_new("com.nokia.policy.cpu_load");
+    fact = ohm_fact_new(PREFIX".cpu_load");
     gval = ohm_value_from_int(46);
     ohm_fact_set(fact, "percent", &gval);
     if (!ohm_fact_store_insert(fs, fact)) {
@@ -1386,7 +1389,7 @@ int main(int argc, char **argv)
     }
 
 
-    if ((store = dres_store_init(STORE_FACT, "com.nokia.policy")) == NULL) {
+    if ((store = dres_store_init(STORE_FACT, PREFIX, NULL)) == NULL) {
         printf("dres_store_init() failed: %s\n", strerror(errno));
         return errno;
     }
@@ -1401,14 +1404,14 @@ int main(int argc, char **argv)
 
     stamp1 = stamp2 = 0;
 
-    dres_store_update_timestamps(store, 1);
+    dres_store_update_timestamps(store, 1, 1);
 
     if (stamp1 || stamp2) {
         printf("invalid timestamp change (1)\n");
         return EINVAL;
     }
 
-    fact = ohm_fact_new("com.nokia.policy.accessories");
+    fact = ohm_fact_new(PREFIX".accessories");
     gval = ohm_value_from_string("usb");
     ohm_fact_set(fact, "device", &gval);
     if (!ohm_fact_store_insert(fs, fact)) {
@@ -1416,7 +1419,7 @@ int main(int argc, char **argv)
         return EIO;
     }
 
-    dres_store_update_timestamps(store, 2);
+    dres_store_update_timestamps(store, 2, 1);
 
     if (stamp1 != 2 || stamp2 != 0) {
         printf("invalid timestamp change (2)\n");
@@ -1435,7 +1438,7 @@ int main(int argc, char **argv)
      */
     printf("Testing local store variables\n");
 
-    if ((store = dres_store_init(STORE_LOCAL, NULL)) == NULL) {
+    if ((store = dres_store_init(STORE_LOCAL, NULL, NULL)) == NULL) {
         printf("dres_store_init() failed: %s\n", strerror(errno));
         return errno;
     }
