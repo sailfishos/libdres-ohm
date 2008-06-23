@@ -142,8 +142,13 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 	| prereqs prereq         { dres_add_prereq($1, $2); $$ = $1;  }
 	;
 
-prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);     }
-	| TOKEN_FACTVAR          { $$ = dres_factvar_id(dres, $1);   }
+prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);    }
+	| TOKEN_FACTVAR          {
+              dres_variable_t *v;
+              $$ = dres_factvar_id(dres, $1);
+              if ((v = dres_lookup_variable(dres, $$)) != NULL)
+                  v->flags |= DRES_VAR_PREREQ;
+          }
 	;
 
 optional_actions: /* empty */    { $$ = NULL; }

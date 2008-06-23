@@ -103,8 +103,16 @@ typedef struct {
     int          txstamp;                   /* stamp before txid */
     char        *name;
     dres_var_t  *var;
+    int          flags;
+#if 0
     dres_val_t   val;
+#endif
 } dres_variable_t;
+
+enum {
+    DRES_VAR_UNKNOWN = 0x0,
+    DRES_VAR_PREREQ  = 0x1
+};
 
 typedef struct {
     int   id;

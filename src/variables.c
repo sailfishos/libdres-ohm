@@ -385,13 +385,13 @@ int dres_var_create(dres_store_t *store, char *name, void *pval)
 }
 
 
-dres_var_t *dres_var_init(dres_store_t *store, char *name, void *pvar)
+dres_var_t *dres_var_init(dres_store_t *store,
+                          char *name, void *pvar, int monitor)
 {
     dres_var_t *var = NULL;
     char        buf[512];
     OhmPattern *pat;
     OhmFact    *fact;
-    GSList     *list;
 
     if (!store || !name || (store->type == STORE_FACT && !pvar)) {
         errno = EINVAL;
@@ -423,16 +423,14 @@ dres_var_t *dres_var_init(dres_store_t *store, char *name, void *pvar)
             errno = EBUSY;
             goto failed;
         }
-        if (!(list = ohm_fact_store_get_facts_by_name(store->fact.fs, name)) ||
-            g_slist_length(list) == 0) {
-            errno = ENOENT;
-            goto failed;
+
+        if (monitor) {
+            if ((pat = ohm_pattern_new(name)) == NULL) {
+                errno = EINVAL;
+                goto failed;
+            }
+            store->fact.patls = g_slist_prepend(store->fact.patls, pat);
         }
-        if ((pat = ohm_pattern_new(name)) == NULL) {
-            errno = EINVAL;
-            goto failed;
-        }
-        store->fact.patls = g_slist_prepend(store->fact.patls, pat);
         var->fact.name    = strdup(name);
         var->fact.pvar    = pvar;
         break;
@@ -1394,8 +1392,8 @@ int main(int argc, char **argv)
         return errno;
     }
 
-    if ((var1 = dres_var_init(store, "accessories", &stamp1)) == NULL ||
-        (var2 = dres_var_init(store, "cpu_load"   , &stamp2)) == NULL) {
+    if ((var1 = dres_var_init(store, "accessories", (void *)0x1, 0)) == NULL ||
+        (var2 = dres_var_init(store, "cpu_load"   , (void *)0x1, 0)) == NULL) {
         printf("dres_var_init() failed: %s\n", strerror(errno));
         return errno;
     }
@@ -1443,8 +1441,8 @@ int main(int argc, char **argv)
         return errno;
     }
 
-    if ((var1 = dres_var_init(store, "var1", &stamp1)) == NULL ||
-        (var2 = dres_var_init(store, "var2", &stamp2)) == NULL) {
+    if ((var1 = dres_var_init(store, "var1", NULL, 0)) == NULL ||
+        (var2 = dres_var_init(store, "var2", NULL, 0)) == NULL) {
         printf("dres_var_init() failed: %s\n", strerror(errno));
         return errno;
     }
