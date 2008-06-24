@@ -204,7 +204,7 @@ dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
         return ENOMEM;
     
     valuep = value;
-    if ((var = dres_var_init(scope->curr, name, NULL)) == NULL)
+    if ((var = dres_var_init(scope->curr, name, NULL, 0)) == NULL)
         goto fail;
     if (!dres_var_set_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &valuep))
         goto fail;

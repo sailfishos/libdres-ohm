@@ -164,11 +164,13 @@ static int
 finalize_variables(dres_t *dres)
 {
     dres_variable_t *v;
-    int              i;
+    int              i, monitor;
 
-    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++)
-        if (!(v->var = dres_var_init(dres->fact_store, v->name, v)))
+    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
+        monitor = DRES_TST_FLAG(v, VAR_PREREQ);
+        if (!(v->var = dres_var_init(dres->fact_store, v->name, v, monitor)))
             return EIO;
+    }
     
     dres_store_finish(dres->fact_store);
     dres_store_finish(dres->dres_store);
