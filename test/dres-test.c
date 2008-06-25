@@ -35,8 +35,10 @@ static void dump_facts   (char *format, ...);
 int
 main(int argc, char *argv[])
 {
-    char *rulefile = TEST_RULEFILE;
-    int   i;
+    char  *rulefile = TEST_RULEFILE;
+    char  *all[]    = { "all", NULL };
+    char **goals    = all;
+    int    i;
 
     if (argc > 1)
         rulefile = argv[1];
@@ -72,21 +74,22 @@ main(int argc, char *argv[])
 
     if (dres_finalize(dres))
         fatal(5, "failed to finalize DRES rules");
-    
-    dres_dump_targets(dres);
-    printf("======================================\n");
 
-    if (argc < 2) {
-        dres_update_goal(dres, "all", NULL);
-        dump_facts("----------- all -------------\n");
-    }
-    else {
-        for (i = 2; i < argc; i++) {
-            dres_update_goal(dres, argv[i], NULL);
-            dump_facts("----------- %s -------------\n", argv[i]);
+    if (argc > 2)
+        goals = argv + 2;
+
+    for (i = 0; goals[i]; i++) {
+        if (!strcmp(goals[i], "dump")) {
+            dres_dump_targets(dres);
+            printf("======================================\n");
+            continue;
         }
-    }
 
+        dres_update_goal(dres, goals[i], NULL);
+        dump_facts("----------- %s -------------\n", goals[i]);
+    }
+                
+    
 #if 0
     dres_update_goal(dres, "test2", NULL);
     dump_facts("----------- test2 -------------\n");
