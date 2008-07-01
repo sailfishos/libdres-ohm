@@ -17,6 +17,9 @@
     ((s)->nentry <= (s)->nalloc && (s)->nentry > 0 ?    \
      (s)->entries + (s)->nentry-1 : NULL)
 
+#define STACK_ENTRY(s, idx)                                             \
+    (((idx) < 0 || (s)->nentry <= (idx)) ? NULL : (STACK_TOP(s) - (idx)))
+
 #define STACK_TYPE(s)                                   \
     ((s)->nentry <= (s)->nalloc && (s)->nentry > 0 ?    \
      (s)->entries[(s)->nentry-1].type : VM_TYPE_UNKNOWN)
@@ -167,12 +170,49 @@ vm_push_string(vm_stack_t *s, char *str)
 
 
 /********************
+ * vm_push_global
+ ********************/
+int
+vm_push_global(vm_stack_t *s, vm_global_t *g)
+{
+    vm_stack_entry_t *e = STACK_PUSH(s);
+    
+    if (e == NULL)
+        return ENOMEM;
+    
+    e->type = VM_TYPE_GLOBAL;
+    e->v.g  = g;
+    
+    return 0;
+}
+
+
+/********************
  * vm_type
  ********************/
 int
 vm_type(vm_stack_t *s)
 {
     return STACK_TYPE(s);
+}
+
+
+/********************
+ * vm_peek
+ ********************/
+int
+vm_peek(vm_stack_t *s, int idx, vm_value_t *value)
+{
+    vm_stack_entry_t *e = STACK_ENTRY(s, idx);
+    int               t;
+
+    if (e == NULL)
+        return VM_TYPE_UNKNOWN;
+    
+    *value = e->v;
+    t      = e->type;
+    
+    return t;
 }
 
 
@@ -252,92 +292,22 @@ vm_pop_string(vm_stack_t *s)
 }
 
 
-
-
-
-
-
-#ifdef __VM_TEST__
-
-
-#define STACK_SIZE 50
-
-#define fatal(ec, fmt, args...) do {                            \
-        fprintf(stderr, "fatal error: "fmt"\n", ## args);       \
-        exit(ec);                                               \
-    } while (0)
-
-
-int
-main(int argc, char *argv[])
+/********************
+ * vm_pop_global
+ ********************/
+vm_global_t *
+vm_pop_global(vm_stack_t *s)
 {
-    vm_stack_t *stack = vm_stack_new(1);
-    int         i, err, n;
-    double      d;
-    char       *s;
+    vm_stack_entry_t *e = STACK_TOP(s);
 
-    if (!stack)
-        fatal(ENOMEM, "failed to allocate a stack");
+    if (e == NULL || e->type != VM_TYPE_GLOBAL)
+        return NULL;
     
-    for (i = 0; i < STACK_SIZE; i++) {
-    retry:
-        switch (i & 0x3) {
-        case 0: err = vm_push_int(stack, i);           break;
-        case 1: err = vm_push_string(stack, "foobar"); break;
-        case 2: err = vm_push_double(stack, 3.0*i);    break;
-        case 3: err = vm_push_string(stack, "barfoo"); break;
-        }            
-        
-        if (err == ENOMEM && !vm_stack_grow(stack, 5))
-            goto retry;
-        else if (err)
-            fatal(err, "failed to push integer %d on the stack", i);
-        printf("push #%d\n", i);
-    }
+    e->type = VM_TYPE_UNKNOWN;
+    s->nentry--;
 
-    for (i = 0; i < STACK_SIZE; i++) {
-        switch (vm_type(stack)) {
-        case VM_TYPE_INTEGER:
-            n = vm_pop_int(stack);
-            printf("#%d: popped %d from the stack...\n", i, n);
-            break;
-            
-        case VM_TYPE_DOUBLE:
-            d = vm_pop_double(stack);
-            printf("#%d: popped %f from the stack...\n", i, d);
-            break;
-
-        case VM_TYPE_STRING:
-            s = vm_pop_string(stack);
-            printf("#%d: popped %s from the stack...\n", i, s);
-            break;
-
-        default:
-            fatal(EINVAL, "#%d: unexpected object on stack", i);
-       }
-
-        vm_stack_trim(stack, 0);
-
-    }
-
-    vm_stack_del(stack);
-    
-    return 0;
+    return e->v.g;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-#endif /* __VM_TEST__ */
 
 
 
