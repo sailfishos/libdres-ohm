@@ -35,6 +35,20 @@ dump_global(vm_global_t *g)
 
 
 /********************
+ * dump_factstore
+ ********************/
+void
+dump_factstore(void)
+{
+    char *s;
+    
+    s = ohm_fact_store_to_string(ohm_fact_store_get_fact_store());
+    printf("factstore = %s\n", s);
+    g_free(s);
+}
+
+
+/********************
  * stack_pop_all
  ********************/
 int
@@ -67,7 +81,9 @@ stack_pop_all(vm_stack_t *stack)
             g = vm_pop_global(stack);
             printf("#%d: popped global %p from the stack\n", i, g);
             dump_global(g);
+            vm_global_free(g);
             break;
+            
         default:
             fatal(EINVAL, "#%d: unexpected object on stack", i);
             return EINVAL;
@@ -89,6 +105,8 @@ stack_test(void)
 {
     vm_stack_t *stack = vm_stack_new(1);
     int         i, err;
+
+    printf("*** [%s] ***\n", __FUNCTION__);
 
     if (!stack)
         fatal(ENOMEM, "failed to allocate a stack");
@@ -126,6 +144,8 @@ chunk_test(void)
     vm_chunk_t *chunk = vm_chunk_new(200);
     vm_state_t  vm;
     int         err;
+
+    printf("*** [%s] ***\n", __FUNCTION__);
 
     /* allocate initial stack and code buffer */
     if (stack == NULL || chunk == NULL)
@@ -171,6 +191,8 @@ filter_test(void)
     vm_chunk_t *chunk = vm_chunk_new(10);
     vm_state_t  vm;
     int         err;
+
+    printf("*** [%s] ***\n", __FUNCTION__);
     
     if (stack == NULL || chunk == NULL)
         fatal(ENOMEM, "failed to allocate stack and/or code");
@@ -221,6 +243,175 @@ filter_test(void)
 }
 
 
+/********************
+ * set_test
+ ********************/
+int
+set_test(void)
+{
+    vm_stack_t *stack = vm_stack_new(20);
+    vm_chunk_t *chunk = vm_chunk_new(10);
+    vm_state_t  vm;
+    int         err;
+
+    printf("*** [%s] ***\n", __FUNCTION__);
+    
+    if (stack == NULL || chunk == NULL)
+        fatal(ENOMEM, "failed to allocate stack and/or code");
+
+    /* $a = { foo:'bar', foobar:123 } */
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "bar");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foo");
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 123);
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_CREATE(chunk, cgfail, err, 2);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $b = { foo: 'bar', foobar: 'barfoo' } */
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "bar");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foo");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "barfoo");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_CREATE(chunk, cgfail, err, 2);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $c = $a */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "c");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $d = $b */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "d");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $e = $a */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "e");
+    VM_INSTR_SET(chunk, cgfail, err);
+    
+    /* $e:foobar = 456 */
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 456);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "e");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_SET_FIELD(chunk, cgfail, err);
+
+    vm.stack = stack;
+    vm.chunk = chunk;
+    
+    vm.pc     = chunk->instrs;
+    vm.ninstr = chunk->ninstr;
+    vm.nsize  = chunk->nsize;
+
+    vm_run(&vm);
+
+    stack_pop_all(vm.stack);
+
+    dump_factstore();
+    
+    vm_stack_del(stack);
+    vm_chunk_del(chunk);
+
+    return 0;
+
+ cgfail:
+    fatal(err, "code generation failed");
+}
+
+
+/********************
+ * call_test
+ ********************/
+int
+call_test(void)
+{
+    vm_stack_t *stack = vm_stack_new(20);
+    vm_chunk_t *chunk = vm_chunk_new(10);
+    vm_state_t  vm;
+    int         err;
+
+    printf("*** [%s] ***\n", __FUNCTION__);
+    
+    if (stack == NULL || chunk == NULL)
+        fatal(ENOMEM, "failed to allocate stack and/or code");
+
+    /* $a = { foo:'bar', foobar:123 } */
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "bar");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foo");
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 123);
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_CREATE(chunk, cgfail, err, 2);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $b = { foo: 'bar', foobar: 'barfoo' } */
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "bar");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foo");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "barfoo");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_CREATE(chunk, cgfail, err, 2);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $c = $a */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "c");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $d = $b */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "d");
+    VM_INSTR_SET(chunk, cgfail, err);
+
+    /* $e = $a */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "e");
+    VM_INSTR_SET(chunk, cgfail, err);
+    
+    /* $e:foobar = 456 */
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 456);
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "e");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
+    VM_INSTR_SET_FIELD(chunk, cgfail, err);
+
+    /* unknown_method($a, $b, $c, $d, $e, 1, 2.0, 'three') */
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "c");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "d");
+    VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "e");
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 1);
+    VM_INSTR_PUSH_DOUBLE(chunk, cgfail, err, 2.0);
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "three");
+
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "undefined_method");
+    VM_INSTR_CALL(chunk, cgfail, err, 8);
+
+    vm.stack = stack;
+    vm.chunk = chunk;
+    
+    vm.pc     = chunk->instrs;
+    vm.ninstr = chunk->ninstr;
+    vm.nsize  = chunk->nsize;
+
+    vm_run(&vm);
+
+    stack_pop_all(vm.stack);
+
+    dump_factstore();
+    
+    vm_stack_del(stack);
+    vm_chunk_del(chunk);
+
+    return 0;
+
+ cgfail:
+    fatal(err, "code generation failed");
+}
+
+
 
 int
 main(int argc, char *argv[])
@@ -231,7 +422,9 @@ main(int argc, char *argv[])
     stack_test();
     chunk_test();
     filter_test();
-    
+    set_test();
+    call_test();
+
     return 0;
 }
 

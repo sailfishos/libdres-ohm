@@ -28,7 +28,14 @@ enum {
 };
 
 
+#define VM_UNNAMED_GLOBAL "__vm_global"       /* an unnamed global */
+#define VM_GLOBAL_IS_NAME(g) ((g)->name != NULL && (g)->nfact == 0)
+#define VM_GLOBAL_IS_ORPHAN(g)                                     \
+    ((g)->nfact == 1 &&                                            \
+     !strcmp(ohm_structure_get_name(OHM_STRUCTURE((g)->facts[0])), \
+             VM_UNNAMED_GLOBAL))
 typedef struct vm_global_s {
+    char    *name;                            /* for free-hanging facts */
     int      nfact;
     OhmFact *facts[0];
 } vm_global_t;
@@ -123,6 +130,18 @@ enum {
             goto errlbl;                                                \
     } while (0)
 
+#define VM_INSTR_PUSH_GLOBAL(c, errlbl, ec, val) do {                   \
+        int           len = strlen(val) + 1;                            \
+        int           n   = VM_ALIGN_TO(len, sizeof(int))/sizeof(int);  \
+        unsigned int  instr[1 + n];                                     \
+        instr[0] = VM_PUSH_INSTR(VM_TYPE_GLOBAL, len);                  \
+        strcpy((char *)(instr + 1), val);                               \
+        /* could pad here with zeros if (len & 0x3) */                  \
+        ec = vm_chunk_add(c, instr, 1, sizeof(instr));                  \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+
 
 /*
  * FILTER instructions
@@ -157,9 +176,37 @@ enum {
  * SET instructions
  */
 
+enum {
+    VM_SET_NONE  = 0x0,
+    VM_SET_FIELD = 0x1,
+};
+
+#define VM_INSTR_SET(c, errlbl, ec) do {                                \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_SET, VM_SET_NONE);                       \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+
+#define VM_INSTR_SET_FIELD(c, errlbl, ec) do {                          \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_SET, VM_SET_FIELD);                      \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+    } while (0)
+
+
+
 /*
  * CALL instructions
  */
+
+#define VM_INSTR_CALL(c, errlbl, ec, narg) do {                         \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_CALL, narg);                             \
+        ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
+    } while (0)
+
 
 
 /*
@@ -172,6 +219,18 @@ typedef struct vm_chunk_s {
     int           nsize;                     /* code size in bytes */
     int           nleft;                     /* number of bytes free */
 } vm_chunk_t;
+
+
+/*
+ * VM function calls
+ */
+
+typedef struct vm_method_s {
+    char *name;                              /* function name */
+    int (*handler)(char *name,               /* function handler */
+                   vm_stack_entry_t *args, int narg,
+                   vm_stack_entry_t *retval);
+} vm_method_t;
 
 
 /*
@@ -215,11 +274,13 @@ int         vm_stack_grow(vm_stack_t *s, int n);
 int         vm_stack_trim(vm_stack_t *s, int n);
 
 int vm_type       (vm_stack_t *s);
+int vm_push       (vm_stack_t *s, int type, vm_value_t value);
 int vm_push_int   (vm_stack_t *s, int i);
 int vm_push_double(vm_stack_t *s, double d);
 int vm_push_string(vm_stack_t *s, char *str);
 int vm_push_global(vm_stack_t *s, vm_global_t *g);
 
+vm_stack_entry_t *vm_args(vm_stack_t *s, int narg);
 
 int         vm_pop (vm_stack_t *s, vm_value_t *value);
 int         vm_peek(vm_stack_t *s, int idx, vm_value_t *value);
@@ -228,6 +289,7 @@ int         vm_pop_int   (vm_stack_t *s);
 double      vm_pop_double(vm_stack_t *s);
 char        *vm_pop_string(vm_stack_t *s);
 vm_global_t *vm_pop_global(vm_stack_t *s);
+
 
 /* vm-instr.c */
 vm_chunk_t   *vm_chunk_new (int ninstr);
@@ -239,8 +301,27 @@ int           vm_chunk_add (vm_chunk_t *c,
 int vm_run(vm_state_t *vm);
 
 /* vm-global.c */
-int  vm_global_lookup(char *name, vm_global_t **gp);
-void vm_global_free  (vm_global_t *g);
+int          vm_global_lookup(char *name, vm_global_t **gp);
+vm_global_t *vm_global_name  (char *name);
+void         vm_global_free  (vm_global_t *g);
+
+GSList      *vm_fact_lookup(char *name);
+void         vm_fact_reset (OhmFact *fact);
+OhmFact     *vm_fact_dup   (OhmFact *src, char *name);
+OhmFact     *vm_fact_copy  (OhmFact *dst, OhmFact *src);
+void         vm_fact_remove(char *name);
+
+int          vm_fact_set_field  (vm_state_t *vm, OhmFact *fact, char *field,
+                                 int type, vm_value_t *value);
+int          vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
+                                 GValue *gval, int type, vm_value_t *value);
+
+/* vm-method.c */
+vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
+vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
+vm_method_t *vm_method_default(vm_state_t *vm);
+int          vm_method_call(vm_state_t *vm, vm_method_t *m, int narg);
+
 
 
 #endif /* __DRES_VM_H__ */

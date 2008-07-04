@@ -188,6 +188,24 @@ vm_push_global(vm_stack_t *s, vm_global_t *g)
 
 
 /********************
+ * vm_push
+ ********************/
+int
+vm_push(vm_stack_t *s, int type, vm_value_t value)
+{
+    vm_stack_entry_t *e = STACK_PUSH(s);
+    
+    if (e == NULL)
+        return ENOMEM;
+    
+    e->type = type;
+    e->v    = value;
+
+    return 0;
+}
+
+
+/********************
  * vm_type
  ********************/
 int
@@ -213,6 +231,16 @@ vm_peek(vm_stack_t *s, int idx, vm_value_t *value)
     t      = e->type;
     
     return t;
+}
+
+
+/********************
+ * vm_args
+ ********************/
+vm_stack_entry_t *
+vm_args(vm_stack_t *s, int narg)
+{
+    return STACK_ENTRY(s, narg - 1);
 }
 
 

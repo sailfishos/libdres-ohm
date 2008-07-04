@@ -10,17 +10,11 @@
 
 
 
-int vm_instr_push  (vm_state_t *vm);
-int vm_instr_filter(vm_state_t *vm);
-int vm_instr_set   (vm_state_t *vm);
-int vm_instr_create(vm_state_t *vm);
-int vm_instr_call  (vm_state_t *vm);
-
-static int fact_filter_field(vm_state_t *vm, OhmFact *fact, char *field,
-                             GValue *gval, int type, vm_value_t *value);
-static int fact_set_field   (vm_state_t *vm, OhmFact *fact, char *field,
-                             int type, vm_value_t *value);
-
+int vm_instr_push   (vm_state_t *vm);
+int vm_instr_filter (vm_state_t *vm);
+int vm_instr_set    (vm_state_t *vm);
+int vm_instr_create (vm_state_t *vm);
+int vm_instr_call   (vm_state_t *vm);
 
 
 /*****************************************************************************
@@ -49,6 +43,12 @@ vm_run(vm_state_t *vm)
     
     return status;
 }
+
+
+
+/*
+ * PUSH
+ */
 
 
 /********************
@@ -94,22 +94,30 @@ vm_instr_push(vm_state_t *vm)
     case VM_TYPE_GLOBAL:
         CHECK_AND_GROW(char *, data);
         name = (char *)(vm->pc + 1);
-        if (vm_global_lookup(name, &g) < 0)
+        if (vm_global_lookup(name, &g) == ENOENT)
+            g = vm_global_name(name);
+        if (g == NULL)
             VM_EXCEPTION(vm, "push global: failed to look up %s", name);
         vm_push_global(vm->stack, g);
-        nsize = 1;
+        nsize = 1 + VM_ALIGN_TO(data, sizeof(int)) / sizeof(int);;
         break;
 
     default: VM_EXCEPTION(vm, "invalid type 0x%x to push", type);
     }
-    
-    
+
+        
     vm->ninstr--;
     vm->pc    += nsize;
     vm->nsize -= nsize;
     
     return 0;
 }
+
+
+
+/*
+ * FILTER
+ */
 
 
 /********************
@@ -142,7 +150,7 @@ vm_instr_filter(vm_state_t *vm)
     for (i = 0; i < nfield; i++) {
 
         if (vm_type(vm->stack) != VM_TYPE_STRING)
-            FAIL("invalid field name, string expected");
+            FAIL("FILTER: invalid field name, string expected");
         
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
@@ -170,7 +178,7 @@ vm_instr_filter(vm_state_t *vm)
             if ((gval = ohm_fact_get(fact, field)) == NULL)
                 FAIL("fact has no expected field %s", field);
         
-            if (!fact_filter_field(vm, fact, field, gval, type, &value)) {
+            if (!vm_fact_match_field(vm, fact, field, gval, type, &value)) {
                 g_object_unref(fact);
                 g->facts[idx] = NULL;
                 nfact--;
@@ -185,53 +193,124 @@ vm_instr_filter(vm_state_t *vm)
     vm->nsize -= sizeof(int);
 
     return 0;
+#undef FAIL
 }
 
 
+/*
+ * SET, SET FIELD
+ */
+
+
 /********************
- * fact_filter_field
+ * vm_instr_set_var
  ********************/
-static int
-fact_filter_field(vm_state_t *vm, OhmFact *fact, char *field,
-             GValue *gval, int type, vm_value_t *value)
+int
+vm_instr_set_var(vm_state_t *vm)
 {
-    int         i;
-    double      d;
-    const char *s;
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    OhmFact      *fact;
+    vm_global_t  *src, *dst;
+    int          i;
 
-    switch (type) {
-    case VM_TYPE_INTEGER:
-        switch (G_VALUE_TYPE(gval)) {
-        case G_TYPE_INT:   i = g_value_get_int(gval);   break;
-        case G_TYPE_UINT:  i = g_value_get_uint(gval);  break;
-        case G_TYPE_LONG:  i = g_value_get_long(gval);  break;
-        case G_TYPE_ULONG: i = g_value_get_ulong(gval); break;
-        default: VM_EXCEPTION(vm, "integer type expected for field %s", field);
-        }
-        return i == value->i;
+    if (store == NULL)
+        VM_EXCEPTION(vm, "SET: could not determine fact store");
 
-    case VM_TYPE_DOUBLE:
-        switch (G_VALUE_TYPE(gval)) {
-        case G_TYPE_DOUBLE: d = g_value_get_double(gval);    break;
-        case G_TYPE_FLOAT:  d = 1.0*g_value_get_float(gval); break;
-        default: VM_EXCEPTION(vm, "double type expected for field %s", field);
-        }
-        return d == value->d;
+    dst = vm_pop_global(vm->stack);
+    src = vm_pop_global(vm->stack);
 
-    case VM_TYPE_STRING:
-        switch (G_VALUE_TYPE(gval)) {
-        case G_TYPE_STRING: s = g_value_get_string(gval); break;
-        default: VM_EXCEPTION(vm, "string type expected for field %s", field);
-        }
-        return !strcmp(s, value->s);
-
-    default:
-        VM_EXCEPTION(vm, "unexpected field type 0x%x for filter", type);
+    if (src == NULL || dst == NULL) {
+        vm_global_free(src);
+        vm_global_free(dst);
+        VM_EXCEPTION(vm, "SET: could not POP expected two globals");
     }
+    
+    
+    if (VM_GLOBAL_IS_NAME(dst)) {              /* dst a name-only global */
+        if (VM_GLOBAL_IS_ORPHAN(src)) {        /* src orphan, assign directly */
+            ohm_structure_set_name(OHM_STRUCTURE(src->facts[0]), dst->name);
+            if (!ohm_fact_store_insert(store, src->facts[0]))
+                VM_EXCEPTION(vm, "SET: failed to insert fact to factstore");
+            g_object_unref(src->facts[0]);
+            src->facts[0] = NULL;
+            src->nfact    = 0;
+        }
+        else {
+            for (i = 0; i < src->nfact; i++) {
+                fact = vm_fact_dup(src->facts[i], dst->name);
+                if (!ohm_fact_store_insert(store, fact))
+                    VM_EXCEPTION(vm, "SET: failed to insert fact to factstore");
+            }
+        }
+    }
+    else {
+        if (src->nfact != dst->nfact)
+            VM_EXCEPTION(vm, "SET: argument dimensions do not match (%d != %d)",
+                         src->nfact, dst->nfact);
+        
+        for (i = 0; i < src->nfact; i++)
+            if (vm_fact_copy(dst->facts[i], src->facts[i]) == NULL)
+                VM_EXCEPTION(vm, "SET: failed to copy fact");
+    }
+    
+    vm_global_free(src);
+    vm_global_free(dst);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
     
     return 0;
 }
 
+
+/********************
+ * vm_instr_set_field
+ ********************/
+int
+vm_instr_set_field(vm_state_t *vm)
+{
+#define FAIL(fmt, args...) do {                 \
+        if (g)                                  \
+            vm_global_free(g);                  \
+        VM_EXCEPTION(vm, fmt, ## args);         \
+    } while (0)
+
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    vm_global_t  *g = NULL;
+    char         *field;
+    vm_value_t   value;
+    int          type;
+
+    if (store == NULL)
+        FAIL("SET FIELD: could not determine fact store");
+
+    if (vm_type(vm->stack) != VM_TYPE_STRING)
+        FAIL("SET FIELD: invalid field name, string expected");
+
+    field = vm_pop_string(vm->stack);
+
+    if (vm_type(vm->stack) != VM_TYPE_GLOBAL)
+        FAIL("SET FIELD: destination, global expected");
+    
+    g    = vm_pop_global(vm->stack);
+    type = vm_pop(vm->stack, &value);
+    
+    if (g->nfact < 1)
+        FAIL("SET FIELD: nonexisting global");
+
+    if (g->nfact > 1)
+        FAIL("SET FIELD: cannot set field of multiple globals");
+    
+    vm_fact_set_field(vm, g->facts[0], field, type, &value);
+    vm_global_free(g);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+    
+    return 0;
+}
 
 
 /********************
@@ -240,9 +319,16 @@ fact_filter_field(vm_state_t *vm, OhmFact *fact, char *field,
 int
 vm_instr_set(vm_state_t *vm)
 {
-    
-    return 0;
+    if (!VM_OP_ARGS(*vm->pc) & VM_SET_FIELD)
+        return vm_instr_set_var(vm);
+    else
+        return vm_instr_set_field(vm);
 }
+
+
+/*
+ * CREATE
+ */
 
 
 /********************
@@ -272,9 +358,8 @@ vm_instr_create(vm_state_t *vm)
     if (ALLOC_VAROBJ(g, nfield, facts) == NULL)
         FAIL("CREATE: failed to allocate memory for new global");
 
-    if ((fact = ohm_fact_new("__unnamed_global")) == NULL)
+    if ((fact = ohm_fact_new(VM_UNNAMED_GLOBAL)) == NULL)
         FAIL("CREATE: failed to allocate fact for new global");
-
     
     for (i = 0; i < nfield; i++) {
         if (vm_type(vm->stack) != VM_TYPE_STRING)
@@ -285,7 +370,7 @@ vm_instr_create(vm_state_t *vm)
 
         printf("*** field %s...\n", field);
 
-        if (!fact_set_field(vm, fact, field, type, &value))
+        if (!vm_fact_set_field(vm, fact, field, type, &value))
             FAIL("failed to add field %s", field);
     }
 
@@ -301,25 +386,9 @@ vm_instr_create(vm_state_t *vm)
 }
 
 
-/********************
- * fact_set_field
- ********************/
-static int
-fact_set_field(vm_state_t *vm, OhmFact *fact, char *field,
-               int type, vm_value_t *value)
-{
-    GValue *gval;
-    
-    switch (type) {
-    case VM_TYPE_INTEGER: gval = ohm_value_from_int(value->i);    break;
-    case VM_TYPE_DOUBLE:  gval = ohm_value_from_double(value->d); break;
-    case VM_TYPE_STRING:  gval = ohm_value_from_string(value->s); break;
-    default: VM_EXCEPTION(vm, "invalid type 0x%x for field %s", type, field);
-    }
-
-    ohm_fact_set(fact, field, gval);
-    return 1;
-}
+/*
+ * CALL
+ */
 
 
 /********************
@@ -328,12 +397,36 @@ fact_set_field(vm_state_t *vm, OhmFact *fact, char *field,
 int
 vm_instr_call(vm_state_t *vm)
 {
+    vm_value_t   id;
+    vm_method_t *m;
+    int          narg = VM_OP_ARGS(*vm->pc);
+    int          type, status;
+    char        *name;
+
+    switch ((type = vm_pop(vm->stack, &id))) {
+    case VM_TYPE_STRING:  m = vm_method_lookup(vm, id.s); name = id.s; break;
+    case VM_TYPE_INTEGER: m = vm_method_by_id(vm, id.i);  name = m->name; break;
+    default: VM_EXCEPTION(vm, "CALL: unknown method ID type 0x%x", type);
+    }
+    
+    if (vm_stack_grow(vm->stack, narg))
+        VM_EXCEPTION(vm, "CALL: failed to grow the stack by %d entries", narg);
+
+    status = vm_method_call(vm, m, narg);
+
+    if (status)
+        VM_EXCEPTION(vm, "CALL: %s failed with error %d", name, status);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+    
     return 0;
 }
 
 
 /*****************************************************************************
- *                             *** code generation ***                       *
+ *                        *** (code) chunk generation ***                    *
  *****************************************************************************/
 
 /********************
