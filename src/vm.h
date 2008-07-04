@@ -225,11 +225,14 @@ typedef struct vm_chunk_s {
  * VM function calls
  */
 
+typedef int (*vm_action_t)(char *name,
+                           vm_stack_entry_t *args, int narg,
+                           vm_stack_entry_t *retval);
+
 typedef struct vm_method_s {
-    char *name;                              /* function name */
-    int (*handler)(char *name,               /* function handler */
-                   vm_stack_entry_t *args, int narg,
-                   vm_stack_entry_t *retval);
+    char        *name;                       /* function name */
+    int          id;                         /* function ID */
+    vm_action_t  handler;                    /* function handler */
 } vm_method_t;
 
 
@@ -244,6 +247,9 @@ typedef struct vm_state_s {
     unsigned int  *pc;                        /* program counter */
     int            ninstr;                    /* # of instructions left */
     int            nsize;                     /* of code left */
+
+    vm_method_t   *methods;                   /* action handlers */
+    int            nmethod;
 } vm_state_t;
 
 
@@ -304,6 +310,8 @@ int vm_run(vm_state_t *vm);
 int          vm_global_lookup(char *name, vm_global_t **gp);
 vm_global_t *vm_global_name  (char *name);
 void         vm_global_free  (vm_global_t *g);
+void         vm_global_print (vm_global_t *g);
+
 
 GSList      *vm_fact_lookup(char *name);
 void         vm_fact_reset (OhmFact *fact);
@@ -316,11 +324,14 @@ int          vm_fact_set_field  (vm_state_t *vm, OhmFact *fact, char *field,
 int          vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
                                  GValue *gval, int type, vm_value_t *value);
 
+void vm_fact_print(OhmFact *fact);
+
 /* vm-method.c */
+int          vm_method_add    (vm_state_t *vm, char *name, vm_action_t handler);
 vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
 vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
-vm_method_t *vm_method_default(vm_state_t *vm);
-int          vm_method_call(vm_state_t *vm, vm_method_t *m, int narg);
+vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
+int          vm_method_call   (vm_state_t *vm, vm_method_t *m, int narg);
 
 
 

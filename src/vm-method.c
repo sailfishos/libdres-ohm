@@ -5,12 +5,47 @@
 #include "mm.h"
 #include "vm.h"
 
+#define UNKNOWN_ID 0xefffffff
 
-static int vm_default_handler(char *name,
+static int vm_unknown_handler(char *name,
                               vm_stack_entry_t *args, int narg,
                               vm_stack_entry_t *retval);
 
-static vm_method_t unknown_handler = { "default", vm_default_handler };
+static vm_method_t default_method = {
+    "default",
+    UNKNOWN_ID,
+    vm_unknown_handler
+};
+
+
+/********************
+ * vm_method_add
+ ********************/
+int
+vm_method_add(vm_state_t *vm, char *name, vm_action_t handler)
+{
+    vm_method_t *m;
+    
+    if (vm_method_lookup(vm, name) != &default_method)
+        return EEXIST;
+    
+    if (REALLOC_ARR(vm->methods, vm->nmethod, vm->nmethod + 1) == NULL)
+        return ENOMEM;
+
+    m = vm->methods + vm->nmethod;
+
+    m->name    = STRDUP(name);
+    m->id      = vm->nmethod;
+    m->handler = handler;
+
+    if (m->name == NULL)
+        return ENOMEM;
+
+    vm->nmethod++;
+
+    return 0;
+}
+
 
 /********************
  * vm_method_lookup
@@ -18,7 +53,13 @@ static vm_method_t unknown_handler = { "default", vm_default_handler };
 vm_method_t *
 vm_method_lookup(vm_state_t *vm, char *name)
 {
-    return &unknown_handler;
+    int i;
+    
+    for (i = 0; i < vm->nmethod; i++)
+        if (!strcmp(name, vm->methods[i].name))
+            return vm->methods + i;
+    
+    return &default_method;
 }
 
 
@@ -28,17 +69,24 @@ vm_method_lookup(vm_state_t *vm, char *name)
 vm_method_t *
 vm_method_by_id(vm_state_t *vm, int id)
 {
-    return &unknown_handler;
+    if (0 <= id && id < vm->nmethod)
+        return vm->methods + id;
+    
+    return &default_method;
 }
 
 
 /********************
  * vm_method_default
  ********************/
-vm_method_t *
-vm_method_default(vm_state_t *vm)
+vm_action_t
+vm_method_default(vm_state_t *vm, vm_action_t handler)
 {
-    return NULL;
+    vm_action_t old = default_method.handler;
+
+    default_method.handler = handler;
+
+    return old;
 }
 
 
@@ -71,14 +119,14 @@ vm_method_call(vm_state_t *vm, vm_method_t *m, int narg)
 
 
 /********************
- * vm_default_handler
+ * vm_unknown_handler
  ********************/
 static int
-vm_default_handler(char *name,
+vm_unknown_handler(char *name,
                    vm_stack_entry_t *args, int narg,
                    vm_stack_entry_t *retval)
 {
-    int i, type;
+    int i, j, type;
 
     printf("OOPS: call to unknown method %s\n", name);
     printf("OOPS: called with %d argument%s\n", narg, narg == 1 ? "" : "s");
@@ -88,8 +136,15 @@ vm_default_handler(char *name,
         case VM_TYPE_INTEGER: printf("%d\n", args[i].v.i); break;
         case VM_TYPE_DOUBLE:  printf("%f\n", args[i].v.d); break;
         case VM_TYPE_STRING:  printf("'%s'\n", args[i].v.s); break;
-        case VM_TYPE_GLOBAL:  printf("a global...\n"); break;
-        default:              printf("<unknown type 0x%x>\n", type);
+        case VM_TYPE_GLOBAL:
+            for (j = 0; j < args[i].v.g->nfact; j++) {
+                printf("$");
+                vm_fact_print(args[i].v.g->facts[j]);
+                printf("\n");
+            }
+            break;
+        default:
+            printf("<unknown type 0x%x>\n", type);
         }
     }
 

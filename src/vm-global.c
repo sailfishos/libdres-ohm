@@ -78,6 +78,19 @@ vm_global_free(vm_global_t *g)
 }
 
 
+/********************
+ * vm_global_print
+ ********************/
+void
+vm_global_print(vm_global_t *g)
+{
+    int i;
+
+    for (i = 0; i < g->nfact; i++)
+        vm_fact_print(g->facts[i]);
+}
+
+
 /*****************************************************************************
  *                            *** fact handling ***                          *
  *****************************************************************************/
@@ -248,6 +261,18 @@ vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
     return 0;
 }
 
+
+/********************
+ * vm_fact_print
+ ********************/
+void
+vm_fact_print(OhmFact *fact)
+{
+    char *s = ohm_structure_to_string(OHM_STRUCTURE(fact));
+
+    printf("%s", s ? s: "<invalid fact>");
+    g_free(s);
+}
 
 
 

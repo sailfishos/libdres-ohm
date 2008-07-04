@@ -28,8 +28,7 @@ dump_global(vm_global_t *g)
     printf("global with %d fact%s\n", g->nfact, g->nfact == 1 ? "" : "s");
     for (i = 0; i < g->nfact; i++) {
         s = ohm_structure_to_string(OHM_STRUCTURE(g->facts[i]));
-        printf("  #%d: %s\n", i, s ?: "<unknown>");
-        g_free(s);
+        printf("  #%d: ", i); vm_fact_print(g->facts[i]); printf("\n");
     }
 }
 
@@ -322,6 +321,34 @@ set_test(void)
 
 
 /********************
+ * echo_handler
+ ********************/
+int
+echo_handler(char *name,
+             vm_stack_entry_t *args, int narg, vm_stack_entry_t *retval)
+{
+    int i;
+
+    for (i = 0; i < narg; i++) {
+        switch (args[i].type) {
+        case VM_TYPE_INTEGER: printf("%d", args[i].v.i); break;
+        case VM_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
+        case VM_TYPE_STRING:  printf("%s", args[i].v.s); break;
+        case VM_TYPE_GLOBAL:  vm_global_print(args[i].v.g); break;
+        default:              printf("<unknown type 0x%x>", args[i].type);
+        }
+        printf(" ");
+    }
+    printf("\n");
+    
+    retval->type = VM_TYPE_INTEGER;
+    retval->v.i  = 0;
+    
+    return 0;
+}
+
+
+/********************
  * call_test
  ********************/
 int
@@ -333,9 +360,14 @@ call_test(void)
     int         err;
 
     printf("*** [%s] ***\n", __FUNCTION__);
+
+    memset(&vm, 0, sizeof(vm));
     
     if (stack == NULL || chunk == NULL)
         fatal(ENOMEM, "failed to allocate stack and/or code");
+
+    if ((err = vm_method_add(&vm, "echo", echo_handler)) != 0)
+        fatal(err, "failed to register echo handler");
 
     /* $a = { foo:'bar', foobar:123 } */
     VM_INSTR_PUSH_STRING(chunk, cgfail, err, "bar");
@@ -376,7 +408,7 @@ call_test(void)
     VM_INSTR_PUSH_STRING(chunk, cgfail, err, "foobar");
     VM_INSTR_SET_FIELD(chunk, cgfail, err);
 
-    /* unknown_method($a, $b, $c, $d, $e, 1, 2.0, 'three') */
+    /* echo($a, $b, $c, $d, $e, 1, 2.0, 'three') */
     VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "a");
     VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "b");
     VM_INSTR_PUSH_GLOBAL(chunk, cgfail, err, "c");
@@ -386,7 +418,7 @@ call_test(void)
     VM_INSTR_PUSH_DOUBLE(chunk, cgfail, err, 2.0);
     VM_INSTR_PUSH_STRING(chunk, cgfail, err, "three");
 
-    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "undefined_method");
+    VM_INSTR_PUSH_STRING(chunk, cgfail, err, "echo");
     VM_INSTR_CALL(chunk, cgfail, err, 8);
 
     vm.stack = stack;
