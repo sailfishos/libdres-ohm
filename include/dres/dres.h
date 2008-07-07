@@ -9,7 +9,6 @@ enum {
     DRES_TYPE_TARGET,
     DRES_TYPE_FACTVAR,
     DRES_TYPE_DRESVAR,
-    DRES_TYPE_LITERAL,
     DRES_TYPE_INTEGER,
     DRES_TYPE_DOUBLE,
     DRES_TYPE_STRING,
@@ -20,7 +19,6 @@ enum {
 #define DRES_ID_NONE -1
 
 #define DRES_TYPE(type)     ((DRES_TYPE_##type) << 24)
-#define DRES_LITERAL(value) (DRES_TYPE(LITERAL)  | (value))
 #define DRES_FACTVAR(id)    (DRES_TYPE(FACTVAR)  | (id))
 #define DRES_DRESVAR(id)    (DRES_TYPE(DRESVAR)  | (id))
 #define DRES_TARGET(id)     (DRES_TYPE(TARGET)   | (id))
@@ -104,39 +102,11 @@ struct dres_local_s {
 };
 
 
-#if 1
-
 struct dres_varref_s {
     int            variable;               /* $var */
     dres_select_t *selector;               /* [ field1:value1, ... ] */
     char          *field;                  /* :field */
 };
-
-#else
-
-typedef struct {
-    int   variable;                        /* variable ID */
-    char *selector;                        /* selector or NULL */
-    char *field;                           /* field or NULL */
-} dres_varref_t;
-
-#endif
-
-
-enum {
-    DRES_ASSIGN_IMMEDIATE = 0,
-    DRES_ASSIGN_VARIABLE,
-};
-
-
-typedef struct {
-    dres_varref_t lvalue;                  /* variable to assign to */
-    int           type;                    /* DRES_ASSIGN_* */
-    union {
-        dres_varref_t var;                 /* variable */
-        int           val;                 /* value */
-    };
-} dres_assign_t;
 
 
 typedef struct {
@@ -154,9 +124,7 @@ enum {
 
 
 #define DRES_BUILTIN_UNKNOWN "__unknown"
-
-
-#if 1
+#define DRES_BUILTIN_ASSIGN  "__assign"
 
 struct dres_action_s {
     dres_varref_t     lvalue;             /* result variable if any */
@@ -169,39 +137,12 @@ struct dres_action_s {
     dres_action_t     *next;
 };
 
-#else
-
-#define DRES_BUILTIN_ASSIGN  "__assign"
-struct dres_action_s {
-    char           *name;                  /* name(...) */
-    dres_varref_t   lvalue;                /* variable to put the result to */
-    dres_varref_t   rvalue;                /* variable to copy if any, or */
-#if 0
-    dres_value_t    immediate;             /* immediate value */
-#else
-    int             immediate;             /* immediate value XXX kludge */
-#endif
-    dres_handler_t *handler;               /* handler */
-    dres_arg_t     *args;
-    dres_local_t   *locals;
-    int            *arguments;             /* name(arguments...) */
-    int             nargument;             /* number of arguments */
-    dres_assign_t  *variables;             /* name(arguments, variables) */
-    int             nvariable;             /* number of variables */
-    dres_action_t  *next;                  /* more actions */
-};
-#endif
 
 struct dres_handler_s {
     char  *name;                               /* action name */
     int  (*handler)(dres_t *dres, char *name,  /* action handler */
                     dres_action_t *action, void **ret); 
 };
-
-typedef union {
-    char         *string;
-    dres_array_t *array;
-} dres_val_t;
 
 typedef struct {
     int          id;
@@ -211,9 +152,6 @@ typedef struct {
     char        *name;
     dres_var_t  *var;
     int          flags;
-#if 0
-    dres_val_t   val;
-#endif
 } dres_variable_t;
 
 enum {
@@ -221,10 +159,6 @@ enum {
     DRES_VAR_PREREQ  = 0x1
 };
 
-typedef struct {
-    int   id;
-    char *name;
-} dres_literal_t;
 
 typedef struct {
     int            id;                      /* target ID */
@@ -271,15 +205,11 @@ struct dres_s {
     int              nfactvar;
     dres_variable_t *dresvars;
     int              ndresvar;
-    dres_literal_t  *literals;
-    int              nliteral;
 
     int              stamp;
     int              txid;                  /* transaction id */
 
     dres_store_t    *fact_store;
-    dres_store_t    *dres_store;
-
     dres_scope_t    *scope;
 
     dres_handler_t  *handlers;
@@ -376,11 +306,6 @@ int  dres_dresvar_id   (dres_t *dres, char *name);
 void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 
-/* literal.c */
-int  dres_add_literal  (dres_t *dres, char *name);
-int  dres_literal_id   (dres_t *dres, char *name);
-void dres_free_literals(dres_t *dres);
-
 /* prereq.c */
 dres_prereq_t *dres_new_prereq (int id);
 int            dres_add_prereq (dres_prereq_t *dep, int id);
@@ -412,8 +337,6 @@ int           dres_scope_push_args(dres_t *dres, char **args);
 int           dres_scope_push     (dres_t *dres, dres_local_t *locals);
 int           dres_scope_pop      (dres_t *dres);
 
-
-int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);
 void          dres_free_graph (dres_graph_t *graph);

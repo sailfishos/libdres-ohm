@@ -55,12 +55,11 @@ dres_init(char *prefix)
     }
     
     dres->fact_store = dres_store_init(STORE_FACT,prefix,dres_update_var_stamp);
-    dres->dres_store = dres_store_init(STORE_LOCAL, NULL, NULL);
 
     if ((status = dres_register_builtins(dres)) != 0)
         goto fail;
     
-    if (dres->fact_store == NULL || dres->dres_store == NULL)
+    if (dres->fact_store == NULL)
         goto fail;
 
     dres->stamp = 1;
@@ -86,10 +85,8 @@ dres_exit(dres_t *dres)
     dres_free_targets(dres);
     dres_free_factvars(dres);
     dres_free_dresvars(dres);
-    dres_free_literals(dres);
     
     dres_store_destroy(dres->fact_store);
-    dres_store_destroy(dres->dres_store);
 
     FREE(dres);
 }
@@ -237,7 +234,6 @@ finalize_variables(dres_t *dres)
     }
     
     dres_store_finish(dres->fact_store);
-    dres_store_finish(dres->dres_store);
 
     return 0;
 }
@@ -489,86 +485,26 @@ dres_name(dres_t *dres, int id, char *buf, size_t bufsize)
 {
     dres_target_t   *target;
     dres_variable_t *variable;
-    dres_literal_t  *literal;
 
     switch (DRES_ID_TYPE(id)) {
-        
     case DRES_TYPE_TARGET:
         target = dres->targets + DRES_INDEX(id);
         snprintf(buf, bufsize, "%s", target->name);
         break;
-        
     case DRES_TYPE_FACTVAR:
         variable = dres->factvars + DRES_INDEX(id);
         snprintf(buf, bufsize, "$%s", variable->name);
         break;
-
     case DRES_TYPE_DRESVAR:
         variable = dres->dresvars + DRES_INDEX(id);
         snprintf(buf, bufsize, "&%s", variable->name);
         break;
-
-    case DRES_TYPE_LITERAL:
-        literal = dres->literals + DRES_INDEX(id);
-        snprintf(buf, bufsize, "%s", literal->name);
-        break;
-
     default:
         snprintf(buf, bufsize, "<invalid id 0x%x>", id);
     }
 
     return buf;
 }
-
-
-#if 0
-/********************
- * dres_print_varref
- ********************/
-int
-dres_print_varref(dres_t *dres, char *buf, size_t size, dres_varref_t *vr)
-{
-    char *p, sel[128];
-    int   left, n;
-
-    if (vr == NULL)
-        return NULL;
-
-    if (vr->variable == DRES_ID_NONE)
-        return NULL;
-    
-    p    = buf;
-    left = size - 1;
-
-    *p = '\0';
-
-    dres_name(dres, vr->variable, p, size);
-    n = strlen(buf);
-    
-    p    += n;
-    left -= n;
-    
-    if (vr->selector != NULL && left > 1) {
-        *p++ = '[';
-        left--;
-        n     = dres_print_selector(dres, vr->selector, p, left);
-        p    += n;
-        left -= n;
-        if (left > 0) {
-            *p++ = ']';
-            left--;
-        }
-    }
-    
-    if (vr->field != NULL) {
-        n     = snprintf(p, left, ":%s", vr->field);
-        p    += n;
-        left -= n;
-    }
-
-    return return size - left;
-}
-#endif
 
 
 /********************

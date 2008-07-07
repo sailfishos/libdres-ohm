@@ -11,7 +11,7 @@
 #undef DEBUG
 
 #if !defined(DEBUG)
-#  if defined(__TEST_LEXER__) || 1
+#  if defined(__TEST_LEXER__)
 #    define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
 #  else
 #    define DEBUG(fmt, args...)

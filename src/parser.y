@@ -32,7 +32,6 @@ extern FILE *yyin;
     dres_target_t  *target;
     dres_prereq_t  *prereq;
     dres_varref_t   varref;
-    dres_assign_t   assign;
     dres_arg_t     *arg;
     dres_local_t   *local;
     dres_action_t   variables;

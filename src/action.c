@@ -626,77 +626,7 @@ assign_value(dres_t *dres, dres_action_t *action, dres_variable_t *var)
     
     return status;
 }
-
-
-
-
-
-
     
-
-#if 0
-
-/* old dres_dump_action */
-
-    
-#if 0
-    dres_action_t *a = action;
-#if 0
-    int            i, j;
-    char          *t, arg[64], buf[128];
-    dres_assign_t *v;
-#endif
-
-    char           lval[128], rval[128], val[64];
-    char           actbuf[1024], *p;
-
-    if (action == NULL)
-        return;
-    
-
-    /*
-     * XXX TODO rewrite with s/sprintf/snprintf/g ...
-     */
-
-    p = actbuf;
-
-    dres_dump_varref(dres, lval, sizeof(lval), &a->lvalue);
-    dres_dump_varref(dres, rval, sizeof(rval), &a->rvalue);
-    if (lval[0])
-        p += sprintf(p, "%s = ", lval);
-
-    if (action->immediate != DRES_ID_NONE) {
-        dres_name(dres, action->immediate, val, sizeof(val));
-        p += sprintf(p, "%s", val);
-    }
-    else if (rval[0])
-        p += sprintf(p, "%s", rval);
-    else {
-        p += sprintf(p, "%s(", a->name);
-#if 1
-        p += dres_print_args(dres, a->args, p, 1024);
-        if (a->locals)
-            p += sprintf(p, ", ");
-        p += dres_print_locals(dres, a->locals, p, 1024);
-#else
-        for (i = 0, t = ""; i < a->nargument; i++, t=",")
-            p += sprintf(p, "%s%s", t,
-                         dres_name(dres, a->arguments[i], arg,sizeof(arg)));
-        for (j = 0, v = a->variables; j < a->nvariable; j++, v++, t=",") {
-            if (dres_dump_assignment(dres, v, buf, sizeof(buf)) == NULL)
-                sprintf(buf, "<invalid assignment>");
-            
-            p += sprintf(p, "%s%s", t, buf);
-        }
-#endif
-        sprintf(p, ")");
-    }
-
-    printf("    %s\n", actbuf);
-#endif
-
-#endif
-
 
 
 /* 
