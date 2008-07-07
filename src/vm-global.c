@@ -4,7 +4,7 @@
 #include <errno.h>
 
 #include "mm.h"
-#include "vm.h"
+#include <dres/vm.h>
 
 
 /********************

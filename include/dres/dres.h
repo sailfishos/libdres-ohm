@@ -3,6 +3,7 @@
 
 #include <glib.h>
 #include <dres/variables.h>
+#include <dres/vm.h>
 
 enum {
     DRES_TYPE_UNKNOWN = 0,
@@ -44,8 +45,6 @@ typedef struct {
     int *ids;                              /* prerequisite IDs */
     int  nid;                              /* number of prerequisites */
 } dres_prereq_t;
-
-typedef struct dres_action_s dres_action_t;
 
 typedef struct dres_varref_s dres_varref_t;
 
@@ -126,11 +125,13 @@ enum {
 #define DRES_BUILTIN_UNKNOWN "__unknown"
 #define DRES_BUILTIN_ASSIGN  "__assign"
 
+typedef struct dres_action_s dres_action_t;
+
 struct dres_action_s {
-    dres_varref_t     lvalue;             /* result variable if any */
-    int               type;               /* DRES_ACTION_* */
+    dres_varref_t      lvalue;             /* result variable if any */
+    int                type;               /* DRES_ACTION_* */
     union {
-        dres_value_t    value;
+        dres_value_t   value;
         dres_varref_t  rvalue;
         dres_call_t   *call;
     };
@@ -165,6 +166,7 @@ typedef struct {
     char          *name;                    /* target name */
     dres_prereq_t *prereqs;                 /* prerequisites */
     dres_action_t *actions;                 /* associated actions */
+    vm_chunk_t    *code;                    /* VM code */
     int            stamp;                   /* last update stamp */
     int            txid;                    /* of stamp */
     int            txstamp;                 /* stamp before txid */
@@ -189,14 +191,12 @@ enum {
 #define DRES_SET_FLAG(d, f) ((d)->flags |=  DRES_##f)
 #define DRES_CLR_FLAG(d, f) ((d)->flags &= ~DRES_##f)
 
-
-#define DRES_VAR_FIELD "value"              /* field name for variables */
-
 struct dres_scope_s {
     dres_store_t *curr;                     /* current variables */
     GHashTable   *names;                    /* names of current variables */
     dres_scope_t *prev;                     /* previous scope */
 };
+
 
 struct dres_s {
     dres_target_t   *targets;
@@ -336,6 +336,11 @@ dres_value_t *dres_scope_getvar   (dres_scope_t *scope, char *name);
 int           dres_scope_push_args(dres_t *dres, char **args);
 int           dres_scope_push     (dres_t *dres, dres_local_t *locals);
 int           dres_scope_pop      (dres_t *dres);
+
+/* compiler.c */
+int dres_compile_target(dres_t *dres, dres_target_t *target);
+int dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code);
+
 
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);

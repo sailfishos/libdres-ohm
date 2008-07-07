@@ -3,7 +3,7 @@
 #include <errno.h>
 
 #include "mm.h"
-#include "vm.h"
+#include <dres/vm.h>
 
 #define UNKNOWN_ID 0xefffffff
 

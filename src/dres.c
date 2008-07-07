@@ -252,7 +252,7 @@ finalize_actions(dres_t *dres)
     int             i, status;
     
     status = 0;
-    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
+    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         for (action = target->actions; action; action = action->next) {
             if (action->type != DRES_ACTION_CALL)
                 continue;
@@ -262,6 +262,11 @@ finalize_actions(dres_t *dres)
                 status = ENOENT;
             }
         }
+        if ((status = dres_compile_target(dres, target)) != 0)
+            return status;
+    }
+
+    printf("*** succefully compiled all targets\n");
 
     DRES_SET_FLAG(dres, ACTIONS_FINALIZED);
     return 0;

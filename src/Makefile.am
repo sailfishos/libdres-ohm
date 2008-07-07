@@ -3,7 +3,10 @@ lib_LTLIBRARIES = libdres.la
 libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \
                      factvar.c dresvar.c variables.c scope.c \
-                     prereq.c graph.c dres.c
+                     prereq.c graph.c dres.c \
+                     vm-stack.c vm-instr.c vm-global.c vm-method.c \
+                     compiler.c
+
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
 libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@
 

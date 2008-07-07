@@ -5,7 +5,7 @@
 #include <errno.h>
 
 #include "mm.h"
-#include "vm.h"
+#include <dres/vm.h>
 
 
 /* return a pointer to a newly pushed entry */
