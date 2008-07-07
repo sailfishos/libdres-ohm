@@ -31,7 +31,6 @@ extern FILE *yyin;
     char           *string;
     dres_target_t  *target;
     dres_prereq_t  *prereq;
-    dres_action_t  *action;
     dres_varref_t   varref;
     dres_assign_t   assign;
     dres_arg_t     *arg;
@@ -39,7 +38,10 @@ extern FILE *yyin;
     dres_action_t   variables;
     dres_field_t    field;
     dres_select_t  *select;
-    dres_init_t    *init;
+    dres_call_t    *call;
+    dres_action_t  *action;
+
+    dres_init_t        *init;
     dres_initializer_t *initializer;
 }
 
@@ -74,17 +76,16 @@ extern FILE *yyin;
 %type <integer> prereq
 %type <prereq>  prereqs
 %type <prereq>  optional_prereqs
-%type <action>  optional_actions
-%type <action>  actions
-%type <action>  action
-%type <action>  expr
-%type <action>  call
 %type <varref>  varref
 %type <field>     field
 %type <init>      ifields
 %type <select>    sfields
 %type <initializer> initializer
 %type <initializer> initializers
+%type <action>      optional_actions
+%type <action>      actions
+%type <action>      action
+%type <call>        call
 %type <arg>         arg
 %type <arg>         args
 %type <local>       local
@@ -195,12 +196,12 @@ rules:    rule
 
 
 rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_actions {
-              dres_target_t *t = dres_lookup_target(dres, $1);
-              t->prereqs = $3;
-              t->actions = $5;
-              t->id      = DRES_DEFINED(t->id);
-              $$ = t;
-          }
+            dres_target_t *t = dres_lookup_target(dres, $1);
+            t->prereqs = $3;
+            t->actions = $5;
+            t->id      = DRES_DEFINED(t->id);
+            $$ = t;
+        }
 	;
 
 optional_prereqs: /* empty */    { $$ = NULL; }
@@ -213,99 +214,118 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 
 prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);    }
 	| TOKEN_FACTVAR          {
-              dres_variable_t *v;
-              $$ = dres_factvar_id(dres, $1);
-              if ((v = dres_lookup_variable(dres, $$)) != NULL)
-                  v->flags |= DRES_VAR_PREREQ;
-          }
-	;
-
-optional_actions: /* empty */    { $$ = NULL; }
-	| actions                { $$ = $1;   }
-	;
-
-actions:  action                 { $$ = $1;   }
-	| actions action         {
-             dres_action_t *a;                    /* find the last action */
-             for (a = $1; a->next; a = a->next)
-                 ;
-             a->next = $2;
-             $$ = $1;
+            dres_variable_t *v;
+            $$ = dres_factvar_id(dres, $1);
+            if ((v = dres_lookup_variable(dres, $$)) != NULL)
+                v->flags |= DRES_VAR_PREREQ;
         }
 	;
 
-action: TOKEN_TAB expr TOKEN_EOL { $$ = $2; }
+optional_actions: /* empty */ { $$ = NULL; }
+	| actions             { $$ = $1;   }
 	;
 
+actions:  action         { $$ = $1; }
+	| actions action {
+            dres_action_t *a;
 
-expr:   call {
-            $$ = $1;
+            for (a = $1; a->next; a = a->next)
+                ;
+
+            a->next = $2;
+            $$      = $1;
         }
-      | varref "=" call {
-            $$         = $3;
-	    $$->lvalue = $1;
+	;
+
+action:   TOKEN_TAB varref "=" call TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_CALL;
+            $$->lvalue = $2;
+            $$->call   = $4;
         }
-      | varref "=" varref {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->lvalue = $1;
-	    $$->rvalue = $3;
-            $$->name   = STRDUP("__assign");
-	}
-      | varref "=" TOKEN_INTEGER {}
-      | varref "=" TOKEN_DOUBLE  {}
-      | varref "=" TOKEN_STRING  {}
-      ;
+        | TOKEN_TAB call TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type            = DRES_ACTION_CALL;
+            $$->lvalue.variable = DRES_ID_NONE;
+	    $$->lvalue.selector = NULL;
+	    $$->lvalue.field    = NULL;
+            $$->call            = $2;
+        }
+        | TOKEN_TAB varref "=" varref TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_VARREF;
+            $$->lvalue = $2;
+            $$->rvalue = $4;
+        }
+        | TOKEN_TAB varref "=" TOKEN_INTEGER {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_VALUE;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_INTEGER;
+            $$->value.v.i  = $4;
+        }
+        | TOKEN_TAB varref "=" TOKEN_DOUBLE {
+            $$->type   = DRES_ACTION_VALUE;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_DOUBLE;
+            $$->value.v.d  = $4;
+        }
+        | TOKEN_TAB varref "=" TOKEN_STRING {
+            $$->type   = DRES_ACTION_VALUE;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($4);
+        }
+	| TOKEN_TAB varref "=" TOKEN_IDENT {
+            $$->type   = DRES_ACTION_VALUE;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($4);
+        }
+        ;
 
 varref: TOKEN_FACTVAR {
-              $$.variable = dres_factvar_id(dres, $1);
-              $$.selector = NULL;
-              $$.field    = NULL;
+            $$.variable = dres_factvar_id(dres, $1);
+            $$.selector = NULL;
+            $$.field    = NULL;
         }
-        | TOKEN_FACTVAR ":" TOKEN_IDENT                   {}
-        | TOKEN_FACTVAR "[" sfields "]"                   {}
-        | TOKEN_FACTVAR "[" sfields "]" ":" TOKEN_IDENT   {}
+        | TOKEN_FACTVAR ":" TOKEN_IDENT {
+            $$.variable = dres_factvar_id(dres, $1);
+            $$.selector = NULL;
+            $$.field    = STRDUP($1);
+        }
+        | TOKEN_FACTVAR "[" sfields "]" {
+            $$.variable = dres_factvar_id(dres, $1);
+            $$.selector = $3;
+            $$.field    = NULL;
+        }
+        | TOKEN_FACTVAR "[" sfields "]" ":" TOKEN_IDENT {
+            $$.variable = dres_factvar_id(dres, $1);
+            $$.selector = $3;
+            $$.field    = STRDUP($6);
+        }
         ;
 
 
 call: TOKEN_IDENT "(" args "," locals ")" {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name   = STRDUP($1);
-            $$->args   = $3;
-            $$->locals = $5;
-	    $$->arguments = NULL;
-	    $$->nargument = 0;
-	    $$->variables = NULL;
-	    $$->nvariable = 0;
+            $$ = dres_new_call($1, $3, $5);
         }
 	| TOKEN_IDENT "(" args ")" {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name   = STRDUP($1);
-            $$->args   = $3;
-            $$->locals = NULL;
-	    $$->arguments = NULL;
-	    $$->nargument = 0;
-	    $$->variables = NULL;
-	    $$->nvariable = 0;
+	    $$ = dres_new_call($1, $3, NULL);
         }
 	| TOKEN_IDENT "(" locals ")" {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name   = STRDUP($1);
-            $$->args   = NULL;
-            $$->locals = $3;
-	    $$->arguments = NULL;
-	    $$->nargument = 0;
-	    $$->variables = NULL;
-	    $$->nvariable = 0;
+	    $$ = dres_new_call($1, NULL, $3);
         }
 	| TOKEN_IDENT "(" ")" {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name   = STRDUP($1);
-            $$->args   = NULL;
-            $$->locals = NULL;
-	    $$->arguments = NULL;
-	    $$->nargument = 0;
-	    $$->variables = NULL;
-	    $$->nvariable = 0;
+            $$ = dres_new_call($1, NULL, NULL);
         }
 	;
 

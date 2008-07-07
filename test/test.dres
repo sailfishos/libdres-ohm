@@ -2,11 +2,11 @@
 
 PREFIX = dres.test
 
-$fact1 = { name: fact1, value: 1 }
-$fact2 = { name: fact2, value: 2 }
-$fact3 = { name: fact3, value: 3 }
-$fact4 = { name: fact4, value: 4 }
-$fact5 = { name: fact5, value: 5 }
+$fact1 = { name: 'fact1', value: '1' }
+$fact2 = { name: 'fact2', value: '2' }
+$fact3 = { name: 'fact3', value: '3' }
+$fact4 = { name: 'fact4', value: '4' }
+$fact5 = { name: 'fact5', value: '5' }
 
 
 all: test1
@@ -14,10 +14,10 @@ all: test1
 
 test1: touch1 fact1
 	echo(checking1)
-	check(fact4, stamp, 1)
-	check(fact3, stamp, 2)
-	check(fact2, stamp, 3)
-	check(fact1, stamp, 4)
+	check(fact4, stamp, '1')
+	check(fact3, stamp, '2')
+	check(fact2, stamp, '3')
+	check(fact1, stamp, '4')
 	echo(test1OK)
 
 touch1:
@@ -31,9 +31,9 @@ touch1:
 
 test2: touch2 fact3
 	echo(checking2)
-	check(fact2, stamp, 201)
-	check(fact4, stamp, 1)
-	check(fact3, stamp, 2)
+	check(fact2, stamp, '201')
+	check(fact4, stamp, '1')
+	check(fact3, stamp, '2')
 	echo(test2OK)
 	dres(all)
 
@@ -64,10 +64,10 @@ touch2:
 
 test3: touch3 fact5
 	echo(checking3)
-	check(fact1, stamp, 201)
-	check(fact2, stamp, 202)
-	check(fact4, stamp, 1)
-	check(fact3, stamp, 2)
+	check(fact1, stamp, '201')
+	check(fact2, stamp, '202')
+	check(fact4, stamp, '1')
+	check(fact3, stamp, '2')
 	echo(test3OK)
 
 touch3:

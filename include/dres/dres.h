@@ -49,6 +49,7 @@ typedef struct {
 
 typedef struct dres_action_s dres_action_t;
 
+typedef struct dres_varref_s dres_varref_t;
 
 typedef struct {
     int type;
@@ -57,6 +58,9 @@ typedef struct {
         double  d;                         /* DRES_TYPE_DOUBLE */
         char   *s;                         /* DRES_TYPE_STRING */
         int     id;                        /* DRES_TYPE_*VAR */
+#if 0
+        dres_varref_t *var;                /* DRES_TYPE_FACTVAR */
+#endif
     } v;
 } dres_value_t;
 
@@ -100,13 +104,13 @@ struct dres_local_s {
 };
 
 
-#if 0
+#if 1
 
-typedef struct {
+struct dres_varref_s {
     int            variable;               /* $var */
     dres_select_t *selector;               /* [ field1:value1, ... ] */
     char          *field;                  /* :field */
-} dres_varref_t;
+};
 
 #else
 
@@ -135,9 +139,39 @@ typedef struct {
 } dres_assign_t;
 
 
+typedef struct {
+    char           *name;                  /* method name */
+    dres_handler_t *handler;               /* method handler */
+    dres_arg_t     *args;                  /* arguments passed by value */
+    dres_local_t   *locals;                /* arguments passed by name */
+} dres_call_t;
+
+enum {
+    DRES_ACTION_VALUE = 0,                 /* assignment of basic type */
+    DRES_ACTION_VARREF,                    /* assignment of variable */
+    DRES_ACTION_CALL                       /* assignment of method call */
+};
+
+
+#define DRES_BUILTIN_UNKNOWN "__unknown"
+
+
+#if 1
+
+struct dres_action_s {
+    dres_varref_t     lvalue;             /* result variable if any */
+    int               type;               /* DRES_ACTION_* */
+    union {
+        dres_value_t    value;
+        dres_varref_t  rvalue;
+        dres_call_t   *call;
+    };
+    dres_action_t     *next;
+};
+
+#else
 
 #define DRES_BUILTIN_ASSIGN  "__assign"
-#define DRES_BUILTIN_UNKNOWN "__unknown"
 struct dres_action_s {
     char           *name;                  /* name(...) */
     dres_varref_t   lvalue;                /* variable to put the result to */
@@ -156,6 +190,7 @@ struct dres_action_s {
     int             nvariable;             /* number of variables */
     dres_action_t  *next;                  /* more actions */
 };
+#endif
 
 struct dres_handler_s {
     char  *name;                               /* action name */
@@ -357,17 +392,25 @@ void           dres_free_actions(dres_action_t *action);
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action (dres_t *dres, dres_action_t *action);
 #define        dres_free_action dres_free_actions
+dres_call_t   *dres_new_call (char *name, dres_arg_t *args, dres_local_t *vars);
+void           dres_free_call(dres_call_t *call);
+
+dres_value_t *dres_copy_value (dres_value_t *value);
+void          dres_free_value (dres_value_t *value);
+int           dres_print_value(dres_t *dres,
+                               dres_value_t *value, char *buf, size_t size);
+
 
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
 
 /* scope.c */
-int   dres_scope_setvar   (dres_scope_t *scope, char *name, char *value);
-char *dres_scope_getvar   (dres_scope_t *scope, char *name);
-int   dres_scope_push_args(dres_t *dres, char **args);
-int   dres_scope_push     (dres_t *dres,
-                           dres_assign_t *variables, int nvariable);
-int   dres_scope_pop      (dres_t *dres);
+int           dres_scope_setvar   (dres_scope_t *scope,
+                                   char *name, dres_value_t *value);
+dres_value_t *dres_scope_getvar   (dres_scope_t *scope, char *name);
+int           dres_scope_push_args(dres_t *dres, char **args);
+int           dres_scope_push     (dres_t *dres, dres_local_t *locals);
+int           dres_scope_pop      (dres_t *dres);
 
 
 int dres_add_assignment(dres_action_t *action, dres_assign_t *assignemnt);
@@ -376,8 +419,7 @@ dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);
 void          dres_free_graph (dres_graph_t *graph);
 
 char *dres_name(dres_t *, int id, char *buf, size_t bufsize);
-char *dres_dump_varref(dres_t *dres, char *buf, size_t bufsize,
-                       dres_varref_t *vr);
+int   dres_print_varref(dres_t *dres, dres_varref_t *v, char *buf, size_t size);
 int  *dres_sort_graph(dres_t *dres, dres_graph_t *graph);
 void  dres_dump_sort(dres_t *dres, int *list);
 

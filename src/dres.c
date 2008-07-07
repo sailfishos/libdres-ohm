@@ -25,8 +25,9 @@ TRACE_DECLARE_COMPONENT(trcdres, "dres",
 extern FILE *yyin;
 extern int   yyparse(dres_t *dres);
 
-static int  finalize_variables(dres_t *dres);
-static int  finalize_actions(dres_t *dres);
+static int  initialize_variables(dres_t *dres);
+static int  finalize_variables  (dres_t *dres);
+static int  finalize_actions    (dres_t *dres);
 
 static void transaction_commit  (dres_t *dres);
 static void transaction_rollback(dres_t *dres);
@@ -112,6 +113,8 @@ dres_parse_file(dres_t *dres, char *path)
     fclose(yyin);
 
     if (status == 0)
+        status = initialize_variables(dres);
+    if (status == 0)
         status = finalize_variables(dres);
     
     return status;
@@ -159,6 +162,66 @@ dres_check_stores(dres_t *dres)
 
 
 /********************
+ * create_variable
+ ********************/
+static int
+create_variable(dres_t *dres, char *name, dres_init_t *fields)
+{
+    dres_init_t  *init;
+    char         *field;
+    dres_value_t *value;
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    OhmFact      *fact;
+    GValue       *gval;
+
+    if (store == NULL)
+        return EINVAL;
+
+    if ((fact = ohm_fact_new(name)) == NULL)
+        return ENOMEM;
+
+    for (init = fields; init != NULL; init = init->next) {
+        field = init->field.name;
+        value = &init->field.value;
+        switch (value->type) {
+        case DRES_TYPE_INTEGER: gval = ohm_value_from_int(value->v.i);    break;
+        case DRES_TYPE_DOUBLE:  gval = ohm_value_from_double(value->v.d); break;
+        case DRES_TYPE_STRING:  gval = ohm_value_from_string(value->v.s); break;
+        default:                return EINVAL;
+        }
+
+        ohm_fact_set(fact, field, gval);
+    }
+
+    if (!ohm_fact_store_insert(store, fact))
+        return EINVAL;
+
+    return 0;
+}
+
+
+/********************
+ * initialize_variables
+ ********************/
+static int
+initialize_variables(dres_t *dres)
+{
+    dres_initializer_t *init;
+    char                name[128], full[128];
+    int                 status;
+
+    for (init = dres->initializers; init != NULL; init = init->next) {
+        dres_name(dres, init->variable, name, sizeof(name));
+        snprintf(full, sizeof(full), "%s%s", dres_get_prefix(dres), name + 1);
+        if ((status = create_variable(dres, full, init->fields)) != 0)
+            return status;
+    }
+    
+    return 0;
+}
+
+
+/********************
  * finalize_variables
  ********************/
 static int
@@ -188,16 +251,21 @@ finalize_actions(dres_t *dres)
 {
     dres_target_t  *target;
     dres_action_t  *action;
+    dres_call_t    *call;
     void           *unknown = dres_lookup_handler(dres, DRES_BUILTIN_UNKNOWN);
     int             i, status;
     
     status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
-        for (action = target->actions; action; action = action->next)
-            if (!(action->handler = dres_lookup_handler(dres, action->name))) {
-                action->handler = unknown;
+        for (action = target->actions; action; action = action->next) {
+            if (action->type != DRES_ACTION_CALL)
+                continue;
+            call = action->call;
+            if (!(call->handler = dres_lookup_handler(dres, call->name))) {
+                call->handler = unknown;
                 status = ENOENT;
             }
+        }
 
     DRES_SET_FLAG(dres, ACTIONS_FINALIZED);
     return 0;
@@ -453,13 +521,15 @@ dres_name(dres_t *dres, int id, char *buf, size_t bufsize)
 }
 
 
+#if 0
 /********************
- * dres_dump_varref
+ * dres_print_varref
  ********************/
-char *
-dres_dump_varref(dres_t *dres, char *buf, size_t bufsize, dres_varref_t *vr)
+int
+dres_print_varref(dres_t *dres, char *buf, size_t size, dres_varref_t *vr)
 {
-    int len;
+    char *p, sel[128];
+    int   left, n;
 
     if (vr == NULL)
         return NULL;
@@ -467,17 +537,38 @@ dres_dump_varref(dres_t *dres, char *buf, size_t bufsize, dres_varref_t *vr)
     if (vr->variable == DRES_ID_NONE)
         return NULL;
     
-    dres_name(dres, vr->variable, buf, bufsize);
-    len = strlen(buf);
+    p    = buf;
+    left = size - 1;
+
+    *p = '\0';
+
+    dres_name(dres, vr->variable, p, size);
+    n = strlen(buf);
     
-    snprintf(buf + len, bufsize - len, "%s%s%s%s%s",
-             vr->selector ? "[" : "",
-             vr->selector ?: "",
-             vr->selector ? "]" : "",
-             vr->field ? ":" : "", vr->field ?: "");
+    p    += n;
+    left -= n;
     
-    return buf;
+    if (vr->selector != NULL && left > 1) {
+        *p++ = '[';
+        left--;
+        n     = dres_print_selector(dres, vr->selector, p, left);
+        p    += n;
+        left -= n;
+        if (left > 0) {
+            *p++ = ']';
+            left--;
+        }
+    }
+    
+    if (vr->field != NULL) {
+        n     = snprintf(p, left, ":%s", vr->field);
+        p    += n;
+        left -= n;
+    }
+
+    return return size - left;
 }
+#endif
 
 
 /********************

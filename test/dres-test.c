@@ -28,7 +28,6 @@ static int  touch_handler(dres_t *, char *, dres_action_t *, void **);
 static int  fact_handler (dres_t *, char *, dres_action_t *, void **);
 static int  check_handler(dres_t *, char *, dres_action_t *, void **);
 static int  dump_handler (dres_t *, char *, dres_action_t *, void **);
-static int  test_handler (dres_t *, char *, dres_action_t *, void **);
 static void dump_facts   (char *format, ...);
 
 
@@ -66,9 +65,6 @@ main(int argc, char *argv[])
     if (dres_register_handler(dres, "dump", dump_handler) != 0)
         fatal(3, "failed to register DRES dump handler");
     
-    if (dres_register_handler(dres, "test", test_handler) != 0)
-        fatal(3, "failed to register DRES test handler");
-
     if (dres_parse_file(dres, rulefile))
         fatal(4, "failed to parse DRES rule file %s", rulefile);
 
@@ -76,7 +72,8 @@ main(int argc, char *argv[])
         fatal(5, "failed to finalize DRES rules");
 
     dres_dump_targets(dres);
-    exit(0);
+    
+    /*exit(0);*/
 
 
     if (argc > 2)
@@ -117,21 +114,13 @@ main(int argc, char *argv[])
 static int
 stamp_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
-    char  value[64], *end;
-    int   new_stamp;
+    dres_call_t *call = action->call;
+    dres_arg_t  *args = call->args;
 
-    if (action->nargument != 1)
+    if (args == NULL || args->value.type != DRES_TYPE_INTEGER)
         return EINVAL;
     
-    value[0] = '\0';
-    dres_name(dres, action->arguments[0], value, sizeof(value));
-    
-    new_stamp = (int)strtol(value, &end, 10);
-    
-    if (end && *end)
-        return EINVAL;
-
-    stamp = new_stamp;
+    stamp = args->value.v.i;
     printf("stamp set to %d\n", stamp);
 
     *ret = NULL;
@@ -146,19 +135,22 @@ static int
 touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
-    GSList   *facts = NULL;
-    OhmFact  *fact  = NULL;
-    GValue   *gval;
-    char      name[32], fullname[64], field[64], value[64];
-    int       i, status;
 
-    if (action->nargument < 1 || !(action->nargument & 0x1))
+    dres_call_t *call = action->call;
+    dres_arg_t  *args = call->args, *a, *v;
+    GSList      *facts = NULL;
+    OhmFact     *fact  = NULL;
+    GValue      *gval;
+    char        *name, fullname[64], stampval[32], *field, *value;
+    int          status;
+
+    if (args == NULL || args->value.type != DRES_TYPE_STRING)
         FAIL(EINVAL);
+    
+    name = args->value.v.s;
+    args = args->next;
 
-    name[0] = '\0';
-    dres_name(dres, action->arguments[0], name, sizeof(name));
     snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
-
     
     for (facts = ohm_fact_store_get_facts_by_name(store, fullname);
          facts != NULL;
@@ -166,16 +158,20 @@ touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 
         fact = (OhmFact *)facts->data;
     
-        snprintf(value, sizeof(value), "%d", stamp++);
-        gval = ohm_value_from_string(value);
+        snprintf(stampval, sizeof(stampval), "%d", stamp++);
+        gval = ohm_value_from_string(stampval);
         ohm_fact_set(fact, "stamp", gval);
-
-        for (i = 1; i < action->nargument; i += 2) {
-            field[0] = '\0';
-            value[0] = '\0';
         
-            dres_name(dres, action->arguments[i]  , field, sizeof(field));
-            dres_name(dres, action->arguments[i+1], value, sizeof(value));
+        for (a = args; a != NULL; a = v->next) {
+            if (a->value.type != DRES_TYPE_STRING ||
+                (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+                status = EINVAL;
+                goto fail;
+            }
+
+            field = a->value.v.s;
+            value = v->value.v.s;
+
             gval = ohm_value_from_string(value);
             ohm_fact_set(fact, field, gval);
         }
@@ -197,20 +193,24 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
+    dres_call_t *call = action->call;
+    dres_arg_t  *args = call->args, *a, *v;
+
     OhmFact **facts = NULL;
     OhmFact  *fact  = NULL;
     GValue   *gval;
-    char      name[32], fullname[64], field[64], value[64];
-    int       i, status;
+    char     *name, fullname[64], stampval[32], *field, *value;
+    int       status;
 
-    if (action->nargument < 1 || !(action->nargument & 0x1))
+    if (args == NULL || args->value.type != DRES_TYPE_STRING)
         FAIL(EINVAL);
+    
+    name = args->value.v.s;
+    args = args->next;
 
     if ((facts = ALLOC_ARR(OhmFact *, 2)) == NULL)
         FAIL(EINVAL);
     
-    name[0] = '\0';
-    dres_name(dres, action->arguments[0], name, sizeof(name));
     snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
 
     if ((fact = ohm_fact_new(fullname)) == NULL)
@@ -219,20 +219,24 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     gval = ohm_value_from_string(name);
     ohm_fact_set(fact, "name", gval);
 
-    snprintf(value, sizeof(value), "%d", stamp++);
-    gval = ohm_value_from_string(value);
+    snprintf(stampval, sizeof(stampval), "%d", stamp++);
+    gval = ohm_value_from_string(stampval);
     ohm_fact_set(fact, "stamp", gval);
 
-    for (i = 1; i < action->nargument; i += 2) {
-        field[0] = '\0';
-        value[0] = '\0';
+    for (a = args; a != NULL; a = v->next) {
+        if (a->value.type != DRES_TYPE_STRING ||
+            (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+            status = EINVAL;
+            goto fail;
+        }
 
-        dres_name(dres, action->arguments[i]  , field, sizeof(field));
-        dres_name(dres, action->arguments[i+1], value, sizeof(value));
+        field = a->value.v.s;
+        value = v->value.v.s;
+        
         gval = ohm_value_from_string(value);
         ohm_fact_set(fact, field, gval);
     }
-    
+
     facts[0] = fact;
     facts[1] = NULL;
     *ret     = facts;
@@ -257,19 +261,22 @@ check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
+    dres_call_t *call = action->call;
+    dres_arg_t  *args = call->args, *a, *v;
+    
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
     GValue  *gval;
-    char     name[32], fullname[64], field[64], value[64];
-    int      i;
+    char    *name, fullname[64], *field, *value;
+
+    if (args == NULL || args->value.type != DRES_TYPE_STRING)
+        return EINVAL;
+    
+    name = args->value.v.s;
+    args = args->next;
 
     *ret = NULL;
 
-    if (action->nargument < 3 || !(action->nargument & 0x1))
-        return EINVAL;
-    
-    name[0] = '\0';
-    dres_name(dres, action->arguments[0], name, sizeof(name));
     snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
 
     if ((facts = ohm_fact_store_get_facts_by_name(store, fullname)) == NULL)
@@ -277,14 +284,20 @@ check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     
     while (facts) {
         fact = (OhmFact *)facts->data;
-        
-        for (i = 1; i < action->nargument; i += 2) {
-            field[0] = '\0';
-            value[0] = '\0';
-            dres_name(dres, action->arguments[i], field, sizeof(field));
-            dres_name(dres, action->arguments[i+1], value, sizeof(value));
-            
+
+        for (a = args; a != NULL; a = v->next) {
+            if (a->value.type != DRES_TYPE_STRING ||
+                (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+                return EINVAL;
+            }
+
+            field = a->value.v.s;
+            value = v->value.v.s;
+
             gval = ohm_fact_get(fact, field);
+            gval = ohm_value_from_string(value);
+            ohm_fact_set(fact, field, gval);
+
             if (strcmp(g_value_get_string(gval), value)) {
                 printf("mismatch: %s:%s, %s != %s\n", fullname, field,
                        g_value_get_string(gval), value);
@@ -296,6 +309,7 @@ check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     }
 
     return 0;
+#undef FAIL
 }
 
 
@@ -305,31 +319,16 @@ check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 static int
 dump_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
-    char name[32];
+    dres_call_t *call = action->call;
+    dres_arg_t  *args = call->args;
+    char        *name;
 
-    if (action->nargument != 1)
+    if (args == NULL || args->value.type != DRES_TYPE_STRING)
         return EINVAL;
-
-    name[0] = '\0';
-    dres_name(dres, action->arguments[0], name, sizeof(name));
+    
+    name = args->value.v.s;
     dump_facts(name);
     
-    *ret = NULL;
-    return 0;
-}
-
-
-/********************
- * test_handler
- ********************/
-static int
-test_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
-{
-    if (action->nargument < 1)
-        return EINVAL;
-
-    printf("%s()...\n", __FUNCTION__);
-
     *ret = NULL;
     return 0;
 }

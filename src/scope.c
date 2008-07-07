@@ -23,14 +23,14 @@ free_name(gpointer ptr)
 
 
 /********************
- * free_var
+ * free_val
  ********************/
 static void
-free_var(gpointer ptr)
+free_val(gpointer ptr)
 {
-    dres_var_t *var = (dres_var_t *)ptr;
+    dres_value_t *val = (dres_value_t *)ptr;
 
-    dres_var_destroy(var);
+    dres_free_value(val);
 }
 
 
@@ -52,15 +52,14 @@ free_var(gpointer ptr)
  * dres_scope_push
  ********************/
 EXPORTED int
-dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
+dres_scope_push(dres_t *dres, dres_local_t *locals)
 {
-#if 1
-
 #define FAIL(err) do { status = err; goto fail; } while (0)
     dres_scope_t  *scope;
-    dres_assign_t *a;
-    char           name[64], value[64], *valuep;
-    int            i, status;
+    dres_local_t  *l;
+    dres_value_t  *value;
+    char           name[64], varname[64];
+    int            status;
     
     
     if (ALLOC_OBJ(scope) == NULL)
@@ -70,40 +69,30 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
         FAIL(ENOMEM);
 
     scope->names = g_hash_table_new_full(g_str_hash, g_str_equal,
-                                         free_name, free_var);
+                                         free_name, free_val);
     if (scope->names == NULL)
         FAIL(ENOMEM);
-                                         
 
-    for (i = 0, a = variables; i < nvariable; i++, a++) {
+    for (l = locals; l != NULL; l = l->next) {
         
-        if (a->lvalue.selector != NULL || a->lvalue.field != NULL)
+        if (DRES_ID_TYPE(l->id) != DRES_TYPE_DRESVAR)
             FAIL(EINVAL);
         
-        dres_name(dres, a->lvalue.variable, name, sizeof(name));
+        dres_name(dres, l->id, name, sizeof(name));
 
-        switch (a->type) {
-        case DRES_ASSIGN_IMMEDIATE:
-            dres_name(dres, a->val, value, sizeof(value));
+        switch (l->value.type) {
+        case DRES_TYPE_INTEGER:
+        case DRES_TYPE_DOUBLE:
+        case DRES_TYPE_STRING:
+            if ((status = dres_scope_setvar(scope, name + 1, &l->value)) != 0)
+                FAIL(status);
+            break;
+        case DRES_TYPE_DRESVAR:
+            dres_name(dres, l->value.v.id, varname, sizeof(varname));
+            value = dres_scope_getvar(dres->scope, varname + 1);
             if ((status = dres_scope_setvar(scope, name + 1, value)) != 0)
                 FAIL(status);
             break;
-
-        case DRES_ASSIGN_VARIABLE:
-            if (DRES_ID_TYPE(a->var.variable) != DRES_TYPE_DRESVAR)
-                FAIL(EINVAL);
-            
-            dres_name(dres, a->var.variable, value, sizeof(value));
-
-            if ((valuep = dres_scope_getvar(dres->scope, value + 1)) == NULL)
-                valuep = STRDUP("");
-            status = dres_scope_setvar(scope, name + 1, valuep);
-
-            FREE(valuep);
-            if (status != 0)
-                FAIL(status);
-            break;
-
         default:
             FAIL(EINVAL);
         }
@@ -120,42 +109,7 @@ dres_scope_push(dres_t *dres, dres_assign_t *variables, int nvariable)
     FREE(scope);
     
     return status;
-
-#else
-
-#define FAIL(err) do { status = err; goto fail; } while (0)
-    dres_scope_t  *scope;
-    dres_assign_t *a;
-    dres_var_t    *var;
-    char           name[64], value[64], *namep;
-    int            i, status;
-    
-    
-    if (ALLOC_OBJ(scope) == NULL)
-        FAIL(ENOMEM);
-
-    if ((scope->curr = dres_store_init(STORE_LOCAL, NULL)) == NULL)
-        FAIL(ENOMEM);
-
-    for (i = 0, a = variables; i < nvariable; i++, a++) {
-        dres_name(dres, a->var_id, name, sizeof(name));
-        dres_name(dres, a->val_id, value, sizeof(value));
-        if ((status = dres_scope_setvar(scope, name + 1, value)) != 0)
-            FAIL(status);
-    }
-    
-    scope->prev = dres->scope;
-    dres->scope = scope;
-
-    return 0;
-
- fail:
-    if (scope && scope->curr)
-        dres_store_destroy(scope->curr);
-    FREE(scope);
-    
-    return status;
-#endif
+#undef FAIL
 }
 
 
@@ -166,16 +120,11 @@ EXPORTED int
 dres_scope_pop(dres_t *dres)
 {
     dres_scope_t *prev;
-    dres_store_t *curr;
     
     if (dres->scope == NULL)
         return EINVAL;
     
     prev = dres->scope->prev;
-    curr = dres->scope->curr;
-    
-    if (curr)
-        dres_store_destroy(curr);
     
     if (dres->scope->names)
         g_hash_table_destroy(dres->scope->names);
@@ -192,56 +141,53 @@ dres_scope_pop(dres_t *dres)
  * dres_scope_setvar
  ********************/
 EXPORTED int
-dres_scope_setvar(dres_scope_t *scope, char *name, char *value)
+dres_scope_setvar(dres_scope_t *scope, char *name, dres_value_t *value)
 {
-    dres_var_t *var;
-    char       *key, *valuep;
+#define FAIL(ec) do { err = (ec); goto fail; } while (0)
 
-    DEBUG(DBG_VAR, "setting local variable %s=%s in scope %p",
-          name, value, scope);
+    char         *key = NULL;
+    dres_value_t *val = NULL;
+    int           err;
+
+    DEBUG(DBG_VAR, "setting local variable %s in scope %p", name, scope);
 
     if ((key = STRDUP(name)) == NULL)
-        return ENOMEM;
+        FAIL(ENOMEM);
     
-    valuep = value;
-    if ((var = dres_var_init(scope->curr, name, NULL, 0)) == NULL)
-        goto fail;
-    if (!dres_var_set_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &valuep))
-        goto fail;
+    if ((val = dres_copy_value(value)) == NULL)
+        FAIL(ENOMEM);
     
-    g_hash_table_insert(scope->names, key, var);
+    g_hash_table_insert(scope->names, key, val);
     
     return 0;
 
  fail:
     if (key)
         FREE(key);
+    if (val)
+        dres_free_value(val);
+    return err;
 
-    return EINVAL;
+#undef FAIL
 }
 
 
 /********************
  * dres_scope_getvar
  ********************/
-EXPORTED char *
+EXPORTED dres_value_t *
 dres_scope_getvar(dres_scope_t *scope, char *name)
 {
-    dres_var_t *var;
-    char       *value;
+    dres_value_t *value;
     
     DEBUG(DBG_VAR, "looking up local variable %s in scope %p", name, scope);
 
     if (scope == NULL || scope->names == NULL)
         return NULL;
     
-    if ((var = (dres_var_t *)g_hash_table_lookup(scope->names, name)) == NULL)
-        return NULL;
-
-    if (dres_var_get_field(var, DRES_VAR_FIELD, NULL, VAR_STRING, &value))
-        return value;
-    else
-        return NULL;
+    value = (dres_value_t *)g_hash_table_lookup(scope->names, name);
+    
+    return value;
 }
 
 
@@ -251,18 +197,20 @@ dres_scope_getvar(dres_scope_t *scope, char *name)
 int
 dres_scope_push_args(dres_t *dres, char **locals)
 {
-    char *name, *value;
-    int   i, status;
+    char          *name;
+    dres_value_t value;
+    int          i, status;
 
     if (locals == NULL)
         return 0;
     
-    if ((status = dres_scope_push(dres, NULL, 0)) != 0)
+    if ((status = dres_scope_push(dres, NULL)) != 0)
         return status;
-
+    
+    value.type = DRES_TYPE_STRING;
     for (i = 0; (name = locals[i]) != NULL; i += 2) {
-        if ((value  = locals[i+1]) == NULL ||
-            (status = dres_scope_setvar(dres->scope, name, value)) != 0)
+        if ((value.v.s = locals[i + 1]) == NULL ||
+            (status = dres_scope_setvar(dres->scope, name, &value)) != 0)
             goto fail;
     }
 

@@ -10,7 +10,9 @@
     static int dres_builtin_##b(dres_t *dres, \
                                 char *name, dres_action_t *action, void **ret)
 
+#if 0
 BUILTIN_HANDLER(assign);
+#endif
 BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
@@ -21,7 +23,9 @@ BUILTIN_HANDLER(unknown);
 #define BUILTIN(b) { .name = #b, .handler = dres_builtin_##b }
 
 static dres_handler_t builtins[] = {
+#if 0
     { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
+#endif
     BUILTIN(dres),
     BUILTIN(resolve),
     BUILTIN(echo),
@@ -67,6 +71,7 @@ dres_register_builtins(dres_t *dres)
 }
 
 
+#if 0
 /********************
  * dres_builtin_assign
  ********************/
@@ -104,6 +109,7 @@ BUILTIN_HANDLER(assign)
     *ret = facts;
     return 0;
 }
+#endif
 
 
 /********************
@@ -111,19 +117,19 @@ BUILTIN_HANDLER(assign)
  ********************/
 BUILTIN_HANDLER(dres)
 {
-    char goal[64];
-    int  status;
+    dres_call_t *call = action->call;
+    char         goal[64];
+    int          status;
     
-    /* XXX TODO: factstore transaction */
-    
-    if (action->arguments == NULL)
+    if (action->call->args == NULL)
         return EINVAL;
     
-    dres_name(dres, action->arguments[0], goal, sizeof(goal));
+    goal[0] = '\0';
+    dres_print_value(dres, &call->args->value, goal, sizeof(goal));
     
     DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
     depth++;
-    dres_scope_push(dres, action->variables, action->nvariable);
+    dres_scope_push(dres, call->locals);
     status = dres_update_goal(dres, goal, NULL);
     dres_scope_pop(dres);
     depth--;
@@ -148,71 +154,43 @@ BUILTIN_HANDLER(resolve)
  ********************/
 BUILTIN_HANDLER(echo)
 {
-#define MAX_LENGTH 64
-#define PRINT(s)              \
-    do {                      \
-        int l = strlen(s);    \
-        if (l < (e-p)-1) {    \
-            strcpy(p, s);     \
-            p += l;           \
-        }                     \
-        else if (e-p > 0) {   \
-            l = (e-p) - 1;    \
-            strncpy(p, s, l); \
-            p[l] = '\0';      \
-            p += l;           \
-        }                     \
-    } while(0)
-
-    dres_variable_t *var;
-    char             arg[MAX_LENGTH];
-    char             buf[4096];
-    char            *p, *e, *str;
-    int              i;
-
-    buf[0] = '\0';
-
-    for (i = 0, e = (p = buf) + sizeof(buf); i < action->nargument; i++) {
-        
-        dres_name(dres, action->arguments[i], arg, MAX_LENGTH);
-
-        switch (arg[0]) {
-        case '&':
-            if ((str = dres_scope_getvar(dres->scope, arg+1)) == NULL)
-                PRINT("???");
-            else {
-                PRINT(str);
-                free(str);
-            }
+    dres_call_t  *call = action->call;
+    dres_arg_t   *arg;
+    dres_value_t *value;
+    char          var[128], buf[1024];
+    
+    
+    for (arg = call->args; arg != NULL; arg = arg->next) {
+        switch (arg->value.type) {
+        case DRES_TYPE_INTEGER:
+        case DRES_TYPE_DOUBLE:
+        case DRES_TYPE_STRING:
+            value = &arg->value;
             break;
-
-        case '$':
-            if (!(var = dres_lookup_variable(dres, action->arguments[i])) ||
-                !dres_var_get_field(var->var, "value", NULL, VAR_STRING, &str))
-                PRINT("???");
-            else {
-                PRINT(str);
-                free(str);
-            }
+        case DRES_TYPE_DRESVAR:
+            dres_name(dres, arg->value.v.id, var, sizeof(var));
+            value = dres_scope_getvar(dres->scope, var + 1);
             break;
-
+        case DRES_TYPE_FACTVAR:
         default:
-            PRINT(arg);
-            break;
+            value = NULL;
         }
-
-        PRINT(" ");
+        
+        if (value != NULL) {
+            buf[0] = '\0';
+            dres_print_value(dres, value, buf, sizeof(buf));
+            printf("%s ", buf);
+        }
+        else
+            printf("??? ");
     }
 
-    printf("%s\n", buf);
-
+    printf("\n");
+    
     if (ret != NULL)
         *ret = NULL;
 
     return 0;
-
-#undef PRINT
-#undef MAX_LENGTH
 }
 
 
