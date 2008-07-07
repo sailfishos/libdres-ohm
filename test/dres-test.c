@@ -75,6 +75,10 @@ main(int argc, char *argv[])
     if (dres_finalize(dres))
         fatal(5, "failed to finalize DRES rules");
 
+    dres_dump_targets(dres);
+    exit(0);
+
+
     if (argc > 2)
         goals = argv + 2;
 

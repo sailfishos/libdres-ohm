@@ -5,6 +5,7 @@
 
 #include <dres/dres.h>
 #include <glib-object.h>
+#include "parser-types.h"
 
 #if !defined(DEBUG)
 #  if defined(__TEST_PARSER__) || 0
@@ -23,48 +24,51 @@ extern FILE *yyin;
 %}
 
 
+
 %union {
-  int             integer;
-  char           *string;
-  dres_target_t  *target;
-  dres_prereq_t  *prereq;
-  dres_action_t  *action;
-  dres_varref_t   varref;
-#if 1
-  dres_assign_t   assign;
-#else
-  struct {
-    int var;
-    int val;
-  } assign;
-#endif
-  int             argument;
-  dres_action_t   variables;
-  dres_action_t   arguments;
+    int             integer;
+    double          dbl;
+    char           *string;
+    dres_target_t  *target;
+    dres_prereq_t  *prereq;
+    dres_action_t  *action;
+    dres_varref_t   varref;
+    dres_assign_t   assign;
+    dres_arg_t     *arg;
+    dres_local_t   *local;
+    dres_action_t   variables;
+    dres_field_t    field;
+    dres_select_t  *select;
+    dres_init_t    *init;
+    dres_initializer_t *initializer;
 }
 
 %defines
 %parse-param {dres_t *dres}
 
-%token <string> TOKEN_PREFIX
-%token <string> TOKEN_VARNAME
-%token <string> TOKEN_INITIALIZER
-%token <string> TOKEN_SELECTOR
-%token <string> TOKEN_IDENT
-%token          TOKEN_DOT "."
-%token <string> TOKEN_NUMBER
-%token <string> TOKEN_FACTVAR
-%token <string> TOKEN_DRESVAR
-%token          TOKEN_COLON ":"
-%token          TOKEN_PAREN_OPEN "("
-%token          TOKEN_PAREN_CLOSE ")"
-%token          TOKEN_COMMA ","
-%token          TOKEN_EQUAL   "="
-%token          TOKEN_APPEND "+="
-%token          TOKEN_TAB "\t"
-%token          TOKEN_EOL
-%token          TOKEN_EOF
-%token          TOKEN_UNKNOWN
+%token <string>  TOKEN_PREFIX
+%token <string>  TOKEN_IDENT
+%token <string>  TOKEN_FACTNAME
+%token           TOKEN_DOT "."
+%token <string>  TOKEN_STRING
+%token <integer> TOKEN_INTEGER
+%token <dbl>     TOKEN_DOUBLE
+%token <string>  TOKEN_FACTVAR
+%token <string>  TOKEN_DRESVAR
+%token           TOKEN_COLON ":"
+%token           TOKEN_PAREN_OPEN  "("
+%token           TOKEN_PAREN_CLOSE ")"
+%token           TOKEN_CURLY_OPEN  "{"
+%token           TOKEN_CURLY_CLOSE "}"
+%token           TOKEN_BRACE_OPEN  "["
+%token           TOKEN_BRACE_CLOSE "]"
+%token           TOKEN_COMMA ","
+%token           TOKEN_EQUAL   "="
+%token           TOKEN_APPEND "+="
+%token           TOKEN_TAB "\t"
+%token           TOKEN_EOL
+%token           TOKEN_EOF
+%token           TOKEN_UNKNOWN
 
 %type <target>  rule
 %type <integer> prereq
@@ -75,50 +79,115 @@ extern FILE *yyin;
 %type <action>  action
 %type <action>  expr
 %type <action>  call
-%type <integer> value
-%type <varref>  lvalue
-%type <varref>  rvalue
 %type <varref>  varref
-%type <arguments> arguments
-%type <argument>  argument
-%type <variables> optional_locals
-%type <variables> locals
-%type <assign>    local
+%type <field>     field
+%type <init>      ifields
+%type <select>    sfields
+%type <initializer> initializer
+%type <initializer> initializers
+%type <arg>         arg
+%type <arg>         args
+%type <local>       local
+%type <local>       locals
+
 %%
 
 
-input: optional_prefix optional_init rules
+input: optional_prefix optional_initializers rules
 
 optional_prefix: /* empty */ {
               dres_set_prefix(dres, NULL);
           }
-        | TOKEN_PREFIX "=" TOKEN_VARNAME TOKEN_EOL {
+        | TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
               dres_set_prefix(dres, $3);
           }
 	;
 
-optional_init: /* empty */
-        |      initializers
+optional_initializers: { dres->initializers = NULL; }
+        | initializers { dres->initializers = $1; dres_dump_init(dres); }
         ;
 
-initializers: initializer
-        |     initializers initializer
+initializers: initializer          { $$ = $1; printf("*** initializer...\n"); }
+        | initializers initializer {
+	    printf("*** more initializers...\n");
+            dres_initializer_t *init;
+            for (init = $1; init->next; init = init->next)
+                ;
+            init->next = $2;
+            $$ = $1;
+        }
         ;
 
-initializer: TOKEN_FACTVAR assign_op TOKEN_INITIALIZER TOKEN_EOL {
-            void *value = dres_fact_create($1, $3);
-
-            if (value == NULL) {
-	        yyerror(dres, "failed to create fact variable");
+initializer: TOKEN_FACTVAR assign_op "{" ifields "}" TOKEN_EOL {
+            dres_initializer_t *init;
+            
+            if ((init = ALLOC(dres_initializer_t)) == NULL)
 	        YYABORT;
-	    }
-	    
-	    dres_var_create(dres->fact_store, $1, value);
-	    g_object_unref(value);
+            init->variable = dres_factvar_id(dres, $1);
+            init->fields   = $4;
+            init->next     = NULL;
+
+            $$ = init;
         }
         ;
 
 assign_op: "=" | "+=";
+
+ifields: field {
+            if (($$ = ALLOC(dres_init_t)) == NULL)
+	        YYABORT;
+            $$->field = $1;
+            $$->next  = NULL;
+        }
+        | ifields "," field {
+            dres_init_t *f, *p;
+            if ((f = ALLOC(dres_init_t)) == NULL)
+                YYABORT;
+            for (p = $1; p->next; p = p->next)
+                ;
+	    p->next = f;
+            f->field = $3;
+            f->next  = NULL;
+            $$ = $1;
+        }
+        ;
+
+sfields: field {
+            if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+            $$->field = $1;
+            $$->next  = NULL;
+        }
+        | sfields "," field {
+            dres_select_t *f, *p;
+            if ((f = ALLOC(dres_select_t)) == NULL)
+                YYABORT;
+            for (p = $1; p->next; p = p->next)
+                ;
+	    p->next = f;
+            f->field = $3;
+            f->next  = NULL;
+            $$ = $1;
+        }
+        ;
+
+
+field: TOKEN_IDENT ":" TOKEN_INTEGER {
+            $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_INTEGER;
+	    $$.value.v.i  = $3;
+        }
+        | TOKEN_IDENT ":" TOKEN_DOUBLE {
+            $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_DOUBLE;
+	    $$.value.v.d  = $3;
+        }
+        | TOKEN_IDENT ":" TOKEN_STRING {
+            $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP($3);
+        }
+        ;
 
 rules:    rule
 	| rules rule
@@ -168,151 +237,210 @@ actions:  action                 { $$ = $1;   }
 action: TOKEN_TAB expr TOKEN_EOL { $$ = $2; }
 	;
 
-expr:   lvalue "=" call {
+
+expr:   call {
+            $$ = $1;
+        }
+      | varref "=" call {
             $$         = $3;
 	    $$->lvalue = $1;
         }
-      | lvalue "=" rvalue {
+      | varref "=" varref {
             $$ = dres_new_action(DRES_ID_NONE);
 	    $$->lvalue = $1;
 	    $$->rvalue = $3;
             $$->name   = STRDUP("__assign");
 	}
-      | call {
+      | varref "=" TOKEN_INTEGER {}
+      | varref "=" TOKEN_DOUBLE  {}
+      | varref "=" TOKEN_STRING  {}
+      ;
+
+varref: TOKEN_FACTVAR {
+              $$.variable = dres_factvar_id(dres, $1);
+              $$.selector = NULL;
+              $$.field    = NULL;
+        }
+        | TOKEN_FACTVAR ":" TOKEN_IDENT                   {}
+        | TOKEN_FACTVAR "[" sfields "]"                   {}
+        | TOKEN_FACTVAR "[" sfields "]" ":" TOKEN_IDENT   {}
+        ;
+
+
+call: TOKEN_IDENT "(" args "," locals ")" {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->name   = STRDUP($1);
+            $$->args   = $3;
+            $$->locals = $5;
+	    $$->arguments = NULL;
+	    $$->nargument = 0;
+	    $$->variables = NULL;
+	    $$->nvariable = 0;
+        }
+	| TOKEN_IDENT "(" args ")" {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->name   = STRDUP($1);
+            $$->args   = $3;
+            $$->locals = NULL;
+	    $$->arguments = NULL;
+	    $$->nargument = 0;
+	    $$->variables = NULL;
+	    $$->nvariable = 0;
+        }
+	| TOKEN_IDENT "(" locals ")" {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->name   = STRDUP($1);
+            $$->args   = NULL;
+            $$->locals = $3;
+	    $$->arguments = NULL;
+	    $$->nargument = 0;
+	    $$->variables = NULL;
+	    $$->nvariable = 0;
+        }
+	| TOKEN_IDENT "(" ")" {
+            $$ = dres_new_action(DRES_ID_NONE);
+	    $$->name   = STRDUP($1);
+            $$->args   = NULL;
+            $$->locals = NULL;
+	    $$->arguments = NULL;
+	    $$->nargument = 0;
+	    $$->variables = NULL;
+	    $$->nvariable = 0;
+        }
+	;
+
+args: arg { $$ = $1; }
+        | args "," arg {
+            dres_arg_t *a;
+            for (a = $1; a->next != NULL; a = a->next)
+                ;
+            a->next = $3;
+            $$      = $1;
+        }
+        ;
+
+arg:      TOKEN_INTEGER {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_INTEGER;
+            $$->value.v.i  = $1;
+            $$->next = NULL;
+        }
+        | TOKEN_DOUBLE {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_DOUBLE;
+            $$->value.v.d  = $1;
+            $$->next = NULL;
+        }
+        | TOKEN_STRING {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($1);
+            $$->next = NULL;
+
+            if ($$->value.v.s == NULL)
+                YYABORT;
+        }
+        | TOKEN_IDENT {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($1);
+            $$->next = NULL;
+
+            if ($$->value.v.s == NULL)
+                YYABORT;
+        }
+        | TOKEN_FACTVAR {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_FACTVAR;
+            $$->value.v.id = dres_factvar_id(dres, $1);
+            $$->next = NULL;
+
+            if ($$->value.v.id == DRES_ID_NONE)
+                YYABORT;
+        }
+        | TOKEN_DRESVAR {
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_DRESVAR;
+            $$->value.v.id = dres_dresvar_id(dres, $1);
+            $$->next = NULL;
+
+            if ($$->value.v.id == DRES_ID_NONE)
+                YYABORT;
+        }
+
+
+locals:   local { $$ = $1; }
+        | locals "," local {
+            dres_local_t *l;
+
+            for (l = $1; l->next != NULL; l = l->next)
+                ;
+            l->next = $3;
             $$ = $1;
         }
-      | lvalue "=" TOKEN_IDENT {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->lvalue    = $1;
-            $$->immediate = dres_literal_id(dres, $3); /* XXX kludge */
-            $$->name      = STRDUP("__assign");
-        }
-      | lvalue "=" TOKEN_NUMBER {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->lvalue    = $1;
-            $$->immediate = dres_literal_id(dres, $3); /* XXX kludge */
-            $$->name      = STRDUP("__assign");
-        }
-      ;
 
-lvalue: varref { $$ = $1; }
-      ;
 
-rvalue: varref { $$ = $1; }
-      ;
+local:    TOKEN_DRESVAR "=" TOKEN_INTEGER {
+            if (($$ = ALLOC(dres_local_t)) == NULL)
+                YYABORT;
+            $$->id         = dres_dresvar_id(dres, $1);
+            $$->value.type = DRES_TYPE_INTEGER;
+            $$->value.v.i  = $3;
+            $$->next       = NULL;
+             
+        }
+        | TOKEN_DRESVAR "=" TOKEN_DOUBLE {
+            if (($$ = ALLOC(dres_local_t)) == NULL)
+                YYABORT;
+            $$->id         = dres_dresvar_id(dres, $1);
+            $$->value.type = DRES_TYPE_DOUBLE;
+            $$->value.v.d  = $3;
+            $$->next       = NULL;
 
-varref:   TOKEN_FACTVAR {
-              DEBUG("varref: %s", $1);
-              $$.variable = dres_factvar_id(dres, $1);
-              $$.selector = NULL;
-              $$.field    = NULL;
+            if ($$->id == DRES_ID_NONE)
+                YYABORT;
         }
-	| TOKEN_FACTVAR TOKEN_SELECTOR {
-              DEBUG("varref: %s[%s]", $1, $2);
-              $$.variable = dres_factvar_id(dres, $1);
-              $$.selector = STRDUP($2);
-              $$.field    = NULL;
+        | TOKEN_DRESVAR "=" TOKEN_STRING {
+            if (($$ = ALLOC(dres_local_t)) == NULL)
+                YYABORT;
+            $$->id         = dres_dresvar_id(dres, $1);
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($3);
+            $$->next       = NULL;
+             
+            if ($$->id == DRES_ID_NONE)
+                YYABORT;
         }
-	| TOKEN_FACTVAR ":" TOKEN_IDENT {
-              DEBUG("varref: %s:%s", $1, $3);
-              $$.variable = dres_factvar_id(dres, $1);
-              $$.selector = NULL;
-              $$.field    = STRDUP($3);
+        | TOKEN_DRESVAR "=" TOKEN_IDENT {
+            if (($$ = ALLOC(dres_local_t)) == NULL)
+                YYABORT;
+            $$->id         = dres_dresvar_id(dres, $1);
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = STRDUP($3);
+            $$->next       = NULL;             
+
+            if ($$->id == DRES_ID_NONE)
+                YYABORT;
         }
-	| TOKEN_FACTVAR TOKEN_SELECTOR ":" TOKEN_IDENT {
-              DEBUG("varref: %s[%s]:%s", $1, $2, $4);
-              $$.variable = dres_factvar_id(dres, $1);
-              $$.selector = STRDUP($2);
-              $$.field    = STRDUP($4);
+        | TOKEN_DRESVAR "=" TOKEN_DRESVAR {
+            if (($$ = ALLOC(dres_local_t)) == NULL)
+                YYABORT;
+            $$->id         = dres_dresvar_id(dres, $1);
+            $$->value.type = DRES_TYPE_DRESVAR;
+            $$->value.v.id = dres_dresvar_id(dres, $3);
+            $$->next       = NULL;             
+
+            if ($$->id == DRES_ID_NONE || $$->value.v.id == DRES_ID_NONE)
+                YYABORT;
         }
         ;
 
-
-call: TOKEN_IDENT "(" arguments optional_locals ")" {
-            $$ = dres_new_action(DRES_ID_NONE);
-	    $$->name = STRDUP($1);
-	    $$->arguments = $3.arguments;
-	    $$->nargument = $3.nargument;
-#if 1
-	    $$->variables = $4.variables;
-	    $$->nvariable = $4.nvariable;
-#endif
-        }
-	;
-
-arguments: argument   {
-               $$.arguments = NULL; $$.arguments = 0;
-               dres_add_argument(&$$, $1);
-        }
-        | arguments "," argument {
-               dres_add_argument(&$1, $3);
-               $$ = $1;
-          }
-	;
-
-argument: value            { $$ = $1; }
-	| TOKEN_FACTVAR    { $$ = dres_factvar_id(dres, $1); }
-	| TOKEN_DRESVAR    { $$ = dres_dresvar_id(dres, $1); }
-	;
-
-
-value:    TOKEN_IDENT   { $$ = dres_literal_id(dres, $1); }
-	| TOKEN_NUMBER  { $$ = dres_literal_id(dres, $1); }
-	;
-
-optional_locals: /* empty */  { $$.variables = NULL; $$.nvariable = 0; }
-	| "," locals          { $$ = $2; }
-	;
-
-locals:   local {
-	      $$.variables = NULL;
-	      $$.nvariable = 0;
-              dres_add_assignment(&$$, &$1);
-        }
-        | locals "," local {
-              dres_add_assignment(&$1, &$3);
-              $$ = $1;
-        }
-        ;
-
-local:    TOKEN_DRESVAR "=" TOKEN_IDENT {
-              $$.type            = DRES_ASSIGN_IMMEDIATE;
-              $$.lvalue.variable = dres_dresvar_id(dres, $1);
-	      $$.lvalue.selector = NULL;
-	      $$.lvalue.field    = NULL;
-              $$.val             = dres_literal_id(dres, $3);
-        }
-        | TOKEN_DRESVAR "=" TOKEN_NUMBER {
-              $$.type            = DRES_ASSIGN_IMMEDIATE;
-              $$.lvalue.variable = dres_dresvar_id(dres, $1);
-	      $$.lvalue.selector = NULL;
-	      $$.lvalue.field    = NULL;
-              $$.val             = dres_literal_id(dres, $3);
-        }
-        | TOKEN_DRESVAR "=" TOKEN_VARNAME {
-              $$.type            = DRES_ASSIGN_IMMEDIATE;
-              $$.lvalue.variable = dres_dresvar_id(dres, $1);
-	      $$.lvalue.selector = NULL;
-	      $$.lvalue.field    = NULL;
-              $$.val             = dres_literal_id(dres, $3);
-        }
-        | TOKEN_DRESVAR "=" varref {
-              $$.type   = DRES_ASSIGN_VARIABLE;
-              $$.lvalue.variable = dres_dresvar_id(dres, $1);
-	      $$.lvalue.selector = NULL;
-	      $$.lvalue.field    = NULL;
-              $$.var             = $3;
-        }
-	| TOKEN_DRESVAR "=" TOKEN_DRESVAR {
-              $$.type            = DRES_ASSIGN_VARIABLE;
-              $$.lvalue.variable = dres_dresvar_id(dres, $1);
-	      $$.lvalue.selector = NULL;
-	      $$.lvalue.field    = NULL;
-              $$.var.variable    = dres_dresvar_id(dres, $3);
-	      $$.var.selector    = NULL;
-	      $$.var.field       = NULL;
-        }
-        ;
 
 %%
 

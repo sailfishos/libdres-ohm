@@ -125,24 +125,60 @@ dres_dump_assignment(dres_t *dres, dres_assign_t *a, char *buf, size_t size)
 }
 
 
+
+/********************
+ * free_args
+ ********************/
+static void
+free_args(dres_arg_t *args)
+{
+    dres_arg_t *a, *n;
+
+    for (a = args; a != NULL; a = n) {
+        n = a->next;
+        if (a->value.type == DRES_TYPE_STRING)
+            FREE(a->value.v.s);
+        FREE(a);
+    }
+}
+
+
+/********************
+ * free_locals
+ ********************/
+static void
+free_locals(dres_local_t *locals)
+{
+    dres_local_t *l, *n;
+
+    for (l = locals; l != NULL; l = n) {
+        n = l->next;
+        if (l->value.type == DRES_TYPE_STRING)
+            FREE(l->value.v.s);
+        FREE(l);
+    }
+}
+
+
 /********************
  * dres_free_actions
  ********************/
 void
 dres_free_actions(dres_action_t *actions)
 {
-    dres_action_t *a, *p;
-    
+    dres_action_t *a, *n;
+
     if (actions == NULL)
         return;
     
-    for (a = actions, p = NULL; a->next != NULL; p = a, a = a->next) {
-        FREE(p);
+    for (a = actions; a != NULL; a = n) {
+        n = a->next;
         FREE(a->name);
+        free_args(a->args);
+        free_locals(a->locals);
         FREE(a->arguments);
+        /* XXX hmm... how about a->variables in the old code/branch ? */
     }
-    
-    FREE(p);
 }
 
 
@@ -228,16 +264,123 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
 
 
 /********************
+ * dres_dump_args
+ ********************/
+void
+dres_dump_args(dres_t *dres, dres_arg_t *args)
+{
+    dres_arg_t *a;
+    char       *t, name[128];
+
+    for (a = args, t = ""; a != NULL; a = a->next, t = ", ") {
+        switch (a->value.type) {
+        case DRES_TYPE_INTEGER: printf("%s%d", t, a->value.v.i); break;
+        case DRES_TYPE_DOUBLE:  printf("%s%f", t, a->value.v.d); break;
+        case DRES_TYPE_STRING:  printf("%s%s", t, a->value.v.s); break;
+        case DRES_TYPE_FACTVAR:
+        case DRES_TYPE_DRESVAR:
+            dres_name(dres, a->value.v.id, name, sizeof(name));
+            printf("%s%s", t, name);
+            break;
+        default:
+            printf("%s<unknown>", t);
+        }
+    }
+}
+
+
+/********************
+ * dres_print_args
+ ********************/
+int
+dres_print_args(dres_t *dres, dres_arg_t *args, char *buf, size_t size)
+{
+#define P(fmt, args...) do {                        \
+        n     = snprintf(p, left, fmt, ## args);    \
+        p    += n;                                  \
+        left -= n;                                  \
+    } while (0)
+    
+
+    dres_arg_t *a;
+    char       *p, *t, name[128];
+    int         left, n;
+    
+    p    = buf;
+    left = size;
+    for (a = args, n = 0, t = ""; a != NULL; a = a->next, t = ", ") {
+        switch (a->value.type) {
+        case DRES_TYPE_INTEGER: P("%s%d", t, a->value.v.i); break;
+        case DRES_TYPE_DOUBLE:  P("%s%f", t, a->value.v.d); break;
+        case DRES_TYPE_STRING:  P("%s%s", t, a->value.v.s); break;
+        case DRES_TYPE_FACTVAR:
+        case DRES_TYPE_DRESVAR:
+            dres_name(dres, a->value.v.id, name, sizeof(name));
+            P("%s%s", t, name);
+            break;
+        default:
+            P("%s<unknown>", t);
+        }
+    }
+
+    return size - left;
+#undef P
+}
+
+
+/********************
+ * dres_print_locals
+ ********************/
+int
+dres_print_locals(dres_t *dres, dres_local_t *locals, char *buf, size_t size)
+{
+#define P(fmt, args...) do {                        \
+        n     = snprintf(p, left, fmt, ## args);  \
+        p    += n;                                  \
+        left -= n;                                  \
+    } while (0)
+    
+    dres_local_t *l;
+    char         *p, *t, name[128];
+    int           left, n;
+    
+
+    p    = buf;
+    left = size;
+    for (l = locals, n = 0, t = ""; l != NULL; l = l->next, t = ", ") {
+        dres_name(dres, l->id, name, sizeof(name));
+        P("%s%s = ", t, name);
+        switch (l->value.type) {
+        case DRES_TYPE_INTEGER: P("%d", l->value.v.i); break;
+        case DRES_TYPE_DOUBLE:  P("%f", l->value.v.d); break;
+        case DRES_TYPE_STRING:  P("%s", l->value.v.s); break;
+        case DRES_TYPE_DRESVAR:
+            dres_name(dres, l->value.v.id, name, sizeof(name));
+            P("%s", name);
+            break;
+        default:
+            P("%s<unknown>", t);
+        }
+    }
+
+    return size - left;
+}
+
+
+/********************
  * dres_dump_action
  ********************/
 void
 dres_dump_action(dres_t *dres, dres_action_t *action)
 {
     dres_action_t *a = action;
-    dres_assign_t *v;
+#if 0
     int            i, j;
-    char           lvalbuf[128], *lval, rvalbuf[128], buf[128], *rval;
-    char           arg[64], val[64], *t;
+    char          *t, arg[64], buf[128];
+    dres_assign_t *v;
+#endif
+
+    char           lvalbuf[128], *lval, rvalbuf[128], *rval, val[64];
     char           actbuf[1024], *p;
 
     if (action == NULL)
@@ -263,6 +406,12 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         p += sprintf(p, "%s", rval);
     else {
         p += sprintf(p, "%s(", a->name);
+#if 1
+        p += dres_print_args(dres, a->args, p, 1024);
+        if (a->locals)
+            p += sprintf(p, ", ");
+        p += dres_print_locals(dres, a->locals, p, 1024);
+#else
         for (i = 0, t = ""; i < a->nargument; i++, t=",")
             p += sprintf(p, "%s%s", t,
                          dres_name(dres, a->arguments[i], arg,sizeof(arg)));
@@ -272,6 +421,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
             
             p += sprintf(p, "%s%s", t, buf);
         }
+#endif
         sprintf(p, ")");
     }
 

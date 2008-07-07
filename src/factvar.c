@@ -97,6 +97,33 @@ dres_check_factvar(dres_t *dres, int id, int refstamp)
 }
 
 
+/********************
+ * dres_dump_init
+ ********************/
+void
+dres_dump_init(dres_t *dres)
+{
+    dres_initializer_t *init;
+    dres_init_t        *i;
+    char                var[128], *t;
+    
+    for (init = dres->initializers; init != NULL; init = init->next) {
+        dres_name(dres, init->variable, var, sizeof(var));
+        printf("%s = {", var);
+        for (i = init->fields, t = " "; i != NULL; i = i->next, t = ", ") {
+            printf("%s%s: ", t, i->field.name);
+            switch (i->field.value.type) {
+            case DRES_TYPE_INTEGER: printf("%d", i->field.value.v.i);   break;
+            case DRES_TYPE_DOUBLE:  printf("%f", i->field.value.v.d);   break;
+            case DRES_TYPE_STRING:  printf("'%s'", i->field.value.v.s); break;
+            default:                printf("<unknown>");
+            }
+        }
+        printf(" }\n");
+        fflush(stdout);
+    }
+}
+
 
 /* 
  * Local Variables:

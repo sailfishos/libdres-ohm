@@ -10,6 +10,9 @@ enum {
     DRES_TYPE_FACTVAR,
     DRES_TYPE_DRESVAR,
     DRES_TYPE_LITERAL,
+    DRES_TYPE_INTEGER,
+    DRES_TYPE_DOUBLE,
+    DRES_TYPE_STRING,
     DRES_TYPE_DELETED   = 0x40,
     DRES_TYPE_UNDEFINED = 0x80
 };
@@ -46,11 +49,74 @@ typedef struct {
 
 typedef struct dres_action_s dres_action_t;
 
+
+typedef struct {
+    int type;
+    union {
+        int     i;                         /* DRES_TYPE_INTEGER */
+        double  d;                         /* DRES_TYPE_DOUBLE */
+        char   *s;                         /* DRES_TYPE_STRING */
+        int     id;                        /* DRES_TYPE_*VAR */
+    } v;
+} dres_value_t;
+
+typedef struct {
+    char         *name;
+    dres_value_t  value;
+} dres_field_t;
+
+
+typedef struct dres_select_s dres_select_t;    /* rename to dres_selector_t */
+struct dres_select_s {
+    dres_field_t   field;
+    dres_select_t *next;
+};
+
+typedef struct dres_init_s dres_init_t;
+struct dres_init_s {
+    dres_field_t  field;
+    dres_init_t  *next;
+};
+
+typedef struct dres_initializer_s dres_initializer_t;
+struct dres_initializer_s {
+    int                 variable;          /* variable ID */
+    dres_init_t        *fields;
+    dres_initializer_t *next;
+};
+
+typedef struct dres_arg_s dres_arg_t;
+struct dres_arg_s {
+    dres_value_t  value;
+    dres_arg_t   *next;
+};
+
+
+typedef struct dres_local_s dres_local_t;
+struct dres_local_s {
+    int           id;
+    dres_value_t  value;
+    dres_local_t *next;
+};
+
+
+#if 0
+
+typedef struct {
+    int            variable;               /* $var */
+    dres_select_t *selector;               /* [ field1:value1, ... ] */
+    char          *field;                  /* :field */
+} dres_varref_t;
+
+#else
+
 typedef struct {
     int   variable;                        /* variable ID */
     char *selector;                        /* selector or NULL */
     char *field;                           /* field or NULL */
 } dres_varref_t;
+
+#endif
 
 
 enum {
@@ -76,8 +142,14 @@ struct dres_action_s {
     char           *name;                  /* name(...) */
     dres_varref_t   lvalue;                /* variable to put the result to */
     dres_varref_t   rvalue;                /* variable to copy if any, or */
+#if 0
+    dres_value_t    immediate;             /* immediate value */
+#else
     int             immediate;             /* immediate value XXX kludge */
+#endif
     dres_handler_t *handler;               /* handler */
+    dres_arg_t     *args;
+    dres_local_t   *locals;
     int            *arguments;             /* name(arguments...) */
     int             nargument;             /* number of arguments */
     dres_assign_t  *variables;             /* name(arguments, variables) */
@@ -180,6 +252,8 @@ struct dres_s {
     dres_handler_t   fallback;
 
     unsigned long    flags;
+    
+    dres_initializer_t *initializers;
 };
 
 
@@ -258,6 +332,8 @@ int  dres_add_factvar  (dres_t *dres, char *name);
 int  dres_factvar_id   (dres_t *dres, char *name);
 void dres_free_factvars(dres_t *dres);
 int  dres_check_factvar(dres_t *dres, int id, int stamp);
+void dres_dump_init    (dres_t *dres);
+
 
 /* dresvar.c */
 int  dres_add_dresvar  (dres_t *dres, char *name);

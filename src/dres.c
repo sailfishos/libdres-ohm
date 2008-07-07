@@ -9,6 +9,7 @@
 #include <dres/compiler.h>
 
 #include "dres-debug.h"
+#include "parser-types.h"
 #include "parser.h"
 
 
