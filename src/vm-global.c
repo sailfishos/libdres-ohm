@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include "mm.h"
+#include <dres/mm.h>
 #include <dres/vm.h>
 
 
@@ -259,6 +259,41 @@ vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
     }
     
     return 0;
+}
+
+
+/********************
+ * vm_fact_get_field
+ ********************/
+int
+vm_fact_get_field(vm_state_t *vm, OhmFact *fact, char *field, vm_value_t *value)
+{
+    GValue *gval = ohm_fact_get(fact, field);
+
+    if (gval == NULL)
+        return VM_TYPE_UNKNOWN;
+
+    switch (G_VALUE_TYPE(gval)) {
+    case G_TYPE_INT:   value->i = g_value_get_int(gval);   goto inttype;
+    case G_TYPE_UINT:  value->i = g_value_get_uint(gval);  goto inttype;
+    case G_TYPE_LONG:  value->i = g_value_get_long(gval);  goto inttype;
+    case G_TYPE_ULONG: value->i = g_value_get_ulong(gval);
+    inttype:
+        return VM_TYPE_INTEGER;
+        
+    case G_TYPE_DOUBLE: value->d = g_value_get_double(gval); goto dbltype;
+    case G_TYPE_FLOAT:  value->d = 1.0*g_value_get_float(gval);
+    dbltype:
+        return VM_TYPE_DOUBLE;
+        
+    case G_TYPE_STRING: value->s = (char *)g_value_get_string(gval);
+        return VM_TYPE_STRING;
+
+    default:
+        VM_EXCEPTION(vm, "unexpected field type field %s", field);
+    }
+    
+    return VM_TYPE_UNKNOWN;
 }
 
 

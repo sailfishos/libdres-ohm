@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "mm.h"
+#include <dres/mm.h>
 #include <dres/vm.h>
 
 

@@ -2,12 +2,12 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "mm.h"
+#include <dres/mm.h>
 #include <dres/vm.h>
 
 #define UNKNOWN_ID 0xefffffff
 
-static int vm_unknown_handler(char *name,
+static int vm_unknown_handler(void *data, char *name,
                               vm_stack_entry_t *args, int narg,
                               vm_stack_entry_t *retval);
 
@@ -22,7 +22,7 @@ static vm_method_t default_method = {
  * vm_method_add
  ********************/
 int
-vm_method_add(vm_state_t *vm, char *name, vm_action_t handler)
+vm_method_add(vm_state_t *vm, char *name, vm_action_t handler, void *data)
 {
     vm_method_t *m;
     
@@ -37,6 +37,7 @@ vm_method_add(vm_state_t *vm, char *name, vm_action_t handler)
     m->name    = STRDUP(name);
     m->id      = vm->nmethod;
     m->handler = handler;
+    m->data    = data;
 
     if (m->name == NULL)
         return ENOMEM;
@@ -94,7 +95,7 @@ vm_method_default(vm_state_t *vm, vm_action_t handler)
  * vm_method_call
  ********************/
 int
-vm_method_call(vm_state_t *vm, vm_method_t *m, int narg)
+vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
 {
     vm_stack_entry_t *args = vm_args(vm->stack, narg);
     vm_stack_entry_t  retval;
@@ -104,7 +105,7 @@ vm_method_call(vm_state_t *vm, vm_method_t *m, int narg)
     if (args == NULL)
         VM_EXCEPTION(vm, "CALL: failed to pop %d args for %s", narg, m->name);
     
-    status = m->handler(m->name, args, narg, &retval);
+    status = m->handler(m->data, name, args, narg, &retval);
     
     for (i = 0; i < narg; i++) {
         if ((type = vm_pop(vm->stack, &arg)) == VM_TYPE_GLOBAL)
@@ -122,9 +123,8 @@ vm_method_call(vm_state_t *vm, vm_method_t *m, int narg)
  * vm_unknown_handler
  ********************/
 static int
-vm_unknown_handler(char *name,
-                   vm_stack_entry_t *args, int narg,
-                   vm_stack_entry_t *retval)
+vm_unknown_handler(void *data, char *name,
+                   vm_stack_entry_t *args, int narg, vm_stack_entry_t *retval)
 {
     int i, j, type;
 

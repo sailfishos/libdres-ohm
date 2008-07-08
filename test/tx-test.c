@@ -4,7 +4,7 @@
 #include <unistd.h>
 #include <errno.h>
 
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 
 #define TEST_PREFIX   "test"
 

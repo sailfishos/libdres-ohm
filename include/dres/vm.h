@@ -3,7 +3,7 @@
 
 #include <string.h>
 
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 
 
 /*
@@ -72,6 +72,7 @@ enum {
     VM_OP_PUSH,                               /* push a value on the stack */
     VM_OP_FILTER,                             /* global filtering */
     VM_OP_SET,                                /* global assignment */
+    VM_OP_GET,                                /* global/local evaluation */ 
     VM_OP_CREATE,                             /* global creation */
     VM_OP_CALL,                               /* function call */
 };
@@ -196,6 +197,22 @@ enum {
     } while (0)
 
 
+/*
+ * GET instruction
+ */
+
+enum {
+    VM_GET_NONE  = 0x0,
+    VM_GET_FIELD = 0x1,
+};
+
+#define VM_INSTR_GET_FIELD(c, errlbl, ec) do {                          \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_GET, VM_GET_FIELD);                      \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+    } while (0)
+
+
 
 /*
  * CALL instructions
@@ -225,7 +242,7 @@ typedef struct vm_chunk_s {
  * VM function calls
  */
 
-typedef int (*vm_action_t)(char *name,
+typedef int (*vm_action_t)(void *data, char *name,
                            vm_stack_entry_t *args, int narg,
                            vm_stack_entry_t *retval);
 
@@ -233,6 +250,7 @@ typedef struct vm_method_s {
     char        *name;                       /* function name */
     int          id;                         /* function ID */
     vm_action_t  handler;                    /* function handler */
+    void        *data;                       /* opaque user data */
 } vm_method_t;
 
 
@@ -321,17 +339,21 @@ void         vm_fact_remove(char *name);
 
 int          vm_fact_set_field  (vm_state_t *vm, OhmFact *fact, char *field,
                                  int type, vm_value_t *value);
+int          vm_fact_get_field  (vm_state_t *vm, OhmFact *fact, char *field,
+                                 vm_value_t *value);
 int          vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
                                  GValue *gval, int type, vm_value_t *value);
 
 void vm_fact_print(OhmFact *fact);
 
 /* vm-method.c */
-int          vm_method_add    (vm_state_t *vm, char *name, vm_action_t handler);
+int          vm_method_add    (vm_state_t *vm,
+                               char *name, vm_action_t handler, void *data);
 vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
 vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
 vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
-int          vm_method_call   (vm_state_t *vm, vm_method_t *m, int narg);
+int          vm_method_call   (vm_state_t *vm,
+                               char *name, vm_method_t *m, int narg);
 
 
 

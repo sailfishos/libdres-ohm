@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include "mm.h"
+#include <dres/mm.h>
 #include <dres/vm.h>
 
 
@@ -324,10 +324,12 @@ set_test(void)
  * echo_handler
  ********************/
 int
-echo_handler(char *name,
+echo_handler(void *data, char *name,
              vm_stack_entry_t *args, int narg, vm_stack_entry_t *retval)
 {
     int i;
+
+    printf("%s data: %p (%s)\n", __FUNCTION__, data, data ? (char *)data : "");
 
     for (i = 0; i < narg; i++) {
         switch (args[i].type) {
@@ -366,7 +368,7 @@ call_test(void)
     if (stack == NULL || chunk == NULL)
         fatal(ENOMEM, "failed to allocate stack and/or code");
 
-    if ((err = vm_method_add(&vm, "echo", echo_handler)) != 0)
+    if ((err = vm_method_add(&vm, "echo", echo_handler, "foo")) != 0)
         fatal(err, "failed to register echo handler");
 
     /* $a = { foo:'bar', foobar:123 } */

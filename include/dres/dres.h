@@ -4,6 +4,7 @@
 #include <glib.h>
 #include <dres/variables.h>
 #include <dres/vm.h>
+#include <dres/mm.h>
 
 enum {
     DRES_TYPE_UNKNOWN = 0,
@@ -229,6 +230,7 @@ extern int depth;
 #    define TRUE  1
 #endif
 
+#if 0
 #define ALLOC(type) ({                            \
             type   *__ptr;                        \
             size_t  __size = sizeof(type);        \
@@ -269,6 +271,7 @@ extern int depth;
             __s = ((s) ? strdup(s) : strdup(""));       \
             __s; })
 
+#endif
 
 /* dres.c */
 dres_t *dres_init(char *prefix);

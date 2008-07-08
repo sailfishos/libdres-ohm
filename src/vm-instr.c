@@ -4,7 +4,7 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "mm.h"
+#include <dres/mm.h>
 #include <dres/vm.h>
 
 
@@ -13,6 +13,7 @@
 int vm_instr_push   (vm_state_t *vm);
 int vm_instr_filter (vm_state_t *vm);
 int vm_instr_set    (vm_state_t *vm);
+int vm_instr_get    (vm_state_t *vm);
 int vm_instr_create (vm_state_t *vm);
 int vm_instr_call   (vm_state_t *vm);
 
@@ -35,6 +36,7 @@ vm_run(vm_state_t *vm)
         case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
         case VM_OP_FILTER: status = vm_instr_filter(vm); break;
         case VM_OP_SET:    status = vm_instr_set(vm);    break;
+        case VM_OP_GET:    status = vm_instr_get(vm);    break;
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
         case VM_OP_CALL:   status = vm_instr_call(vm);   break;
         default: VM_EXCEPTION(vm, "invalid instruction 0x%x", *vm->pc);
@@ -327,6 +329,92 @@ vm_instr_set(vm_state_t *vm)
 
 
 /*
+ * GET (XXX TODO), GET FIELD
+ */
+
+
+/********************
+ * vm_instr_get_field
+ ********************/
+int
+vm_instr_get_field(vm_state_t *vm)
+{
+#define FAIL(fmt, args...) do {                 \
+        if (g)                                  \
+            vm_global_free(g);                  \
+        VM_EXCEPTION(vm, fmt, ## args);         \
+    } while (0)
+
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    vm_global_t  *g = NULL;
+    char         *field;
+    vm_value_t   value;
+    int          type;
+
+    if (store == NULL)
+        FAIL("GET FIELD: could not determine fact store");
+
+    if (vm_type(vm->stack) != VM_TYPE_STRING)
+        FAIL("GET FIELD: invalid field name, string expected");
+
+    field = vm_pop_string(vm->stack);
+
+    if (vm_type(vm->stack) != VM_TYPE_GLOBAL)
+        FAIL("GET FIELD: destination, global expected");
+    
+    g    = vm_pop_global(vm->stack);
+    type = vm_pop(vm->stack, &value);
+    
+    if (g->nfact < 1)
+        FAIL("GET FIELD: nonexisting global");
+
+    if (g->nfact > 1)
+        FAIL("GET FIELD: cannot get field of multiple globals");
+
+    type = vm_fact_get_field(vm, g->facts[0], field, &value);
+    if (type == VM_TYPE_UNKNOWN)
+        FAIL("GET FIELD: global has not field %s", field);
+
+    vm_push(vm->stack, type, value);
+    vm_global_free(g);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+    
+    return 0;
+}
+
+
+/********************
+ * vm_instr_get_var
+ ********************/
+int
+vm_instr_get_var(vm_state_t *vm)
+{
+    /*
+     * XXX TODO implement me: fetch named local variable and push its
+     *                        value on the stack
+     */
+    VM_EXCEPTION(vm, "%s not implemented", __FUNCTION__);
+    return EOPNOTSUPP; /* not reached */
+}
+
+
+/********************
+ * vm_instr_get
+ ********************/
+int
+vm_instr_get(vm_state_t *vm)
+{
+    if (!VM_OP_ARGS(*vm->pc) & VM_GET_FIELD)
+        return vm_instr_get_var(vm);
+    else
+        return vm_instr_get_field(vm);
+}
+
+
+/*
  * CREATE
  */
 
@@ -412,7 +500,7 @@ vm_instr_call(vm_state_t *vm)
     if (vm_stack_grow(vm->stack, narg))
         VM_EXCEPTION(vm, "CALL: failed to grow the stack by %d entries", narg);
 
-    status = vm_method_call(vm, m, narg);
+    status = vm_method_call(vm, name, m, narg);
 
     if (status)
         VM_EXCEPTION(vm, "CALL: %s failed with error %d", name, status);

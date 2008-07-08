@@ -14,8 +14,8 @@ libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@
 noinst_PROGRAMS = vm-test lexer-test
 
 vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-method.c vm-test.c
-vm_test_CFLAGS   = @LIBFACT_CFLAGS@ @GLIB_CFLAGS@
-vm_test_LDADD    = @LIBFACT_LIBS@ @GLIB_LIBS@
+vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
+vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@
 
 lexer_test_SOURCES = lexer.l
 lexer_test_CFLAGS  = -D__TEST_LEXER__=1
