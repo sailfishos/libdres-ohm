@@ -3,7 +3,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <prolog/ohm-fact.h>              /* XXX <ohm/ohm-fact.h> */
+#include <ohm/ohm-fact.h>              /* XXX <ohm/ohm-fact.h> */
 
 #include <dres/dres.h>
 #include <dres/compiler.h>

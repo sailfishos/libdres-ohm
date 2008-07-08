@@ -5,7 +5,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 
 #define TEST_PREFIX   "test"
 #define TEST_RULEFILE "./test.dres"

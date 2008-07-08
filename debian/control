@@ -8,8 +8,24 @@ Build-Depends: cdbs, debhelper (>= 4.1.0)
 Package: libdres
 Architecture: any
 Depends: ${shlibs:Depends}
-Description: Dependency resolver library.
- Dependency resolver library.
+Description: OHM dependency resolver library.
+ Dependency resolver library for OHM.
  .
- Dependency resolver library.
+ Dependency resolver library for OHM.
+
+Package: libdres-dev
+Architecture: any
+Depends: ${shlibs:Depends}, libdres
+Section: libdevel
+Description: Development files for the OHM dependency resolver library.
+ .
+ This package contains header files, libraries, pkg-config files, etc.
+ necessary for developing with the OHM dependency resolver library.
+
+Package: ohm-plugin-resolver
+Architecture: any
+Section: libs
+Depends: ${shlibs:Depends}, libdres, swi-prolog, ohm
+Description: OHM dependecy resolver plugin.
+ A dependency resolver plugin for OHM.
 
