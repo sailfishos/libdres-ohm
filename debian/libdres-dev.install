@@ -1,2 +1,2 @@
-debian/tmp/usr/include/dres/* /usr/include
+debian/tmp/usr/include/dres/* /usr/include/dres
 debian/tmp/usr/lib/pkgconfig/* /usr/lib/pkgconfig
