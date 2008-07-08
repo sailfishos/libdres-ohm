@@ -5,7 +5,7 @@ libdres_la_SOURCES = parser.y lexer.l \
                      factvar.c dresvar.c variables.c scope.c \
                      prereq.c graph.c dres.c
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
-libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@
+libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@ -lfl
 
 INCLUDES = -I$(top_builddir)/include
 
