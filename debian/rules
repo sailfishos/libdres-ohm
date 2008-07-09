@@ -17,8 +17,14 @@ binary-post-install/ohm::
 	rm -f debian/tmp/usr/lib/*.la
 common-binary-post-install-arch:: list-missing
 
-configure: configure.in
-	./autogen.sh
+post-patches:: debian/stamp-autogen
+
+debian/stamp-autogen:
+	cd $(DEB_BUILDDIR) && ./autogen.sh
+	touch $@
+
+clean::
+	-rm -rf debian/stamp-autogen
 
 # do not include docs and changelogs in these packages
 #DEB_INSTALL_DOCS_libdres := --no-act

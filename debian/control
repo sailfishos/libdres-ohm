@@ -5,7 +5,7 @@ Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
 Standards-Version: 3.6.1
 Build-Depends: cdbs, debhelper (>= 4.1.0), libprolog-dev
 
-Package: libdres
+Package: libdres0
 Architecture: any
 Depends: ${shlibs:Depends}
 Description: OHM dependency resolver library.
@@ -15,7 +15,7 @@ Description: OHM dependency resolver library.
 
 Package: libdres-dev
 Architecture: any
-Depends: ${shlibs:Depends}, libdres
+Depends: libdres0
 Section: libdevel
 Description: Development files for the OHM dependency resolver library.
  .
@@ -25,7 +25,7 @@ Description: Development files for the OHM dependency resolver library.
 Package: ohm-plugin-resolver
 Architecture: any
 Section: libs
-Depends: ${shlibs:Depends}, libdres, swi-prolog, ohm, libprolog
+Depends: ${shlibs:Depends}, libdres0, swi-prolog, ohm, libprolog0
 Description: OHM dependecy resolver plugin.
  A dependency resolver plugin for OHM.
 
