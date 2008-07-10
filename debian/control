@@ -3,7 +3,7 @@ Section: libs
 Priority: optional
 Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
 Standards-Version: 3.6.1
-Build-Depends: cdbs, debhelper (>= 4.1.0), libprolog-dev, libglib2.0-dev, libdbus-glib-1-dev, libdbus-1-dev, ohm-dev, libtrace-dev
+Build-Depends: cdbs, debhelper (>= 4.1.0), libprolog-dev, libglib2.0-dev, libdbus-glib-1-dev, libdbus-1-dev, ohm-dev, libtrace-dev, flex
 
 Package: libdres0
 Architecture: any

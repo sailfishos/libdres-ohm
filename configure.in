@@ -26,10 +26,11 @@ AC_PROG_YACC
 AM_PROG_CC_C_O
 AM_PROG_LIBTOOL
 AM_PROG_LEX
+AC_SUBST(LEXLIB)
 
 # Enable extra GCC flags.
 if test "$GCC" = "yes"; then
-    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
+    CPPFLAGS="$CPPFLAGS -Wall -Wformat -Wextra"
 fi
 
 # Checks for header files.
