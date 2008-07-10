@@ -245,7 +245,7 @@ action_argument(dres_t *dres, int argument)
 static int
 action_arguments(dres_t *dres, dres_action_t *action, char **args, int narg)
 {
-    int i;
+    unsigned int i;
     
     for (i = 1; i < action->nargument; i++)
         if ((args[i-1] = action_argument(dres, action->arguments[i])) == NULL)
@@ -444,7 +444,7 @@ static char *getarg(dres_t *dres, dres_action_t *action,
 
     value = "";
 
-    if (argidx < 0 || argidx >= action->nvariable) {
+    if (argidx < 0 || (unsigned int)argidx >= action->nvariable) {
         namebuf[0] = '\0';
         dres_name(dres, action->arguments[argidx], namebuf, len);
 

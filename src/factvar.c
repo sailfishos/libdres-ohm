@@ -39,7 +39,7 @@ int
 dres_factvar_id(dres_t *dres, char *name)
 {
     dres_variable_t *var;
-    int              i;
+    unsigned int     i;
 
     if (name != NULL)
         for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
@@ -57,7 +57,7 @@ dres_factvar_id(dres_t *dres, char *name)
 void
 dres_free_factvars(dres_t *dres)
 {
-    int              i;
+    unsigned int              i;
     dres_variable_t *var;
 
     for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {

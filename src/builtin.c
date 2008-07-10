@@ -77,7 +77,7 @@ BUILTIN_HANDLER(assign)
     
     char     *prefix;
     char      rval[64], factname[64];
-    OhmFact **facts;
+    OhmFact **facts = NULL;
     int       nfact, i;
     
     if (DRES_ID_TYPE(action->lvalue.variable) != DRES_TYPE_FACTVAR || !ret)
@@ -151,12 +151,12 @@ BUILTIN_HANDLER(echo)
 #define MAX_LENGTH 64
 #define PRINT(s)              \
     do {                      \
-        int l = strlen(s);    \
-        if (l < (e-p)-1) {    \
+        unsigned int l = strlen(s);    \
+        if (l < (unsigned int)((e-p)-1)) {    \
             strcpy(p, s);     \
             p += l;           \
         }                     \
-        else if (e-p > 0) {   \
+        else if ((unsigned int)(e-p) > 0) {   \
             l = (e-p) - 1;    \
             strncpy(p, s, l); \
             p[l] = '\0';      \
@@ -168,7 +168,7 @@ BUILTIN_HANDLER(echo)
     char             arg[MAX_LENGTH];
     char             buf[4096];
     char            *p, *e, *str;
-    int              i;
+    unsigned int     i;
 
     buf[0] = '\0';
 

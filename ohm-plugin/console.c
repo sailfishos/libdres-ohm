@@ -110,9 +110,9 @@ console_closed(int id)
 static void
 console_input(int id, char *input, void *data)
 {
-    command_t *command;
-    char       name[64], *args, *s, *d;
-    int        n;
+    command_t    *command;
+    char          name[64], *args, *s, *d;
+    unsigned int  n;
 
     if (!input[0]) {
         console_printf(id, CONSOLE_PROMPT);

@@ -146,7 +146,8 @@ touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     OhmFact  *fact  = NULL;
     GValue   *gval;
     char      name[32], fullname[64], field[64], value[64];
-    int       i, status;
+    unsigned int i;
+    int       status;
 
     if (action->nargument < 1 || !(action->nargument & 0x1))
         FAIL(EINVAL);
@@ -197,7 +198,8 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     OhmFact  *fact  = NULL;
     GValue   *gval;
     char      name[32], fullname[64], field[64], value[64];
-    int       i, status;
+    int       status;
+    unsigned int i;
 
     if (action->nargument < 1 || !(action->nargument & 0x1))
         FAIL(EINVAL);

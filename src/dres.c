@@ -146,7 +146,7 @@ void
 dres_check_stores(dres_t *dres)
 {
     dres_variable_t *var;
-    int              i;
+    unsigned int              i;
     char             name[128];
 
     for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
@@ -164,7 +164,7 @@ static int
 finalize_variables(dres_t *dres)
 {
     dres_variable_t *v;
-    int              i, monitor;
+    unsigned int              i, monitor;
 
     for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
         monitor = DRES_TST_FLAG(v, VAR_PREREQ);
@@ -188,7 +188,8 @@ finalize_actions(dres_t *dres)
     dres_target_t  *target;
     dres_action_t  *action;
     void           *unknown = dres_lookup_handler(dres, DRES_BUILTIN_UNKNOWN);
-    int             i, status;
+    unsigned int    i;
+    int             status;
     
     status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
@@ -212,7 +213,7 @@ finalize_targets(dres_t *dres)
     dres_target_t *target;
     dres_graph_t  *graph;
     char           goal[64];
-    int            i;
+    unsigned int            i;
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         dres_name(dres, target->id, goal, sizeof(goal));
@@ -257,7 +258,8 @@ EXPORTED int
 dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
     dres_target_t *target;
-    int            id, i, status, own_tx;
+    int            id, i, own_tx;
+    int            status = 0;
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
@@ -327,7 +329,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
 EXPORTED dres_variable_t *
 dres_lookup_variable(dres_t *dres, int id)
 {
-    int idx = DRES_INDEX(id);
+    unsigned int idx = DRES_INDEX(id);
     
     switch (DRES_ID_TYPE(id)) {
     case DRES_TYPE_FACTVAR:
@@ -359,7 +361,7 @@ transaction_rollback(dres_t *dres)
 {
     dres_target_t   *t;
     dres_variable_t *var;
-    int              i;
+    unsigned int     i;
 
     dres_store_tx_rollback(dres->fact_store);
     DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);

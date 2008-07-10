@@ -1175,7 +1175,7 @@ static int get_local_var_field(dres_local_var_t *var, const char *name,
 /* static */
 int get_fields(OhmFact *fact, char **names, int nname)
 {
-    GList             *field;
+    GSList             *field;
     GQuark             qk;
     int                i;
 
