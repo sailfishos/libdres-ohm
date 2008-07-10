@@ -116,6 +116,8 @@ dres_parse_file(dres_t *dres, char *path)
         status = initialize_variables(dres);
     if (status == 0)
         status = finalize_variables(dres);
+
+    dres->vm.nlocal = dres->ndresvar;
     
     return status;
 }

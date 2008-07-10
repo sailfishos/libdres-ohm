@@ -34,12 +34,18 @@ vm_init(vm_state_t *vm, int stack_size)
 int
 vm_exec(vm_state_t *vm, vm_chunk_t *code)
 {
+    int status;
+    
     vm->chunk  = code;
     vm->pc     = code->instrs;
     vm->ninstr = code->ninstr;
     vm->nsize  = code->nsize;
     
-    return vm_run(vm);
+    status = vm_run(vm);
+
+    printf("*** stack depth after vm_exec: %d\n", vm->stack->nentry);
+
+    return status;
 }
 
 

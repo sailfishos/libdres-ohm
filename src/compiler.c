@@ -7,10 +7,11 @@
 #include <dres/vm.h>
 
 
-static int compile_value (dres_t *dres, dres_value_t *value, vm_chunk_t *code);
-static int compile_varref(dres_t *dres, dres_varref_t *vr, vm_chunk_t *code);
-static int compile_call  (dres_t *dres, dres_call_t *call, vm_chunk_t *code);
-static int compile_assign(dres_t *dres, dres_varref_t *lval, vm_chunk_t *code);
+static int compile_value  (dres_t *dres, dres_value_t *value, vm_chunk_t *code);
+static int compile_varref (dres_t *dres, dres_varref_t *vr, vm_chunk_t *code);
+static int compile_call   (dres_t *dres, dres_call_t *call, vm_chunk_t *code);
+static int compile_assign (dres_t *dres, dres_varref_t *lval, vm_chunk_t *code);
+static int compile_discard(dres_t *dres, vm_chunk_t *code);
 
 
 
@@ -69,6 +70,8 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
 
     if (action->lvalue.variable != DRES_ID_NONE)
         status = compile_assign(dres, &action->lvalue, code);
+    else
+        status = compile_discard(dres, code);
 
     return status;
 }
@@ -94,9 +97,12 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
             VM_INSTR_PUSH_GLOBAL((code), fail, err, __f);               \
         }                                                               \
             break;                                                      \
-            default:                                                    \
-                err = EINVAL;                                           \
-                goto fail;                                              \
+        case DRES_TYPE_DRESVAR:                                         \
+            VM_INSTR_GET_LOCAL((code), fail, err, (value)->v.id);       \
+            break;                                                      \
+        default:                                                        \
+            err = EINVAL;                                               \
+            goto fail;                                                  \
         }                                                               \
     } while (0)
 
@@ -182,7 +188,6 @@ compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
 #define FAIL(ec) do { err = (ec); goto fail; } while (0)
     dres_arg_t   *arg;
     dres_local_t *var;
-    const char   *name;
     int           narg, nvar, err;
     
     for (arg = call->args, narg = 0; arg != NULL; arg = arg->next, narg++) {
@@ -190,17 +195,18 @@ compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
     }
     
     for (var = call->locals, nvar = 0; var != NULL; var = var->next, nvar++) {
-        if ((name = dres_dresvar_name(dres, var->id)) == NULL)
-            FAIL(ENOENT);
         PUSH_VALUE(code, fail, err, &var->value);
-        VM_INSTR_PUSH_STRING(code, fail, err, name);
+        VM_INSTR_PUSH_INT(code, fail, err, DRES_INDEX(var->id));
     }
     if (nvar > 0)
         VM_INSTR_PUSH_LOCALS(code, fail, err, nvar);
     
     VM_INSTR_PUSH_STRING(code, fail, err, call->name);
     VM_INSTR_CALL(code, fail, err, narg);
-   
+    
+    if (nvar > 0)
+        VM_INSTR_POP_LOCALS(code, fail, err);
+    
     return 0;
 
  fail:
@@ -264,6 +270,26 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
     return err;
 #undef FAIL
 }
+
+
+/********************
+ * compile_discard
+ ********************/
+int
+compile_discard(dres_t *dres, vm_chunk_t *code)
+{
+    int err;
+    
+    VM_INSTR_POP_DISCARD(code, fail, err);
+    
+    return 0;
+
+ fail:
+    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
+           err, strerror(err));
+    return err;
+}
+
 
 
 /* 

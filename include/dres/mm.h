@@ -36,8 +36,9 @@
             }                                                           \
             __ptr; })
 
-#define ALLOC_VAROBJ(ptr, n, f) ({					     \
-      ptr = (typeof(ptr))ALLOC_ARR(char, sizeof(*ptr) + (n)*sizeof(ptr->f)); \
+#define ALLOC_VAROBJ(ptr, n, f) ({					\
+      size_t __diff = ((ptrdiff_t)(&(ptr)->f[n])) - ((ptrdiff_t)(ptr)); \
+      ptr = (typeof(ptr))ALLOC_ARR(char, __diff);			\
       ptr; })
                 
 #define FREE(obj) do { if (obj) free(obj); } while (0)

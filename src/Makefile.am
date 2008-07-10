@@ -4,7 +4,8 @@ libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \
                      factvar.c dresvar.c variables.c scope.c \
                      prereq.c graph.c dres.c \
-                     vm-stack.c vm-instr.c vm-global.c vm-method.c vm.c \
+                     vm-stack.c vm-instr.c vm-global.c vm-local.c \
+                     vm-method.c vm.c \
                      compiler.c
 
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
@@ -13,7 +14,8 @@ libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@
 
 noinst_PROGRAMS = vm-test lexer-test
 
-vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-method.c vm-test.c
+vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
+                   vm-method.c vm-test.c
 vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
 vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@
 

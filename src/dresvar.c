@@ -4,6 +4,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
+#include <dres/compiler.h>
 #include "dres-debug.h"
 
 /*****************************************************************************
@@ -110,6 +111,26 @@ dres_check_dresvar(dres_t *dres, int id, int refstamp)
 #endif
     
     return var->stamp > refstamp;
+}
+
+
+/********************
+ * dres_local_value
+ ********************/
+EXPORTED int
+dres_local_value(dres_t *dres, int id, dres_value_t *value)
+{
+    vm_value_t v;
+    
+    switch ((value->type = vm_scope_get(dres->vm.scope, id, &v))) {
+    case DRES_TYPE_INTEGER: value->v.i = v.i; break;
+    case DRES_TYPE_DOUBLE:  value->v.d = v.d; break;
+    case DRES_TYPE_STRING:  value->v.s = v.s; break;
+    case DRES_TYPE_UNKNOWN: return ENOENT;
+    default:                return EINVAL;
+    }
+    
+    return 0;
 }
 
 

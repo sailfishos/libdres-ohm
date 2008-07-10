@@ -141,6 +141,43 @@ BUILTIN_HANDLER(assign)
  ********************/
 BUILTIN_HANDLER(dres)
 {
+    dres_t       *dres = (dres_t *)data;
+    char         *goal;
+    unsigned int *pc;
+    int           ninstr;
+    int           nsize;
+    int           status;
+
+    
+    if (narg < 1)                 /* XXX TODO should default to first... */
+        return EINVAL;
+    
+    if (args[0].type != DRES_TYPE_STRING)
+        return EINVAL;
+
+    goal = args[0].v.s;
+    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
+    
+    printf("*** DRES recursing for goal %s\n", goal);
+
+    pc     = dres->vm.pc;
+    ninstr = dres->vm.ninstr;
+    nsize  = dres->vm.nsize;
+
+    depth++;
+    status = dres_update_goal(dres, goal, NULL);
+    depth--;
+
+    dres->vm.pc     = pc;
+    dres->vm.ninstr = ninstr;
+    dres->vm.nsize  = nsize;
+
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = status;
+
+    return status;
+    
+    
 #if 0
     dres_call_t *call = action->call;
     char         goal[64];
@@ -183,12 +220,13 @@ BUILTIN_HANDLER(resolve)
  ********************/
 BUILTIN_HANDLER(echo)
 {
-#if 0
-    dres_t *dres = (dres_t *)data;
-#endif
-    int     i;
+    dres_t       *dres = (dres_t *)data;
+    dres_value_t  value;
+    char         *t;
+    int           i;
     
-    for (i = 0; i < narg; i++) {
+    for (i = 0, t = ""; i < narg; i++, t = " ") {
+        printf(t);
         switch (args[i].type) {
         case DRES_TYPE_INTEGER: printf("%d", args[i].v.i); break;
         case DRES_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
@@ -196,13 +234,21 @@ BUILTIN_HANDLER(echo)
         case DRES_TYPE_FACTVAR:
             vm_global_print(args[i].v.g);
             break;
+
 #if 0
         case DRES_TYPE_DRESVAR:
-            dres_name(dres, args[i].v.id, var, sizeof(var));
-            value = dres_scope_getvar(dres->scope, var + 1);
+            if (dres_local_value(dres, args[i].v.id, &value) != 0)
+                goto unknown;
+            switch (value.type) {
+            case DRES_TYPE_INTEGER: printf("%d", value->v.i); break;
+            case DRES_TYPE_DOUBLE:  printf("%f", value->v.d); break;
+            case DRES_TYPE_STRING:  printf("%s", value->v.s); break;
+            default:                goto unknown;
+            }
             break;
+       
+        unknown:
 #endif
-            
         default:
             printf("???");
         }

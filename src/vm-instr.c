@@ -11,6 +11,7 @@
 
 
 int vm_instr_push   (vm_state_t *vm);
+int vm_instr_pop    (vm_state_t *vm);
 int vm_instr_filter (vm_state_t *vm);
 int vm_instr_set    (vm_state_t *vm);
 int vm_instr_get    (vm_state_t *vm);
@@ -34,6 +35,7 @@ vm_run(vm_state_t *vm)
     while (vm->ninstr > 0) {
         switch (VM_OP_CODE(*vm->pc)) {
         case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
+        case VM_OP_POP:    status = vm_instr_pop(vm);    break;
         case VM_OP_FILTER: status = vm_instr_filter(vm); break;
         case VM_OP_SET:    status = vm_instr_set(vm);    break;
         case VM_OP_GET:    status = vm_instr_get(vm);    break;
@@ -67,11 +69,17 @@ vm_instr_push(vm_state_t *vm)
     } while (0)
 
     vm_global_t  *g;
+    vm_value_t    v;
 
     unsigned int  type = VM_PUSH_TYPE(*vm->pc);
     unsigned int  data = VM_PUSH_DATA(*vm->pc);
     char         *name;
-    int           nsize, n, i;
+    int           nsize, i, id;
+    
+
+    /*
+     * XXX Hmm... isn't nsize in bytes (ie. multiplied by sizeof(int)) ???
+     */
 
     
     switch (type) {
@@ -105,22 +113,67 @@ vm_instr_push(vm_state_t *vm)
         break;
 
     case VM_TYPE_LOCAL:
-        vm_push_locals(vm->stack
-        for (n = (int)data; n > 0; n--) {
-            
+        if (vm_scope_push(vm) != 0)
+            VM_EXCEPTION(vm, "PUSH LOCALS: failed to push new scope");
+        for (i = 0; i < data; i++) {
+            if (vm_type(vm->stack) != VM_TYPE_INTEGER)
+                VM_EXCEPTION(vm, "PUSH LOCALS: expecting integer ID");
+            id   = vm_pop_int(vm->stack);
+            type = vm_pop(vm->stack, &v);
+            if (vm_scope_set(vm->scope, id, type, v) != 0)
+                VM_EXCEPTION(vm, "PUSH LOCALS: failed to set local #0x%x", id);
         }
-
+        nsize = 1;
+        break;
+        
     default: VM_EXCEPTION(vm, "invalid type 0x%x to push", type);
     }
 
         
     vm->ninstr--;
     vm->pc    += nsize;
-    vm->nsize -= nsize;
+    vm->nsize -= nsize; /* nsize * sizeof(int) */
     
     return 0;
 }
 
+
+/*
+ * POP
+ */
+
+/********************
+ * vm_instr_pop
+ ********************/
+int
+vm_instr_pop(vm_state_t *vm)
+{
+    int        kind = VM_OP_ARGS(*vm->pc);
+    int        type;
+    vm_value_t value;
+    
+    
+    switch (kind) {
+    case VM_POP_LOCALS:
+        if (vm_scope_pop(vm) != 0)
+            VM_EXCEPTION(vm, "POP LOCALS: failed to pop scope");
+        break;
+        
+    case VM_POP_DISCARD:
+        if ((type = vm_pop(vm->stack, &value)) == VM_TYPE_GLOBAL)
+            vm_global_free(value.g);
+        break;
+
+    default:
+        VM_EXCEPTION(vm, "POP: invalid POP type 0x%x", kind);
+    }
+    
+    vm->ninstr--;
+    vm->pc    += 1;
+    vm->nsize -= sizeof(int);
+
+    return 0;
+}
 
 
 /*
@@ -393,6 +446,31 @@ vm_instr_get_field(vm_state_t *vm)
 
 
 /********************
+ * vm_instr_get_local
+ ********************/
+int
+vm_instr_get_local(vm_state_t *vm)
+{
+    vm_value_t value;
+    int        type, err;
+    int        idx = VM_OP_ARGS(*vm->pc) & ~VM_GET_LOCAL;
+    
+    if ((type = vm_scope_get(vm->scope, idx, &value)) == VM_TYPE_UNKNOWN)
+        VM_EXCEPTION(vm, "GET LOCAL: failed to get value of #0x%x", idx);
+    
+    if ((err = vm_push(vm->stack, type, value)) != 0)
+        VM_EXCEPTION(vm, "GET LOCAL: failed to push value of #0x%x", idx);
+
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+    
+    return 0;
+}
+
+
+
+/********************
  * vm_instr_get_var
  ********************/
 int
@@ -407,16 +485,20 @@ vm_instr_get_var(vm_state_t *vm)
 }
 
 
+
 /********************
  * vm_instr_get
  ********************/
 int
 vm_instr_get(vm_state_t *vm)
 {
-    if (!VM_OP_ARGS(*vm->pc) & VM_GET_FIELD)
-        return vm_instr_get_var(vm);
-    else
+    if (VM_OP_ARGS(*vm->pc) & VM_GET_FIELD)
         return vm_instr_get_field(vm);
+    else if (VM_OP_ARGS(*vm->pc) & VM_GET_LOCAL)
+        return vm_instr_get_local(vm);
+    else
+        return vm_instr_get_var(vm);
+
 }
 
 

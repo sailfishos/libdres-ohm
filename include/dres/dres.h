@@ -9,7 +9,7 @@
 #define DRES_MAX_NAME 128
 
 enum {
-    DRES_TYPE_UNKNOWN   = 0,
+    DRES_TYPE_UNKNOWN   = VM_TYPE_UNKNOWN,
     DRES_TYPE_INTEGER   = VM_TYPE_INTEGER,
     DRES_TYPE_DOUBLE    = VM_TYPE_DOUBLE,
     DRES_TYPE_STRING    = VM_TYPE_STRING,
@@ -263,6 +263,9 @@ const char *dres_dresvar_name (dres_t *dres, int id);
 
 void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
+
+int  dres_local_value(dres_t *dres, int id, dres_value_t *value);
+
 
 /* prereq.c */
 dres_prereq_t *dres_new_prereq (int id);

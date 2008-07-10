@@ -63,20 +63,15 @@ typedef struct vm_stack_s {
 } vm_stack_t;
 
 
-typedef struct vm_local_s vm_local_t;
-
-struct vm_local_s {
-    vm_value_t  value;
-    vm_local_t *next;
-    
-};
+#define VM_LOCAL_INDEX(id) ((id)&0x00ffffff)  /* XXX TODO DRES_INDEX(id) */
 
 
 typedef struct vm_scope_s vm_scope_t;
 
 struct vm_scope_s {
-    GHashTable *variables;                    /* variables */
-    vm_scope_t *parent;                       /* parent scope */
+    vm_scope_t       *parent;                 /* parent scope */
+    unsigned int      nvariable;              /* number of variables */
+    vm_stack_entry_t  variables[0];           /* variable table */
 };
 
 
@@ -86,7 +81,8 @@ struct vm_scope_s {
 
 enum {
     VM_OP_UNKNOWN = 0,
-    VM_OP_PUSH,                               /* push a value on the stack */
+    VM_OP_PUSH,                               /* push a value or scope */
+    VM_OP_POP,                                /* pop a value or scope */
     VM_OP_FILTER,                             /* global filtering */
     VM_OP_SET,                                /* global assignment */
     VM_OP_GET,                                /* global/local evaluation */ 
@@ -97,7 +93,7 @@ enum {
 
 #define VM_OP_CODE(instr)      ((instr) & 0xff)
 #define VM_OP_ARGS(instr)      ((instr) >> 8)
-#define VM_INSTR(opcode, args) ((opcode) | (args << 8))
+#define VM_INSTR(opcode, args) ((opcode) | ((args) << 8))
 
 
 /*
@@ -161,13 +157,39 @@ enum {
     } while (0)
 
 #define VM_INSTR_PUSH_LOCALS(c, errlbl, ec, nvar) do {                  \
-        unsigned int  instr;                                            \
-        instr = VM_PUSH_INSTR(VM_TYPE_LOCAL, n);                        \
-        ec = vm_chunk_add(c, instr, 1, sizeof(instr));                  \
+        unsigned int instr;                                             \
+        instr = VM_PUSH_INSTR(VM_TYPE_LOCAL, nvar);                     \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
             goto errlbl;                                                \
     } while (0)
     
+
+/*
+ * POP instruction
+ */
+
+enum {
+    VM_POP_LOCALS  = 0,
+    VM_POP_DISCARD = 1,
+};
+
+#define VM_INSTR_POP_LOCALS(c, errlbl, ec) do {                         \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_POP, VM_POP_LOCALS);                     \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+
+
+#define VM_INSTR_POP_DISCARD(c, errlbl, ec) do {                        \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_POP, VM_POP_DISCARD);                    \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
 
 
 /*
@@ -228,8 +250,9 @@ enum {
  */
 
 enum {
-    VM_GET_NONE  = 0x0,
-    VM_GET_FIELD = 0x1,
+    VM_GET_NONE  = 0x00000000,
+    VM_GET_FIELD = 0x00800000,
+    VM_GET_LOCAL = 0x00400000,
 };
 
 #define VM_INSTR_GET_FIELD(c, errlbl, ec) do {                          \
@@ -238,6 +261,11 @@ enum {
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
     } while (0)
 
+#define VM_INSTR_GET_LOCAL(c, errlbl, ec, idx) do {                     \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_GET, VM_GET_LOCAL | idx);                \
+        ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
+    } while (0)
 
 
 /*
@@ -293,7 +321,10 @@ typedef struct vm_state_s {
     int            nsize;                     /* of code left */
 
     vm_method_t   *methods;                   /* action handlers */
-    int            nmethod;
+    int            nmethod;                   /* number of actions */
+
+    vm_scope_t    *scope;                     /* current variable scope */
+    int            nlocal;                    /* number of local variables */
 } vm_state_t;
 
 
@@ -350,6 +381,21 @@ int           vm_chunk_add (vm_chunk_t *c,
 
 int vm_run(vm_state_t *vm);
 
+
+/* vm-method.c */
+int          vm_method_add    (vm_state_t *vm,
+                               char *name, vm_action_t handler, void *data);
+vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
+vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
+vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
+int          vm_method_call   (vm_state_t *vm,
+                               char *name, vm_method_t *m, int narg);
+
+/* vm.c */
+int vm_init(vm_state_t *vm, int stack_size);
+int vm_exec(vm_state_t *vm, vm_chunk_t *code);
+
+
 /* vm-global.c */
 int          vm_global_lookup(char *name, vm_global_t **gp);
 vm_global_t *vm_global_name  (char *name);
@@ -374,18 +420,13 @@ int          vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
 
 void vm_fact_print(OhmFact *fact);
 
-/* vm-method.c */
-int          vm_method_add    (vm_state_t *vm,
-                               char *name, vm_action_t handler, void *data);
-vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
-vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
-vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
-int          vm_method_call   (vm_state_t *vm,
-                               char *name, vm_method_t *m, int narg);
 
-/* vm.c */
-int vm_init(vm_state_t *vm, int stack_size);
-int vm_exec(vm_state_t *vm, vm_chunk_t *code);
+/* vm-local.c */
+int vm_scope_push(vm_state_t *vm);
+int vm_scope_pop (vm_state_t *vm);
+
+int vm_scope_set(vm_scope_t *scope, int id, int type, vm_value_t value);
+int vm_scope_get(vm_scope_t *scope, int id, vm_value_t *value);
 
 
 #endif /* __DRES_VM_H__ */

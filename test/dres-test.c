@@ -148,7 +148,6 @@ touch_handler(void *data, char *name,
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
-    dres_t  *dres = (dres_t *)data;
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
     GValue  *gval;
@@ -210,7 +209,6 @@ fact_handler(void *data, char *name,
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
-    dres_t       *dres  = (dres_t *)data;
     OhmFact     **facts = NULL;
     OhmFact      *fact  = NULL;
     GValue       *gval;
@@ -287,8 +285,6 @@ check_handler(void *data, char *name,
               vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
-
-    dres_t *dres = (dres_t *)data;
 
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
