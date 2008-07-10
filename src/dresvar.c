@@ -52,6 +52,22 @@ dres_dresvar_id(dres_t *dres, char *name)
 
 
 /********************
+ * dres_dresvar_name
+ ********************/
+const char *
+dres_dresvar_name(dres_t *dres, int id)
+{
+    dres_variable_t *var = NULL;
+    int              idx = DRES_INDEX(id);
+    
+    if (0 <= idx && idx <= dres->ndresvar)
+        var = dres->dresvars + idx;
+
+    return var ? var->name : NULL;
+}
+
+
+/********************
  * dres_free_dresvars
  ********************/
 void

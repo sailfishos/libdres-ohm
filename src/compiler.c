@@ -74,27 +74,30 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
 }
 
 
-#define PUSH_VALUE(code, fail, err, value) do {                    \
-        switch ((value)->type) {                                   \
-        case DRES_TYPE_INTEGER:                                    \
-            VM_INSTR_PUSH_INT((code), fail, err, (value)->v.i);    \
-            break;                                                 \
-        case DRES_TYPE_DOUBLE:                                     \
-            VM_INSTR_PUSH_DOUBLE((code), fail, err, (value)->v.d); \
-            break;                                                 \
-        case DRES_TYPE_STRING:                                     \
-            VM_INSTR_PUSH_STRING((code), fail, err, (value)->v.s); \
-            break;                                                 \
-        case DRES_TYPE_FACTVAR: { /* XXX TODO $foo[...] ??? */     \
-            char __f[128];                                         \
-            dres_name(dres, (value)->v.id, __f, sizeof(__f));      \
-            VM_INSTR_PUSH_GLOBAL((code), fail, err, __f + 1);      \
-        }                                                          \
-            break;                                                 \
-        default:                                                   \
-            err = EINVAL;                                          \
-            goto fail;                                             \
-        }                                                          \
+#define PUSH_VALUE(code, fail, err, value) do {                         \
+        switch ((value)->type) {                                        \
+        case DRES_TYPE_INTEGER:                                         \
+            VM_INSTR_PUSH_INT((code), fail, err, (value)->v.i);         \
+            break;                                                      \
+        case DRES_TYPE_DOUBLE:                                          \
+            VM_INSTR_PUSH_DOUBLE((code), fail, err, (value)->v.d);      \
+            break;                                                      \
+        case DRES_TYPE_STRING:                                          \
+            VM_INSTR_PUSH_STRING((code), fail, err, (value)->v.s);      \
+            break;                                                      \
+        case DRES_TYPE_FACTVAR: { /* XXX TODO $foo[...] ??? */          \
+            const char *__f = dres_factvar_name(dres, (value)->v.id);   \
+            if (__f == NULL) {                                          \
+                err = EINVAL;                                           \
+                goto fail;                                              \
+            }                                                           \
+            VM_INSTR_PUSH_GLOBAL((code), fail, err, __f);               \
+        }                                                               \
+            break;                                                      \
+            default:                                                    \
+                err = EINVAL;                                           \
+                goto fail;                                              \
+        }                                                               \
     } while (0)
 
 
@@ -122,9 +125,10 @@ compile_value(dres_t *dres, dres_value_t *value, vm_chunk_t *code)
 static int
 compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
 {
+#define FAIL(ec) do { err = (ec); goto fail; } while (0)
     dres_select_t *s;
     dres_value_t  *value;
-    char           name[128];
+    const char    *name;
     int            n, err;
     
     if (varref->variable == DRES_ID_NONE)
@@ -132,8 +136,9 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
 
     switch (DRES_ID_TYPE(varref->variable)) {
     case DRES_TYPE_FACTVAR:
-        dres_name(dres, varref->variable, name, sizeof(name));
-        VM_INSTR_PUSH_GLOBAL(code, fail, err, name + 1);
+        if ((name = dres_factvar_name(dres, varref->variable)) == NULL)
+            FAIL(ENOENT);
+        VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
 
         if (varref->selector != NULL) {
             for (n = 0, s = varref->selector; s != NULL; n++, s = s->next) {
@@ -146,20 +151,17 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
 
         if (varref->field != NULL) {
             printf("*** %s: implement VM GET FIELD...", __FUNCTION__);
-            err = EOPNOTSUPP;
-            goto fail;
+            FAIL(EOPNOTSUPP);
         }
         break;
         
     case DRES_TYPE_DRESVAR:
         /* XXX TODO: implement me */
-        err = EOPNOTSUPP;
-        goto fail;
+        FAIL(EOPNOTSUPP);
         
     default:
-        err = EINVAL;
-        goto fail;
-   }
+        FAIL(EINVAL);
+    }
 
     return 0;
 
@@ -167,6 +169,7 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
     printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
            err, strerror(err));
     return err;
+#undef FAIL
 }
 
 
@@ -176,15 +179,27 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
 static int
 compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
 {
-    dres_arg_t *arg;
-    int         n, err;
+#define FAIL(ec) do { err = (ec); goto fail; } while (0)
+    dres_arg_t   *arg;
+    dres_local_t *var;
+    const char   *name;
+    int           narg, nvar, err;
     
-    for (arg = call->args, n = 0; arg != NULL; arg = arg->next, n++) {
+    for (arg = call->args, narg = 0; arg != NULL; arg = arg->next, narg++) {
         PUSH_VALUE(code, fail, err, &arg->value);
     }
     
+    for (var = call->locals, nvar = 0; var != NULL; var = var->next, nvar++) {
+        if ((name = dres_dresvar_name(dres, var->id)) == NULL)
+            FAIL(ENOENT);
+        PUSH_VALUE(code, fail, err, &var->value);
+        VM_INSTR_PUSH_STRING(code, fail, err, name);
+    }
+    if (nvar > 0)
+        VM_INSTR_PUSH_LOCALS(code, fail, err, nvar);
+    
     VM_INSTR_PUSH_STRING(code, fail, err, call->name);
-    VM_INSTR_CALL(code, fail, err, n);
+    VM_INSTR_CALL(code, fail, err, narg);
    
     return 0;
 
@@ -201,18 +216,20 @@ compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
 int
 compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
 {
+#define FAIL(ec) do { err = (ec); goto fail; } while (0)
     dres_select_t *s;
     dres_value_t  *value;
-    char           name[128];
+    const char    *name;
     int            n, err;
     
     if (lvalue->variable == DRES_ID_NONE)
-        return EINVAL;
+        FAIL(EINVAL);
 
     switch (DRES_ID_TYPE(lvalue->variable)) {
     case DRES_TYPE_FACTVAR:
-        dres_name(dres, lvalue->variable, name, sizeof(name));
-        VM_INSTR_PUSH_GLOBAL(code, fail, err, name + 1);
+        if ((name = dres_factvar_name(dres, lvalue->variable)) == NULL)
+            FAIL(ENOENT);
+        VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
 
         if (lvalue->selector != NULL) {
             for (n = 0, s = lvalue->selector; s != NULL; n++, s = s->next) {
@@ -233,13 +250,11 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
         
     case DRES_TYPE_DRESVAR:
         /* XXX TODO: implement me */
-        err = EOPNOTSUPP;
-        goto fail;
+        FAIL(EOPNOTSUPP);
         
     default:
-        err = EINVAL;
-        goto fail;
-   }
+        FAIL(EINVAL);
+    }
 
     return 0;
 
@@ -247,6 +262,7 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
     printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
            err, strerror(err));
     return err;
+#undef FAIL
 }
 
 

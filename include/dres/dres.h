@@ -6,14 +6,16 @@
 #include <dres/vm.h>
 #include <dres/mm.h>
 
+#define DRES_MAX_NAME 128
+
 enum {
-    DRES_TYPE_UNKNOWN = 0,
+    DRES_TYPE_UNKNOWN   = 0,
+    DRES_TYPE_INTEGER   = VM_TYPE_INTEGER,
+    DRES_TYPE_DOUBLE    = VM_TYPE_DOUBLE,
+    DRES_TYPE_STRING    = VM_TYPE_STRING,
+    DRES_TYPE_DRESVAR   = VM_TYPE_LOCAL,
+    DRES_TYPE_FACTVAR   = VM_TYPE_GLOBAL,
     DRES_TYPE_TARGET,
-    DRES_TYPE_FACTVAR,
-    DRES_TYPE_DRESVAR,
-    DRES_TYPE_INTEGER,
-    DRES_TYPE_DOUBLE,
-    DRES_TYPE_STRING,
     DRES_TYPE_DELETED   = 0x40,
     DRES_TYPE_UNDEFINED = 0x80
 };
@@ -246,16 +248,19 @@ void           dres_dump_targets (dres_t *dres);
 int            dres_check_target (dres_t *dres, int tid);
 
 /* factvar.c */
-int  dres_add_factvar  (dres_t *dres, char *name);
-int  dres_factvar_id   (dres_t *dres, char *name);
-void dres_free_factvars(dres_t *dres);
-int  dres_check_factvar(dres_t *dres, int id, int stamp);
-void dres_dump_init    (dres_t *dres);
+int         dres_add_factvar  (dres_t *dres, char *name);
+int         dres_factvar_id   (dres_t *dres, char *name);
+const char *dres_factvar_name (dres_t *dres, int id);
+void        dres_free_factvars(dres_t *dres);
+int         dres_check_factvar(dres_t *dres, int id, int stamp);
+void        dres_dump_init    (dres_t *dres);
 
 
 /* dresvar.c */
-int  dres_add_dresvar  (dres_t *dres, char *name);
-int  dres_dresvar_id   (dres_t *dres, char *name);
+int         dres_add_dresvar  (dres_t *dres, char *name);
+int         dres_dresvar_id   (dres_t *dres, char *name);
+const char *dres_dresvar_name (dres_t *dres, int id);
+
 void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 

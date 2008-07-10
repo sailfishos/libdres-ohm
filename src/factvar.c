@@ -52,6 +52,22 @@ dres_factvar_id(dres_t *dres, char *name)
 
 
 /********************
+ * dres_factvar_name
+ ********************/
+const char *
+dres_factvar_name(dres_t *dres, int id)
+{
+    dres_variable_t *var = NULL;
+    int              idx = DRES_INDEX(id);
+    
+    if (0 <= idx && idx <= dres->nfactvar)
+        var = dres->factvars + idx;
+    
+    return var ? var->name : NULL;
+}
+
+
+/********************
  * dres_free_factvars
  ********************/
 void

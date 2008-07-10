@@ -71,7 +71,7 @@ vm_instr_push(vm_state_t *vm)
     unsigned int  type = VM_PUSH_TYPE(*vm->pc);
     unsigned int  data = VM_PUSH_DATA(*vm->pc);
     char         *name;
-    int           nsize;
+    int           nsize, n, i;
 
     
     switch (type) {
@@ -103,6 +103,12 @@ vm_instr_push(vm_state_t *vm)
         vm_push_global(vm->stack, g);
         nsize = 1 + VM_ALIGN_TO(data, sizeof(int)) / sizeof(int);;
         break;
+
+    case VM_TYPE_LOCAL:
+        vm_push_locals(vm->stack
+        for (n = (int)data; n > 0; n--) {
+            
+        }
 
     default: VM_EXCEPTION(vm, "invalid type 0x%x to push", type);
     }

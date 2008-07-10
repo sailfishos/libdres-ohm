@@ -190,10 +190,10 @@ BUILTIN_HANDLER(echo)
     
     for (i = 0; i < narg; i++) {
         switch (args[i].type) {
-        case VM_TYPE_INTEGER: printf("%d", args[i].v.i); break;
-        case VM_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
-        case VM_TYPE_STRING:  printf("%s", args[i].v.s); break;
-        case VM_TYPE_GLOBAL:
+        case DRES_TYPE_INTEGER: printf("%d", args[i].v.i); break;
+        case DRES_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
+        case DRES_TYPE_STRING:  printf("%s", args[i].v.s); break;
+        case DRES_TYPE_FACTVAR:
             vm_global_print(args[i].v.g);
             break;
 #if 0
@@ -210,7 +210,7 @@ BUILTIN_HANDLER(echo)
 
     printf("\n");
     
-    rv->type = VM_TYPE_INTEGER;
+    rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
     return 0;
 }
@@ -230,7 +230,7 @@ BUILTIN_HANDLER(shell)
  ********************/
 BUILTIN_HANDLER(fail)
 {
-    rv->type = VM_TYPE_UNKNOWN;
+    rv->type = DRES_TYPE_UNKNOWN;
     return EINVAL;
 }
 

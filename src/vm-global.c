@@ -7,6 +7,7 @@
 #include <dres/mm.h>
 #include <dres/vm.h>
 
+
 /********************
  * vm_global_lookup
  ********************/

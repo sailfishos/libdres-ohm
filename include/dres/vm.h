@@ -23,6 +23,7 @@ enum {
     VM_TYPE_DOUBLE,                           /* double prec. floating */
     VM_TYPE_FLOAT = VM_TYPE_DOUBLE,           /* our foating is double */
     VM_TYPE_STRING,                           /* a \0-terminated string */
+    VM_TYPE_LOCAL,                            /* local variables */
     VM_TYPE_FACTS,                            /* an array of facts */
     VM_TYPE_GLOBAL = VM_TYPE_FACTS,           /* globals are facts */
 };
@@ -61,6 +62,22 @@ typedef struct vm_stack_s {
     int               nalloc;                 /* size of the stack */
 } vm_stack_t;
 
+
+typedef struct vm_local_s vm_local_t;
+
+struct vm_local_s {
+    vm_value_t  value;
+    vm_local_t *next;
+    
+};
+
+
+typedef struct vm_scope_s vm_scope_t;
+
+struct vm_scope_s {
+    GHashTable *variables;                    /* variables */
+    vm_scope_t *parent;                       /* parent scope */
+};
 
 
 /*
@@ -142,6 +159,15 @@ enum {
         if (ec)                                                         \
             goto errlbl;                                                \
     } while (0)
+
+#define VM_INSTR_PUSH_LOCALS(c, errlbl, ec, nvar) do {                  \
+        unsigned int  instr;                                            \
+        instr = VM_PUSH_INSTR(VM_TYPE_LOCAL, n);                        \
+        ec = vm_chunk_add(c, instr, 1, sizeof(instr));                  \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+    
 
 
 /*
