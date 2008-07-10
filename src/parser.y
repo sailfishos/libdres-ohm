@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <errno.h>
 
 #include <dres/dres.h>
 #include <glib-object.h>
@@ -15,11 +16,21 @@
 #  endif
 #endif
 
+#define FQFN(name) (factname(name))
 
+/* parser/lexer interface */
 int  yylex  (void);
 void yyerror(dres_t *dres, char const *);
 
 extern FILE *yyin;
+
+/* fact prefix support */
+int   set_prefix(char *);
+char *factname  (char *);
+
+static char *current_prefix;
+
+
 
 %}
 
@@ -95,25 +106,29 @@ extern FILE *yyin;
 
 input: optional_prefix optional_initializers rules
 
-optional_prefix: /* empty */ {
-              dres_set_prefix(dres, NULL);
-          }
-        | TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
-              dres_set_prefix(dres, $3);
-          }
+optional_prefix: /* empty */
+        |        prefix
 	;
+
+prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
+            set_prefix($3);
+#if 0
+	    printf("*** prefix set to \"%s\"\n", current_prefix);
+#endif
+        }
 
 optional_initializers: { dres->initializers = NULL; }
         | initializers { dres->initializers = $1; dres_dump_init(dres); }
         ;
 
-initializers: initializer          { $$ = $1; printf("*** initializer...\n"); }
+initializers: initializer          { $$ = $1; }
         | initializers initializer {
-	    printf("*** more initializers...\n");
             dres_initializer_t *init;
-            for (init = $1; init->next; init = init->next)
-                ;
-            init->next = $2;
+	    if ($1 != NULL) {
+                for (init = $1; init->next; init = init->next)
+                    ;
+                init->next = $2;
+            }
             $$ = $1;
         }
         ;
@@ -123,12 +138,13 @@ initializer: TOKEN_FACTVAR assign_op "{" ifields "}" TOKEN_EOL {
             
             if ((init = ALLOC(dres_initializer_t)) == NULL)
 	        YYABORT;
-            init->variable = dres_factvar_id(dres, $1);
+            init->variable = dres_factvar_id(dres, FQFN($1));
             init->fields   = $4;
             init->next     = NULL;
 
             $$ = init;
         }
+        | prefix { $$ = NULL; }
         ;
 
 assign_op: "=" | "+=";
@@ -191,6 +207,7 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
 
 rules:    rule
 	| rules rule
+        | rules prefix
 	;
 
 
@@ -214,7 +231,7 @@ prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);    }
 	| TOKEN_FACTVAR          {
             dres_variable_t *v;
-            $$ = dres_factvar_id(dres, $1);
+            $$ = dres_factvar_id(dres, FQFN($1));
             if ((v = dres_lookup_variable(dres, $$)) != NULL)
                 v->flags |= DRES_VAR_PREREQ;
         }
@@ -292,22 +309,22 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
         ;
 
 varref: TOKEN_FACTVAR {
-            $$.variable = dres_factvar_id(dres, $1);
+            $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = NULL;
             $$.field    = NULL;
         }
         | TOKEN_FACTVAR ":" TOKEN_IDENT {
-            $$.variable = dres_factvar_id(dres, $1);
+            $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = NULL;
             $$.field    = STRDUP($1);
         }
         | TOKEN_FACTVAR "[" sfields "]" {
-            $$.variable = dres_factvar_id(dres, $1);
+            $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = $3;
             $$.field    = NULL;
         }
         | TOKEN_FACTVAR "[" sfields "]" ":" TOKEN_IDENT {
-            $$.variable = dres_factvar_id(dres, $1);
+            $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = $3;
             $$.field    = STRDUP($6);
         }
@@ -376,7 +393,7 @@ arg:      TOKEN_INTEGER {
             if (($$ = ALLOC(dres_arg_t)) == NULL)
                 YYABORT;
             $$->value.type = DRES_TYPE_FACTVAR;
-            $$->value.v.id = dres_factvar_id(dres, $1);
+            $$->value.v.id = dres_factvar_id(dres, FQFN($1));
             $$->next = NULL;
 
             if ($$->value.v.id == DRES_ID_NONE)
@@ -462,6 +479,41 @@ local:    TOKEN_DRESVAR "=" TOKEN_INTEGER {
 
 
 %%
+
+
+/********************
+ * set_prefix
+ ********************/
+int
+set_prefix(char *prefix)
+{
+    if (current_prefix != NULL)
+        FREE(current_prefix);
+    current_prefix = STRDUP(prefix);
+    
+    return current_prefix == NULL ? ENOMEM : 0;
+}
+
+/********************
+ * fqfn
+ ********************/
+char *
+factname(char *name)
+{
+    static char  buf[256];
+    char        *prefix = current_prefix;
+
+    snprintf(buf, sizeof(buf), "%s%s%s",
+             prefix ? prefix : "", prefix ? "." : "", name);
+
+#if 0
+    printf("*** %s => %s\n", name, buf);
+#endif
+
+    return buf;
+}
+
+
 
 #ifdef __TEST_PARSER__	
 void yyerror(dres_t *dres, const char *msg)

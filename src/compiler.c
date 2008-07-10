@@ -85,6 +85,12 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
         case DRES_TYPE_STRING:                                     \
             VM_INSTR_PUSH_STRING((code), fail, err, (value)->v.s); \
             break;                                                 \
+        case DRES_TYPE_FACTVAR: { /* XXX TODO $foo[...] ??? */     \
+            char __f[128];                                         \
+            dres_name(dres, (value)->v.id, __f, sizeof(__f));      \
+            VM_INSTR_PUSH_GLOBAL((code), fail, err, __f + 1);      \
+        }                                                          \
+            break;                                                 \
         default:                                                   \
             err = EINVAL;                                          \
             goto fail;                                             \

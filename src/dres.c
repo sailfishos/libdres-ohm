@@ -122,28 +122,6 @@ dres_parse_file(dres_t *dres, char *path)
 
 
 /********************
- * dres_set_prefix
- ********************/
-EXPORTED int
-dres_set_prefix(dres_t *dres, char *prefix)
-{
-    if (!dres_store_set_prefix(dres->fact_store, prefix))
-        return errno ?: ENOMEM;
-    else
-        return 0;
-}
-
-/********************
- * dres_get_prefix
- ********************/
-EXPORTED char *
-dres_get_prefix(dres_t *dres)
-{
-    return dres_store_get_prefix(dres->fact_store);
-}
-
-
-/********************
  * dres_check_stores
  ********************/
 void
@@ -151,12 +129,10 @@ dres_check_stores(dres_t *dres)
 {
     dres_variable_t *var;
     int              i;
-    char             name[128];
-
+    
     for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
-        sprintf(name, "%s%s", dres_get_prefix(dres), var->name);
-        if (!dres_store_check(dres->fact_store, name))
-            DEBUG(DBG_VAR, "lookup of %s FAILED", name);
+        if (!dres_store_check(dres->fact_store, var->name + 1))
+            DEBUG(DBG_VAR, "lookup of %s FAILED", var->name + 1);
     }
 }
 
@@ -207,13 +183,12 @@ static int
 initialize_variables(dres_t *dres)
 {
     dres_initializer_t *init;
-    char                name[128], full[128];
+    char                name[128];
     int                 status;
 
     for (init = dres->initializers; init != NULL; init = init->next) {
         dres_name(dres, init->variable, name, sizeof(name));
-        snprintf(full, sizeof(full), "%s%s", dres_get_prefix(dres), name + 1);
-        if ((status = create_variable(dres, full, init->fields)) != 0)
+        if ((status = create_variable(dres, name + 1, init->fields)) != 0)
             return status;
     }
     

@@ -534,7 +534,6 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
     
     dres_variable_t *var;
     dres_vartype_t   type;
-    char             name[128], factname[128], *prefix;
     int              nfact, i, err;
     
     char          selector[256];
@@ -557,10 +556,6 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
     switch (DRES_ID_TYPE(action->lvalue.variable)) {
 
     case DRES_TYPE_FACTVAR:
-        prefix = dres_get_prefix(dres);
-        dres_name(dres, action->lvalue.variable, name, sizeof(name));
-        snprintf(factname, sizeof(factname), "%s%s", prefix, name + 1);
-        
         if (!(var = dres_lookup_variable(dres, action->lvalue.variable)))
             FAIL(ENOENT);
       

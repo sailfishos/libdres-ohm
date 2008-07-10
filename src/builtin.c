@@ -193,13 +193,16 @@ BUILTIN_HANDLER(echo)
         case VM_TYPE_INTEGER: printf("%d", args[i].v.i); break;
         case VM_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
         case VM_TYPE_STRING:  printf("%s", args[i].v.s); break;
+        case VM_TYPE_GLOBAL:
+            vm_global_print(args[i].v.g);
+            break;
 #if 0
         case DRES_TYPE_DRESVAR:
             dres_name(dres, args[i].v.id, var, sizeof(var));
             value = dres_scope_getvar(dres->scope, var + 1);
             break;
 #endif
-        case VM_TYPE_GLOBAL:
+            
         default:
             printf("???");
         }

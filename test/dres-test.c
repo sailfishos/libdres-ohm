@@ -82,6 +82,7 @@ main(int argc, char *argv[])
         fatal(5, "failed to finalize DRES rules");
 
     dres_dump_targets(dres);
+    printf("=========================================\n");
     
     /*exit(0);*/
 
@@ -151,7 +152,7 @@ touch_handler(void *data, char *name,
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
     GValue  *gval;
-    char    *factname, fqfn[64], stampval[32], *field, *value;
+    char    *factname, stampval[32], *field, *value;
     int      status;
 
     if (narg <= 0 || args->type != VM_TYPE_STRING)
@@ -161,9 +162,7 @@ touch_handler(void *data, char *name,
     args++;
     narg--;
     
-    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
-    
-    for (facts = ohm_fact_store_get_facts_by_name(store, fqfn);
+    for (facts = ohm_fact_store_get_facts_by_name(store, factname);
          facts != NULL;
          facts = g_slist_next(facts)) {
 
@@ -215,7 +214,7 @@ fact_handler(void *data, char *name,
     OhmFact     **facts = NULL;
     OhmFact      *fact  = NULL;
     GValue       *gval;
-    char         *factname, fqfn[64], stampval[32], *field, *value;
+    char         *factname, stampval[32], *field, *value;
     vm_global_t  *g;
     int           status;
 
@@ -228,10 +227,8 @@ fact_handler(void *data, char *name,
     
     if ((facts = ALLOC_ARR(OhmFact *, 2)) == NULL)
         FAIL(EINVAL);
-    
-    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
 
-    if ((fact = ohm_fact_new(fqfn)) == NULL)
+    if ((fact = ohm_fact_new(factname)) == NULL)
         FAIL(ENOMEM);
     
     gval = ohm_value_from_string(name);
@@ -296,7 +293,7 @@ check_handler(void *data, char *name,
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
     GValue  *gval;
-    char    *factname, fqfn[64], *field, *value;
+    char    *factname, *field, *value;
 
     if (narg <= 0 || args->type != VM_TYPE_STRING)
         return EINVAL;
@@ -308,9 +305,7 @@ check_handler(void *data, char *name,
     rv->type = VM_TYPE_INTEGER;
     rv->v.i  = 0;
 
-    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
-
-    if ((facts = ohm_fact_store_get_facts_by_name(store, fqfn)) == NULL)
+    if ((facts = ohm_fact_store_get_facts_by_name(store, factname)) == NULL)
         return ENOENT;
     
     while (facts) {
@@ -329,7 +324,7 @@ check_handler(void *data, char *name,
             ohm_fact_set(fact, field, gval);
 
             if (strcmp(g_value_get_string(gval), value)) {
-                printf("mismatch: %s:%s, %s != %s\n", fqfn, field,
+                printf("mismatch: %s:%s, %s != %s\n", factname, field,
                        g_value_get_string(gval), value);
                 return EINVAL;
             }
