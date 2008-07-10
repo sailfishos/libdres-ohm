@@ -3,9 +3,9 @@
 #include <string.h>
 #include <errno.h>
 
+#include <dres/compiler.h>
 #include <dres/mm.h>
 #include <dres/vm.h>
-
 
 /********************
  * vm_global_lookup
@@ -56,6 +56,22 @@ vm_global_name(char *name)
     g->name = (char *)g->facts;
     strcpy(g->name, name);
     
+    return g;
+}
+
+
+/********************
+ * vm_global_alloc
+ ********************/
+EXPORTED vm_global_t *
+vm_global_alloc(int nfact)
+{
+    vm_global_t *g;
+    
+    if (ALLOC_VAROBJ(g, nfact, facts) == NULL)
+        return NULL;
+    
+    g->nfact = nfact;
     return g;
 }
 

@@ -327,6 +327,8 @@ int vm_run(vm_state_t *vm);
 /* vm-global.c */
 int          vm_global_lookup(char *name, vm_global_t **gp);
 vm_global_t *vm_global_name  (char *name);
+vm_global_t *vm_global_alloc (int nfact);
+
 void         vm_global_free  (vm_global_t *g);
 void         vm_global_print (vm_global_t *g);
 
@@ -355,6 +357,9 @@ vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
 int          vm_method_call   (vm_state_t *vm,
                                char *name, vm_method_t *m, int narg);
 
+/* vm.c */
+int vm_init(vm_state_t *vm, int stack_size);
+int vm_exec(vm_state_t *vm, vm_chunk_t *code);
 
 
 #endif /* __DRES_VM_H__ */

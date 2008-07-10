@@ -129,38 +129,21 @@ dres_free_actions(dres_action_t *actions)
  * dres_register_handler
  ********************/
 EXPORTED int
-dres_register_handler(dres_t *dres, char *name,
-                      int (*handler)(dres_t *,
-                                     char *, dres_action_t *, void **))
+dres_register_handler(dres_t *dres, char *name, dres_handler_t handler)
 {
-    if (!REALLOC_ARR(dres->handlers, dres->nhandler, dres->nhandler + 1))
-        return ENOMEM;
-    
-    if ((name = STRDUP(name)) == NULL)
-        return ENOMEM;
-    
-    dres->handlers[dres->nhandler].name    = name;
-    dres->handlers[dres->nhandler].handler = handler;
-    dres->nhandler++;
-    
-    return 0;
+    return vm_method_add(&dres->vm, name, handler, dres);
 }
 
 
 /********************
  * dres_lookup_handler
  ********************/
-EXPORTED dres_handler_t *
+EXPORTED dres_handler_t
 dres_lookup_handler(dres_t *dres, char *name)
 {
-    dres_handler_t *h;
-    int             i;
+    vm_method_t *m = vm_method_lookup(&dres->vm, name);
 
-    for (i = 0, h = dres->handlers; i < dres->nhandler; i++, h++)
-        if (!strcmp(h->name, name))
-            return h;
-    
-    return NULL;
+    return m ? m->handler : NULL;
 }
 
 
@@ -170,14 +153,25 @@ dres_lookup_handler(dres_t *dres, char *name)
 int
 dres_run_actions(dres_t *dres, dres_target_t *target)
 {
+    int err;
+
+    DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
+
+    if (target->code == NULL)
+        return 0;
+    
+    err = vm_exec(&dres->vm, target->code);
+    
+    return err;
+    
+#if 0
+
     dres_action_t  *action;
     dres_handler_t *handler;
     void           *retval;
     int             err;
 
-    DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
 
-    err = 0;
 #if NESTED_TRANSACTIONS_DO_WORK
     dres_store_tx_new(dres->fact_store);
 #endif
@@ -202,7 +196,9 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     else
         dres_store_tx_commit(dres->fact_store);
 #endif
-    
+#endif    
+
+
     return err;
 }
 

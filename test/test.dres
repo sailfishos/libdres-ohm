@@ -94,7 +94,7 @@ fact3: fact4
 
 fact4:
 	echo('actions for fact4...')
-	$fact4 = fact(fact4, value, foo4)
+	$dres.test.fact4 = fact(fact4, value, foo4)
 
 fact5: fact1
 	echo('actions for fact5...')

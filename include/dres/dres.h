@@ -37,7 +37,7 @@ enum {
 #define DRES_IS_DELETED(id) ((id) & DRES_TYPE(DELETED))
 
 typedef struct dres_scope_s   dres_scope_t;
-typedef struct dres_handler_s dres_handler_t;
+typedef vm_action_t dres_handler_t;
 
 struct dres_s;
 typedef struct dres_s dres_t;
@@ -111,7 +111,7 @@ struct dres_varref_s {
 
 typedef struct {
     char           *name;                  /* method name */
-    dres_handler_t *handler;               /* method handler */
+    dres_handler_t  handler;               /* method handler */
     dres_arg_t     *args;                  /* arguments passed by value */
     dres_local_t   *locals;                /* arguments passed by name */
 } dres_call_t;
@@ -139,12 +139,6 @@ struct dres_action_s {
     dres_action_t     *next;
 };
 
-
-struct dres_handler_s {
-    char  *name;                               /* action name */
-    int  (*handler)(dres_t *dres, char *name,  /* action handler */
-                    dres_action_t *action, void **ret); 
-};
 
 typedef struct {
     int          id;
@@ -213,13 +207,13 @@ struct dres_s {
     dres_store_t    *fact_store;
     dres_scope_t    *scope;
 
-    dres_handler_t  *handlers;
-    int              nhandler;
     dres_handler_t   fallback;
 
     unsigned long    flags;
     
     dres_initializer_t *initializers;
+    
+    vm_state_t         vm;
 };
 
 
@@ -230,48 +224,6 @@ extern int depth;
 #    define TRUE  1
 #endif
 
-#if 0
-#define ALLOC(type) ({                            \
-            type   *__ptr;                        \
-            size_t  __size = sizeof(type);        \
-                                                  \
-            if ((__ptr = malloc(__size)) != NULL) \
-                memset(__ptr, 0, __size);         \
-            __ptr; })
-
-#define ALLOC_OBJ(ptr) ((ptr) = ALLOC(typeof(*ptr)))
-
-#define ALLOC_ARR(type, n) ({                     \
-            type   *__ptr;                        \
-            size_t   __size = (n) * sizeof(type); \
-                                                  \
-            if ((__ptr = malloc(__size)) != NULL) \
-                memset(__ptr, 0, __size);         \
-            __ptr; })
-
-#define REALLOC_ARR(ptr, o, n) ({                                       \
-            typeof(ptr) __ptr;                                          \
-            size_t      __size = sizeof(*ptr) * (n);                    \
-                                                                        \
-            if ((ptr) == NULL) {                                        \
-                (__ptr) = ALLOC_ARR(typeof(*ptr), n);                   \
-                ptr = __ptr;                                            \
-            }                                                           \
-            else if ((__ptr = realloc(ptr, __size)) != NULL) {          \
-                if ((n) > (o))                                          \
-                    memset(__ptr + (o), 0, ((n)-(o)) * sizeof(*ptr));   \
-                ptr = __ptr;                                            \
-            }                                                           \
-            __ptr; })
-                
-#define FREE(obj) do { if (obj) free(obj); } while (0)
-
-#define STRDUP(s) ({                                    \
-            char *__s = s;                              \
-            __s = ((s) ? strdup(s) : strdup(""));       \
-            __s; })
-
-#endif
 
 /* dres.c */
 dres_t *dres_init(char *prefix);
@@ -356,13 +308,9 @@ void  dres_dump_sort(dres_t *dres, int *list);
 
 int dres_update_goal(dres_t *dres, char *goal, char **locals);
 
-dres_handler_t *dres_lookup_handler(dres_t *dres, char *name);
+dres_handler_t dres_lookup_handler(dres_t *dres, char *name);
 
-int dres_register_handler(dres_t *dres, char *name,
-                          int (*)(dres_t *, char *, dres_action_t *, void **));
-int dres_fallback_handler(dres_t *dres,
-                          int (*handler)(dres_t *,
-                                         char *, dres_action_t *, void **));
+int dres_register_handler(dres_t *dres, char *name, dres_handler_t handler);
 
 int dres_run_actions(dres_t *dres, dres_target_t *target);
 

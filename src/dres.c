@@ -53,7 +53,10 @@ dres_init(char *prefix)
         errno = ENOMEM;
         return NULL;
     }
-    
+
+    if (vm_init(&dres->vm, 32))
+        goto fail;
+
     dres->fact_store = dres_store_init(STORE_FACT,prefix,dres_update_var_stamp);
 
     if ((status = dres_register_builtins(dres)) != 0)
@@ -329,9 +332,11 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     dres_target_t *target;
     int            id, i, status, own_tx;
 
+    status = 0;
+
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
-            if (dres->fallback.handler == NULL)
+            if (dres->fallback == NULL)
                 return status;
     
     if (!DRES_TST_FLAG(dres, TARGETS_FINALIZED))

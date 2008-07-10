@@ -23,11 +23,21 @@ static dres_t       *dres;
 
 static int           stamp = 0;
 
-static int  stamp_handler(dres_t *, char *, dres_action_t *, void **);
-static int  touch_handler(dres_t *, char *, dres_action_t *, void **);
-static int  fact_handler (dres_t *, char *, dres_action_t *, void **);
-static int  check_handler(dres_t *, char *, dres_action_t *, void **);
-static int  dump_handler (dres_t *, char *, dres_action_t *, void **);
+static int  stamp_handler(void *data, char *name,
+                          vm_stack_entry_t *args, int narg,
+                          vm_stack_entry_t *rv);
+static int  touch_handler(void *data, char *name,
+                          vm_stack_entry_t *args, int narg,
+                          vm_stack_entry_t *rv);
+static int  fact_handler (void *data, char *name,
+                          vm_stack_entry_t *args, int narg,
+                          vm_stack_entry_t *rv);
+static int  check_handler(void *data, char *name,
+                          vm_stack_entry_t *args, int narg,
+                          vm_stack_entry_t *rv);
+static int  dump_handler (void *data, char *name,
+                          vm_stack_entry_t *args, int narg,
+                          vm_stack_entry_t *rv);
 static void dump_facts   (char *format, ...);
 
 
@@ -112,18 +122,18 @@ main(int argc, char *argv[])
  * stamp_handler
  ********************/
 static int
-stamp_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+stamp_handler(void *data, char *name,
+              vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
-    dres_call_t *call = action->call;
-    dres_arg_t  *args = call->args;
-
-    if (args == NULL || args->value.type != DRES_TYPE_INTEGER)
+    if (narg != 1 || args->type != VM_TYPE_INTEGER)
         return EINVAL;
     
-    stamp = args->value.v.i;
+    stamp = args->v.i;
     printf("stamp set to %d\n", stamp);
-
-    *ret = NULL;
+    
+    rv->type = VM_TYPE_INTEGER;
+    rv->v.i  = 0;
+    
     return 0;
 }
 
@@ -132,27 +142,28 @@ stamp_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
  * touch_handler
  ********************/
 static int
-touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+touch_handler(void *data, char *name,
+              vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
-    dres_call_t *call = action->call;
-    dres_arg_t  *args = call->args, *a, *v;
-    GSList      *facts = NULL;
-    OhmFact     *fact  = NULL;
-    GValue      *gval;
-    char        *name, fullname[64], stampval[32], *field, *value;
-    int          status;
+    dres_t  *dres = (dres_t *)data;
+    GSList  *facts = NULL;
+    OhmFact *fact  = NULL;
+    GValue  *gval;
+    char    *factname, fqfn[64], stampval[32], *field, *value;
+    int      status;
 
-    if (args == NULL || args->value.type != DRES_TYPE_STRING)
+    if (narg <= 0 || args->type != VM_TYPE_STRING)
         FAIL(EINVAL);
     
-    name = args->value.v.s;
-    args = args->next;
-
-    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+    factname = args->v.s;
+    args++;
+    narg--;
     
-    for (facts = ohm_fact_store_get_facts_by_name(store, fullname);
+    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
+    
+    for (facts = ohm_fact_store_get_facts_by_name(store, fqfn);
          facts != NULL;
          facts = g_slist_next(facts)) {
 
@@ -162,22 +173,28 @@ touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
         gval = ohm_value_from_string(stampval);
         ohm_fact_set(fact, "stamp", gval);
         
-        for (a = args; a != NULL; a = v->next) {
-            if (a->value.type != DRES_TYPE_STRING ||
-                (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+        for (; narg > 1; narg -= 2, args += 2) {
+            if (args[0].type != VM_TYPE_STRING ||
+                args[1].type != VM_TYPE_STRING) {
                 status = EINVAL;
                 goto fail;
             }
 
-            field = a->value.v.s;
-            value = v->value.v.s;
+            field = args[0].v.s;
+            value = args[1].v.s;
 
             gval = ohm_value_from_string(value);
             ohm_fact_set(fact, field, gval);
         }
+
+        if (narg != 0) {
+            status = EINVAL;
+            goto fail;
+        }
     }
 
-    *ret = NULL;
+    rv->type = VM_TYPE_INTEGER;
+    rv->v.i  = 0;
     return 0;
     
  fail:
@@ -189,31 +206,32 @@ touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
  * fact_handler
  ********************/
 static int
-fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+fact_handler(void *data, char *name,
+             vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
-    dres_call_t *call = action->call;
-    dres_arg_t  *args = call->args, *a, *v;
+    dres_t       *dres  = (dres_t *)data;
+    OhmFact     **facts = NULL;
+    OhmFact      *fact  = NULL;
+    GValue       *gval;
+    char         *factname, fqfn[64], stampval[32], *field, *value;
+    vm_global_t  *g;
+    int           status;
 
-    OhmFact **facts = NULL;
-    OhmFact  *fact  = NULL;
-    GValue   *gval;
-    char     *name, fullname[64], stampval[32], *field, *value;
-    int       status;
-
-    if (args == NULL || args->value.type != DRES_TYPE_STRING)
+    if (narg <= 0 || args->type != VM_TYPE_STRING)
         FAIL(EINVAL);
     
-    name = args->value.v.s;
-    args = args->next;
-
+    factname = args->v.s;
+    args++;
+    narg--;
+    
     if ((facts = ALLOC_ARR(OhmFact *, 2)) == NULL)
         FAIL(EINVAL);
     
-    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
 
-    if ((fact = ohm_fact_new(fullname)) == NULL)
+    if ((fact = ohm_fact_new(fqfn)) == NULL)
         FAIL(ENOMEM);
     
     gval = ohm_value_from_string(name);
@@ -223,23 +241,34 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     gval = ohm_value_from_string(stampval);
     ohm_fact_set(fact, "stamp", gval);
 
-    for (a = args; a != NULL; a = v->next) {
-        if (a->value.type != DRES_TYPE_STRING ||
-            (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+    for (; narg > 1; narg -= 2, args += 2) {
+        if (args[0].type != VM_TYPE_STRING || args[1].type != VM_TYPE_STRING) {
             status = EINVAL;
             goto fail;
         }
 
-        field = a->value.v.s;
-        value = v->value.v.s;
+        field = args[0].v.s;
+        value = args[1].v.s;
         
         gval = ohm_value_from_string(value);
         ohm_fact_set(fact, field, gval);
     }
 
-    facts[0] = fact;
-    facts[1] = NULL;
-    *ret     = facts;
+    if (narg != 0) {
+        status = EINVAL;
+        goto fail;
+    }
+
+    if ((g = vm_global_alloc(1)) == NULL) {
+        status = ENOMEM;
+        goto fail;
+    }
+     
+    g->facts[0] = fact;
+    g->nfact    = 1;
+    
+    rv->type = VM_TYPE_GLOBAL;
+    rv->v.g  = g;
     
     return 0;
     
@@ -257,49 +286,50 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
  * check_handler
  ********************/
 static int
-check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+check_handler(void *data, char *name,
+              vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
 #define FAIL(ec) do { status = (ec); goto fail; } while (0)
 
-    dres_call_t *call = action->call;
-    dres_arg_t  *args = call->args, *a, *v;
-    
+    dres_t *dres = (dres_t *)data;
+
     GSList  *facts = NULL;
     OhmFact *fact  = NULL;
     GValue  *gval;
-    char    *name, fullname[64], *field, *value;
+    char    *factname, fqfn[64], *field, *value;
 
-    if (args == NULL || args->value.type != DRES_TYPE_STRING)
+    if (narg <= 0 || args->type != VM_TYPE_STRING)
         return EINVAL;
     
-    name = args->value.v.s;
-    args = args->next;
+    factname = args->v.s;
+    args++;
+    narg--;
 
-    *ret = NULL;
+    rv->type = VM_TYPE_INTEGER;
+    rv->v.i  = 0;
 
-    snprintf(fullname, sizeof(fullname), "%s%s", dres_get_prefix(dres), name);
+    snprintf(fqfn, sizeof(fqfn), "%s%s", dres_get_prefix(dres), factname);
 
-    if ((facts = ohm_fact_store_get_facts_by_name(store, fullname)) == NULL)
+    if ((facts = ohm_fact_store_get_facts_by_name(store, fqfn)) == NULL)
         return ENOENT;
     
     while (facts) {
         fact = (OhmFact *)facts->data;
 
-        for (a = args; a != NULL; a = v->next) {
-            if (a->value.type != DRES_TYPE_STRING ||
-                (v = a->next) == NULL || v->value.type != DRES_TYPE_STRING) {
+        for (; narg > 1; narg -= 2, args += 2) {
+            if (args[0].type != VM_TYPE_STRING ||
+                args[1].type != VM_TYPE_STRING)
                 return EINVAL;
-            }
-
-            field = a->value.v.s;
-            value = v->value.v.s;
+            
+            field = args[0].v.s;
+            value = args[1].v.s;
 
             gval = ohm_fact_get(fact, field);
             gval = ohm_value_from_string(value);
             ohm_fact_set(fact, field, gval);
 
             if (strcmp(g_value_get_string(gval), value)) {
-                printf("mismatch: %s:%s, %s != %s\n", fullname, field,
+                printf("mismatch: %s:%s, %s != %s\n", fqfn, field,
                        g_value_get_string(gval), value);
                 return EINVAL;
             }
@@ -317,19 +347,17 @@ check_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
  * dump_handler
  ********************/
 static int
-dump_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
+dump_handler(void *data, char *name,
+             vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 {
-    dres_call_t *call = action->call;
-    dres_arg_t  *args = call->args;
-    char        *name;
-
-    if (args == NULL || args->value.type != DRES_TYPE_STRING)
+    if (narg != 1 || args->type != VM_TYPE_STRING)
         return EINVAL;
     
-    name = args->value.v.s;
-    dump_facts(name);
     
-    *ret = NULL;
+    dump_facts(args->v.s);
+    
+    rv->type = VM_TYPE_INTEGER;
+    rv->v.i  = 0;
     return 0;
 }
 
