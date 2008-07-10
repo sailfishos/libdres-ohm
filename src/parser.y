@@ -503,14 +503,33 @@ factname(char *name)
     static char  buf[256];
     char        *prefix = current_prefix;
 
-    snprintf(buf, sizeof(buf), "%s%s%s",
-             prefix ? prefix : "", prefix ? "." : "", name);
+    /*
+     * Notes:
+     *     Although notation-wise this is counterintuitive because of
+     *     the overloaded use of '.' we do have filesystem pathname-like
+     *     conventions here. Absolute variable names start with a dot,
+     *     relative variable names do not. The leading dot is removed
+     *     from absolute names. Relative names get prefixed with the
+     *     current prefix if any.
+     *
+     *     The other and perhaps more intuitive alternative would be to
+     *     have it the other way around and prefix any variable names
+     *     starting with a dot with the current prefix.
 
-#if 0
-    printf("*** %s => %s\n", name, buf);
-#endif
+     *     Since the absolute/relative notation is backward-compatible
+     *     with our original concept of a single default prefix we use
+     *     that one.
+     */
 
-    return buf;
+    if (name[0] != '.' && prefix && prefix[0]) {
+        snprintf(buf, sizeof(buf), "%s%s%s",
+                 prefix ? prefix : "", prefix ? "." : "", name);
+        name = buf;
+    }
+    else
+        return name + 1;
+
+    return name;
 }
 
 
