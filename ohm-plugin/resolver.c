@@ -55,25 +55,16 @@ OHM_IMPORTABLE(int                 , prolog_vinvoke,
 OHM_IMPORTABLE(int                 , prolog_ainvoke,
                (prolog_predicate_t *pred, void *retval,void **args, int narg));
 
-#if 1
 OHM_IMPORTABLE(int, signal_changed,(char *signal, int transid,
                                     int factc, char **factv,
                                     completion_cb_t callback,
                                     unsigned long timeout));
-#else
-int signal_changed(char *, int, int, char**, completion_cb_t, unsigned long);
-#endif
-
-
 
 OHM_IMPORTABLE(void, completion_cb, (int transid, int success));
 
-static int  prolog_handler (dres_t *dres,
-                            char *name, dres_action_t *action, void **ret);
-static int  signal_handler (dres_t *dres,
-                            char *name, dres_action_t *action, void **ret);
-static char *getarg(dres_t *dres, dres_action_t *action, int argidx,
-                    char *namebuf, int len);
+DRES_ACTION(prolog_handler);
+DRES_ACTION(signal_handler);
+
 static void dump_signal_changed_args(char *signame, int transid, int factc,
                                      char**factv, completion_cb_t callback,
                                      unsigned long timeout);
@@ -154,6 +145,7 @@ plugin_init(OhmPlugin *plugin)
     }
     exit(1);
 
+    (void)plugin;
 #undef FAIL
 }
 
@@ -172,6 +164,8 @@ plugin_exit(OhmPlugin *plugin)
     }
 
     console_exit();
+
+    (void)plugin;
 }
 
 
@@ -184,6 +178,8 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
     g_warning("error: %s, on line %d near input %s\n", msg, lineno, token);
     exit(1);
+
+    (void)dres;
 }
 
 
@@ -204,6 +200,205 @@ OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
 /*****************************************************************************
  *                          *** DRES action handlers ***                     *
  *****************************************************************************/
+
+
+/********************
+ * prolog_handler
+ ********************/
+DRES_ACTION(prolog_handler)
+{
+#define FAIL(ec) do { err = ec; goto fail; } while (0)
+#define MAX_FACTS 63
+#define MAX_ARGS  32
+
+    prolog_predicate_t   *predicate;
+    char                 *pred_name;
+    char                 *argv[MAX_ARGS];
+    char               ***retval;
+    vm_global_t          *g = NULL;
+    int                   i, err;
+
+    
+    OHM_DEBUG(DBG_RESOLVE, "prolog handler entered...");
+    
+    if (narg < 1 || args[0].type != DRES_TYPE_STRING)
+        return EINVAL;
+
+    pred_name = args[0].v.s;
+
+    if ((predicate = prolog_lookup(pred_name, narg)) == NULL)
+        FAIL(ENOENT);
+    
+    args++;
+    narg--;
+
+    for (i = 0; i < narg; i++) {
+        if (args[i].type != DRES_TYPE_STRING)
+            FAIL(EINVAL);
+        argv[i] = args[i].v.s;
+    }
+    
+    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg))
+        FAIL(EINVAL);
+    
+    OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
+    prolog_dump(retval);
+
+    if ((g = vm_global_alloc(MAX_FACTS)) == NULL)
+        FAIL(ENOMEM);
+    
+    if ((g->nfact = retval_to_facts(retval, g->facts, MAX_FACTS)) < 0)
+        FAIL(EINVAL);
+
+
+    rv->type = DRES_TYPE_FACTVAR;
+    rv->v.g  = g;
+    return 0;
+    
+ fail:
+    if (g)
+        vm_global_free(g);
+    
+    if (retval)
+        prolog_free_actions(retval);
+    
+    return err;
+
+    (void)data;
+    (void)name;
+
+#undef MAX_FACTS
+}
+
+
+/********************
+ * signal_handler
+ ********************/
+DRES_ACTION(signal_handler)
+{
+#define GET_ARG(var, n, f, t) do {              \
+        if (args[(n)].type != t)                \
+            return EINVAL;                      \
+        (var) = args[(n)].v.f;                  \
+    } while (0)
+
+#define GET_INTEGER(n, var) GET_ARG(var, (n), i, DRES_TYPE_INTEGER)
+#define GET_DOUBLE(n, var)  GET_ARG(var, (n), d, DRES_TYPE_DOUBLE)
+#define GET_STRING(n, var)  GET_ARG(var, (n), s, DRES_TYPE_STRING)
+
+#define MAX_FACTS  64
+#define MAX_LENGTH 64
+#define TIMEOUT    (5 * 1000)
+    
+    char *signal_name, *cb_name, *txid_name;
+    int   txid;
+    int   nfact, i;
+    char *facts[MAX_FACTS + 1];
+    char  buf  [MAX_FACTS * MAX_LENGTH];
+    char *p, *e;
+    char *signature;
+    int   success;
+    
+    if (narg < 3)
+        return EINVAL;
+    
+    GET_STRING(0, signal_name);
+    GET_STRING(1, cb_name);
+    GET_STRING(2, txid_name);
+
+    nfact = narg - 2;
+    
+    e = NULL;
+    txid = strtol(txid_name, &e, 10);
+    if (e != NULL && *e)
+        return EINVAL;
+
+    OHM_DEBUG(DBG_SIGNAL, "signal='%s', cb='%s' txid='%s'",
+              signal_name, cb_name, txid_name);
+    
+    args += 3;
+    narg -= 3;
+
+    for (i = 0, p = buf; i < narg; i++) {
+        facts[i] = "";
+        switch (args[i].type) {
+        case DRES_TYPE_FACTVAR: {
+            vm_global_t *g    = args[i].v.g;
+            const char  *name;
+            if (g->nfact < 1)
+                break;
+            if (!(name = ohm_structure_get_name(OHM_STRUCTURE(g->facts[0]))))
+                break;
+            p += snprintf(p, MAX_LENGTH, "%s", name);
+            break;
+        }
+        case DRES_TYPE_STRING:
+            facts[i] = p;
+            p += snprintf(p, MAX_LENGTH, "%s", args[i].v.s);
+            break;
+        }
+    }
+
+    facts[nfact] = NULL;
+    
+    if (cb_name[0] == '\0') {
+        dump_signal_changed_args(signal_name, 0, nfact, facts, NULL, TIMEOUT);
+        success = signal_changed(signal_name, 0, nfact, facts, NULL, TIMEOUT);
+    }
+    else {
+        signature = (char *)completion_cb_SIGNATURE;
+
+        if (ohm_module_find_method(cb_name,&signature,(void *)&completion_cb)){
+            dump_signal_changed_args(signal_name, txid, nfact,facts,
+                                     completion_cb, TIMEOUT);
+            success = signal_changed(signal_name, txid, nfact,facts,
+                                     completion_cb, TIMEOUT);
+        }
+        else {
+            OHM_DEBUG(DBG_SIGNAL, "could not resolve signal.\n");
+            success = FALSE;
+        }
+    }
+
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = 0;
+
+    return success ? 0 : EINVAL;
+
+    (void)name;
+    (void)data;
+
+#undef MAX_LENGTH
+#undef MAX_FACTS
+#undef TIMEOUT
+}
+
+
+
+
+static void dump_signal_changed_args(char *signame, int transid, int factc,
+                                     char**factv, completion_cb_t callback,
+                                     unsigned long timeout)
+{
+    int i;
+
+    OHM_DEBUG(DBG_SIGNAL, "calling signal_changed(%s, %d,  %d, %p, %p, %lu)",
+          signame, transid, factc, factv, callback, timeout);
+
+    for (i = 0;  i < factc;  i++) {
+        OHM_DEBUG(DBG_SIGNAL, "   fact[%d]: '%s'", i, factv[i]);
+    }
+}
+
+
+
+
+/*****************************************************************************
+ *                           *** old action handlers ***                     *
+ *****************************************************************************/
+
+#if 0
+
 
 
 /********************
@@ -239,6 +434,7 @@ action_argument(dres_t *dres, int argument)
     }
 }
 
+
 /********************
  * action_arguments
  ********************/
@@ -263,9 +459,6 @@ action_arguments(dres_t *dres, dres_action_t *action, char **args, int narg)
 }
 
 
-/********************
- * prolog_handler
- ********************/
 static int
 prolog_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 {
@@ -330,9 +523,43 @@ prolog_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
 }
 
 
-/********************
- * signal_handler
- ********************/
+static
+char *getarg(dres_t *dres, dres_action_t *action,
+             int argidx, char *namebuf, int len)
+{
+    dres_variable_t  *var;
+    char             *value;
+
+    value = "";
+
+    if (argidx < 0 || argidx >= action->nvariable) {
+        namebuf[0] = '\0';
+        dres_name(dres, action->arguments[argidx], namebuf, len);
+
+        switch (namebuf[0]) {
+
+        case '&':
+            if ((value = dres_scope_getvar(dres->scope, namebuf+1)) == NULL)
+                value = "";
+            break;
+
+        case '$':
+            value = "";
+            if ((var = dres_lookup_variable(dres, action->arguments[argidx]))){
+                dres_var_get_field(var->var, "value",NULL, VAR_STRING, &value);
+            }
+            break;
+
+        default:
+            value = namebuf;
+            break;
+        }
+    }
+
+    return value;
+}
+
+
 static int
 signal_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 {
@@ -434,57 +661,10 @@ signal_handler(dres_t *dres, char *name, dres_action_t *action, void **ret)
 
 #undef MAX_LENGTH
 #undef MAX_FACTS
+
 }
 
-static char *getarg(dres_t *dres, dres_action_t *action,
-                    int argidx, char *namebuf, int len)
-{
-    dres_variable_t  *var;
-    char             *value;
-
-    value = "";
-
-    if (argidx < 0 || argidx >= action->nvariable) {
-        namebuf[0] = '\0';
-        dres_name(dres, action->arguments[argidx], namebuf, len);
-
-        switch (namebuf[0]) {
-
-        case '&':
-            if ((value = dres_scope_getvar(dres->scope, namebuf+1)) == NULL)
-                value = "";
-            break;
-
-        case '$':
-            value = "";
-            if ((var = dres_lookup_variable(dres, action->arguments[argidx]))){
-                dres_var_get_field(var->var, "value",NULL, VAR_STRING, &value);
-            }
-            break;
-
-        default:
-            value = namebuf;
-            break;
-        }
-    }
-
-    return value;
-}
-
-static void dump_signal_changed_args(char *signame, int transid, int factc,
-                                     char**factv, completion_cb_t callback,
-                                     unsigned long timeout)
-{
-    int i;
-
-    OHM_DEBUG(DBG_SIGNAL, "calling signal_changed(%s, %d,  %d, %p, %p, %lu)",
-          signame, transid, factc, factv, callback, timeout);
-
-    for (i = 0;  i < factc;  i++) {
-        OHM_DEBUG(DBG_SIGNAL, "   fact[%d]: '%s'", i, factv[i]);
-    }
-}
-
+#endif
 
 
 
