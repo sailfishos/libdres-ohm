@@ -19,6 +19,7 @@
 
 enum {
     VM_TYPE_UNKNOWN = 0,
+    VM_TYPE_NIL,                              /* unset */
     VM_TYPE_INTEGER,                          /* signed 32-bit integer */
     VM_TYPE_DOUBLE,                           /* double prec. floating */
     VM_TYPE_FLOAT = VM_TYPE_DOUBLE,           /* our foating is double */

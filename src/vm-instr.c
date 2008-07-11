@@ -455,8 +455,10 @@ vm_instr_get_local(vm_state_t *vm)
     int        type, err;
     int        idx = VM_OP_ARGS(*vm->pc) & ~VM_GET_LOCAL;
     
-    if ((type = vm_scope_get(vm->scope, idx, &value)) == VM_TYPE_UNKNOWN)
-        VM_EXCEPTION(vm, "GET LOCAL: failed to get value of #0x%x", idx);
+    if ((type = vm_scope_get(vm->scope, idx, &value)) == VM_TYPE_UNKNOWN) {
+        type    = VM_TYPE_NIL;
+        value.i = 0;
+    }
     
     if ((err = vm_push(vm->stack, type, value)) != 0)
         VM_EXCEPTION(vm, "GET LOCAL: failed to push value of #0x%x", idx);

@@ -43,7 +43,7 @@ vm_exec(vm_state_t *vm, vm_chunk_t *code)
     
     status = vm_run(vm);
 
-    printf("*** stack depth after vm_exec: %d\n", vm->stack->nentry);
+    /*printf("*** stack depth after vm_exec: %d\n", vm->stack->nentry);*/
 
     return status;
 }

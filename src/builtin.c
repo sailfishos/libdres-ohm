@@ -158,8 +158,6 @@ BUILTIN_HANDLER(dres)
     goal = args[0].v.s;
     DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
     
-    printf("*** DRES recursing for goal %s\n", goal);
-
     pc     = dres->vm.pc;
     ninstr = dres->vm.ninstr;
     nsize  = dres->vm.nsize;
@@ -228,29 +226,15 @@ BUILTIN_HANDLER(echo)
     for (i = 0, t = ""; i < narg; i++, t = " ") {
         printf(t);
         switch (args[i].type) {
+        case DRES_TYPE_NIL:     printf("<nil>");           break;
         case DRES_TYPE_INTEGER: printf("%d", args[i].v.i); break;
         case DRES_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
         case DRES_TYPE_STRING:  printf("%s", args[i].v.s); break;
         case DRES_TYPE_FACTVAR:
             vm_global_print(args[i].v.g);
             break;
-
-#if 0
-        case DRES_TYPE_DRESVAR:
-            if (dres_local_value(dres, args[i].v.id, &value) != 0)
-                goto unknown;
-            switch (value.type) {
-            case DRES_TYPE_INTEGER: printf("%d", value->v.i); break;
-            case DRES_TYPE_DOUBLE:  printf("%f", value->v.d); break;
-            case DRES_TYPE_STRING:  printf("%s", value->v.s); break;
-            default:                goto unknown;
-            }
-            break;
-       
-        unknown:
-#endif
         default:
-            printf("???");
+            printf("<???>");
         }
     }
 
