@@ -72,6 +72,8 @@ update_all(gpointer data)
     update = 0;
 
     return FALSE;
+
+    (void)data;
 }
 
 
@@ -85,6 +87,9 @@ schedule_resolve(gpointer object, gpointer user_data)
         OHM_DEBUG(DBG_RESOLVE, "resolving of goal \"all\" scheduled...\n");
         update = g_idle_add(update_all, NULL);
     }
+
+    (void)object;
+    (void)user_data;
 }
 
 
@@ -96,6 +101,9 @@ schedule_updated(gpointer fact, gpointer name, gpointer value,
                  gpointer user_data)
 {
     schedule_resolve(fact, user_data);
+
+    (void)name;
+    (void)value;
 }
 
 
@@ -315,7 +323,7 @@ static void
 set_fact(int cid, char *buf)
 {
     GValue      *gval;
-    char         selector[128], fullname[128];
+    char         selector[128];
     char        *str, *name, *member, *selfld, *selval, *value, *p, *q;
     int          n = 128, len, i;
     OhmFact     *facts[n];
@@ -334,11 +342,6 @@ set_fact(int cid, char *buf)
             *p++ = 0;
             value = p;
        
-            if (name[0] == '.') {
-                sprintf(fullname, "%s%s", dres_get_prefix(dres), name+1);
-                name = fullname;
-            }
-
             if ((p = strrchr(name, '.')) != NULL) {
                 *p++ = 0;
                 member = p;

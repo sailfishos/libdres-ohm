@@ -91,6 +91,9 @@ console_opened(int id, struct sockaddr *peer, int peerlen)
     console_printf(id, "OHMng Dependency Resolver Console\n");
     console_printf(id, "Type help to get a list of available commands.\n\n");
     console_printf(id, CONSOLE_PROMPT);
+
+    (void)peer;
+    (void)peerlen;
 }
 
 
@@ -110,9 +113,9 @@ console_closed(int id)
 static void
 console_input(int id, char *input, void *data)
 {
-    command_t *command;
-    char       name[64], *args, *s, *d;
-    int        n;
+    command_t    *command;
+    char          name[64], *args, *s, *d;
+    unsigned int  n;
 
     if (!input[0]) {
         console_printf(id, CONSOLE_PROMPT);
@@ -136,6 +139,8 @@ console_input(int id, char *input, void *data)
         console_printf(id, "unknown console command \"%s\"\n", input);
     
     console_printf(id, CONSOLE_PROMPT);
+
+    (void)data;
 }
 
 
@@ -152,6 +157,8 @@ static void
 command_bye(int id, char *input)
 {
     console_close(id);
+
+    (void)input;
 }
 
 
@@ -164,8 +171,7 @@ command_dump(int id, char *input)
     OhmFactStore *fs = ohm_fact_store_get_fact_store();;
     OhmFact      *fact;
     GSList       *list;
-
-    char factname[128], fullname[128], *name, *p, *q, *dump;
+    char          factname[128], *p, *q, *dump;
     
     p = input;
     if (!*p)
@@ -182,13 +188,7 @@ command_dump(int id, char *input)
             g_free(dump);
         }
         else {
-            if (factname[0] == '.') {
-                sprintf(fullname, "%s%s", dres_get_prefix(dres), factname+1);
-                name = fullname;
-            }
-            else
-                name = factname;
-            for (list = ohm_fact_store_get_facts_by_name(fs, name);
+            for (list = ohm_fact_store_get_facts_by_name(fs, factname);
                  list != NULL;
                  list = g_slist_next(list)) {
                 fact = (OhmFact *)list->data;
@@ -255,6 +255,9 @@ static void
 command_prolog(int id, char *input)
 {
     prolog_shell();
+
+    (void)id;
+    (void)input;
 }
 
 
@@ -267,6 +270,8 @@ command_grab(int id, char *input)
     console_grab(id, 0);
     console_grab(id, 1);
     console_grab(id, 2);
+
+    (void)input;
 }
 
 /********************
@@ -278,6 +283,8 @@ command_release(int id, char *input)
     console_ungrab(id, 0);
     console_ungrab(id, 1);
     console_ungrab(id, 2);
+
+    (void)input;
 }
 
 
@@ -325,6 +332,8 @@ command_help(int id, char *input)
         sprintf(syntax, "%s%s%s", c->name, c->args ? " ":"", c->args ?: ""); 
         console_printf(id, "    %-30.30s %s\n", syntax, c->description);
     }
+
+    (void)input;
 }
 
 
