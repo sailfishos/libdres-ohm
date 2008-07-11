@@ -175,6 +175,8 @@ create_variable(dres_t *dres, char *name, dres_init_t *fields)
         return EINVAL;
 
     return 0;
+
+    (void)dres;
 }
 
 

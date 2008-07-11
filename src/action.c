@@ -518,7 +518,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
 
 
 /********************
- * assing_result
+ * assign_result
  ********************/
 static int
 assign_result(dres_t *dres, dres_action_t *action, void **result)
@@ -581,6 +581,8 @@ assign_result(dres_t *dres, dres_action_t *action, void **result)
     FREE(result);
 
     return err;
+
+    (void)assign_result;
 }
 
 

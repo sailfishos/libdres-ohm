@@ -288,6 +288,8 @@ compile_discard(dres_t *dres, vm_chunk_t *code)
     printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
            err, strerror(err));
     return err;
+
+    (void)dres;
 }
 
 

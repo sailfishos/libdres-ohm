@@ -256,6 +256,9 @@ main(int argc, char *argv[])
     if (yyin != stdin)
         fclose(yyin);
     return 0;
+
+    (void)ringbuff;
+    (void)ringoffs;
 }
 #endif
 

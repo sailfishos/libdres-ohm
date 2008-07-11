@@ -741,6 +741,8 @@ EXPORTED void dres_fact_destroy(void *vfact)
 static void free_list_elem(gpointer data, gpointer user_data)
 {
     g_object_unref(data);
+
+    (void)user_data;
 }
 
 

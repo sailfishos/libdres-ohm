@@ -148,7 +148,6 @@ BUILTIN_HANDLER(dres)
     int           nsize;
     int           status;
 
-    
     if (narg < 1)                 /* XXX TODO should default to first... */
         return EINVAL;
     
@@ -175,6 +174,7 @@ BUILTIN_HANDLER(dres)
 
     return status;
     
+    (void)name;
     
 #if 0
     dres_call_t *call = action->call;
@@ -219,7 +219,6 @@ BUILTIN_HANDLER(resolve)
 BUILTIN_HANDLER(echo)
 {
     dres_t       *dres = (dres_t *)data;
-    dres_value_t  value;
     char         *t;
     int           i;
     
@@ -234,7 +233,7 @@ BUILTIN_HANDLER(echo)
             vm_global_print(args[i].v.g);
             break;
         default:
-            printf("<???>");
+            printf("<unknown>");
         }
     }
 
@@ -243,6 +242,9 @@ BUILTIN_HANDLER(echo)
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
     return 0;
+
+    (void)dres;
+    (void)name;
 }
 
 
@@ -262,6 +264,11 @@ BUILTIN_HANDLER(fail)
 {
     rv->type = DRES_TYPE_UNKNOWN;
     return EINVAL;
+
+    (void)data;
+    (void)name;
+    (void)args;
+    (void)narg;
 }
 
 

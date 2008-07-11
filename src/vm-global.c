@@ -14,7 +14,7 @@
 int
 vm_global_lookup(char *name, vm_global_t **gp)
 {
-    vm_global_t  *g;
+    vm_global_t  *g     = NULL;
     OhmFactStore *store = ohm_fact_store_get_fact_store();
     GSList       *l;
     int           i, n;
@@ -67,7 +67,7 @@ vm_global_name(char *name)
 EXPORTED vm_global_t *
 vm_global_alloc(int nfact)
 {
-    vm_global_t *g;
+    vm_global_t *g = NULL;
     
     if (ALLOC_VAROBJ(g, nfact, facts) == NULL)
         return NULL;
@@ -231,6 +231,8 @@ vm_fact_set_field(vm_state_t *vm, OhmFact *fact, char *field,
 
     ohm_fact_set(fact, field, gval);
     return 1;
+
+    (void)vm;
 }
 
 
@@ -276,6 +278,9 @@ vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
     }
     
     return 0;
+
+    (void)vm;
+    (void)fact;
 }
 
 
@@ -311,6 +316,7 @@ vm_fact_get_field(vm_state_t *vm, OhmFact *fact, char *field, vm_value_t *value)
     }
     
     return VM_TYPE_UNKNOWN;
+    (void)vm;
 }
 
 

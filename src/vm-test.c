@@ -102,8 +102,8 @@ stack_pop_all(vm_stack_t *stack)
 int
 stack_test(void)
 {
-    vm_stack_t *stack = vm_stack_new(1);
-    int         i, err;
+    vm_stack_t *stack  = vm_stack_new(1);
+    int         i, err = 0;
 
     printf("*** [%s] ***\n", __FUNCTION__);
 
@@ -153,7 +153,7 @@ chunk_test(void)
     /* generate some code */
     VM_INSTR_PUSH_INT(chunk, cgfail, err, 10);
     VM_INSTR_PUSH_DOUBLE(chunk, cgfail, err, 3.141);
-    VM_INSTR_PUSH_INT(chunk, cgfail, err, 0xdeadbeef);
+    VM_INSTR_PUSH_INT(chunk, cgfail, err, 0xb19b00b);
     VM_INSTR_PUSH_DOUBLE(chunk, cgfail, err, 9.81);
     VM_INSTR_PUSH_STRING(chunk, cgfail, err, "this is a test string...");
 
@@ -347,6 +347,8 @@ echo_handler(void *data, char *name,
     retval->v.i  = 0;
     
     return 0;
+    
+    (void)name;
 }
 
 
@@ -460,6 +462,9 @@ main(int argc, char *argv[])
     call_test();
 
     return 0;
+
+    (void)argc;
+    (void)argv;
 }
 
 

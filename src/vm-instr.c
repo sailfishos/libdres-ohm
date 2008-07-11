@@ -30,7 +30,7 @@ int vm_instr_call   (vm_state_t *vm);
 int
 vm_run(vm_state_t *vm)
 {
-    int status;
+    int status = EOPNOTSUPP;
 
     while (vm->ninstr > 0) {
         switch (VM_OP_CODE(*vm->pc)) {
@@ -73,8 +73,9 @@ vm_instr_push(vm_state_t *vm)
 
     unsigned int  type = VM_PUSH_TYPE(*vm->pc);
     unsigned int  data = VM_PUSH_DATA(*vm->pc);
+    unsigned int  i;
     char         *name;
-    int           nsize, i, id;
+    int           nsize, id;
     
 
     /*
@@ -484,6 +485,8 @@ vm_instr_get_var(vm_state_t *vm)
      */
     VM_EXCEPTION(vm, "%s not implemented", __FUNCTION__);
     return EOPNOTSUPP; /* not reached */
+
+    (void)vm;
 }
 
 

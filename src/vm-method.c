@@ -12,9 +12,10 @@ static int vm_unknown_handler(void *data, char *name,
                               vm_stack_entry_t *retval);
 
 static vm_method_t default_method = {
-    "default",
-    UNKNOWN_ID,
-    vm_unknown_handler
+ name:    "default",
+ id:      UNKNOWN_ID,
+ handler: vm_unknown_handler,
+ data:    NULL
 };
 
 
@@ -88,6 +89,8 @@ vm_method_default(vm_state_t *vm, vm_action_t handler)
     default_method.handler = handler;
 
     return old;
+
+    (void)vm;
 }
 
 
@@ -126,7 +129,7 @@ static int
 vm_unknown_handler(void *data, char *name,
                    vm_stack_entry_t *args, int narg, vm_stack_entry_t *retval)
 {
-    int i, j, type;
+    int i, j;
 
     printf("OOPS: call to unknown method %s\n", name);
     printf("OOPS: called with %d argument%s\n", narg, narg == 1 ? "" : "s");
@@ -135,7 +138,7 @@ vm_unknown_handler(void *data, char *name,
         switch (args[i].type) {
         case VM_TYPE_INTEGER: printf("%d\n", args[i].v.i); break;
         case VM_TYPE_DOUBLE:  printf("%f\n", args[i].v.d); break;
-        case VM_TYPE_STRING:  printf("'%s'\n", args[i].v.s); break;
+        case VM_TYPE_STRING:  printf("%s\n", args[i].v.s); break;
         case VM_TYPE_GLOBAL:
             for (j = 0; j < args[i].v.g->nfact; j++) {
                 printf("$");
@@ -144,11 +147,14 @@ vm_unknown_handler(void *data, char *name,
             }
             break;
         default:
-            printf("<unknown type 0x%x>\n", type);
+            printf("<unknown type 0x%x>\n", args[i].type);
         }
     }
 
     return ENOENT;
+    
+    (void)data;
+    (void)retval;
 }
 
 
