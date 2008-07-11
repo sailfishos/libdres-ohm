@@ -80,7 +80,7 @@ vm_global_alloc(int nfact)
 /********************
  * vm_global_free
  ********************/
-void
+EXPORTED void
 vm_global_free(vm_global_t *g)
 {
     int i;

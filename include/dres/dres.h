@@ -39,6 +39,12 @@ enum {
 #define DRES_DELETED(id)    ((id) | DRES_TYPE(DELETED))
 #define DRES_IS_DELETED(id) ((id) & DRES_TYPE(DELETED))
 
+
+#define DRES_ACTION(b)                                                  \
+    static int b(void *data, char *name,                                \
+                 vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
+
+
 typedef struct dres_scope_s   dres_scope_t;
 typedef vm_action_t dres_handler_t;
 
