@@ -125,8 +125,10 @@ console_input(int id, char *input, void *data)
     n = 0;
     s = input;
     d = name;
-    while (*s && *s != ' ' && n < sizeof(name) - 1)
+    while (*s && *s != ' ' && n < sizeof(name) - 1) {
         *d++ = *s++;
+        n++;
+    }
     *d = '\0';
 
     args = s;
