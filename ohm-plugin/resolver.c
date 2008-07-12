@@ -238,7 +238,32 @@ DRES_ACTION(prolog_handler)
         argv[i] = args[i].v.s;
     }
     
-    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg))
+    /*
+     * Notes:
+     *
+     *   Strictly speaking passing narg to the prolog predicate is 
+     *   is semantically wrong. This handler takes the name of the
+     *   predicate and the arguments to be passed to it. Thus narg
+     *   equals to the number of predicate arguments + 1.
+     *
+     *   However, according to our prolog predicate calling conventions
+     *   each prolog predicate takes an extra argument which is used to
+     *   pass the predicate results back from Prolog to C. This makes
+     *   the arity of every exported prolog predicate equal to the
+     *   number of arguments + 1. The check in prolog.c:prolog_*call
+     *   checks narg against predicate->arity which is equally wrong
+     *   but the bugs cancel each other out.
+     *
+     *   XXX TODO: Eventually we must fix both bugs, but I cannot do
+     *       it in libprolog safely because I do not want to touch
+     *       the original (old, currently master) branch of dres
+     *       (now that we have tagged it as alpha release) and it has
+     *       the same bug. I will fix it once the new runtime is merged
+     *       in to master.
+     */
+    
+    retval = NULL;        /* see the notes above explaining why + 1 */
+    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg + 1))
         FAIL(EINVAL);
     
     OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
@@ -276,15 +301,25 @@ DRES_ACTION(prolog_handler)
  ********************/
 DRES_ACTION(signal_handler)
 {
-#define GET_ARG(var, n, f, t) do {              \
-        if (args[(n)].type != t)                \
-            return EINVAL;                      \
-        (var) = args[(n)].v.f;                  \
+#define GET_ARG(var, n, f, t, def) do {          \
+        if (args[(n)].type != t)                 \
+            (var) = args[(n)].v.f;               \
+        else                                     \
+            return EINVAL;                       \
     } while (0)
-
 #define GET_INTEGER(n, var) GET_ARG(var, (n), i, DRES_TYPE_INTEGER)
 #define GET_DOUBLE(n, var)  GET_ARG(var, (n), d, DRES_TYPE_DOUBLE)
-#define GET_STRING(n, var)  GET_ARG(var, (n), s, DRES_TYPE_STRING)
+    
+#define GET_STRING(n, var, dflt) do {                                   \
+        if (args[(n)].type == DRES_TYPE_STRING)                         \
+            (var) = args[(n)].v.s;                                      \
+        else {                                                          \
+            if (args[(n)].type == DRES_TYPE_NIL)                        \
+                (var) = (dflt);                                         \
+            else                                                        \
+                return EINVAL;                                          \
+        }                                                               \
+    } while (0)
 
 #define MAX_FACTS  64
 #define MAX_LENGTH 64
@@ -302,11 +337,26 @@ DRES_ACTION(signal_handler)
     if (narg < 3)
         return EINVAL;
     
-    GET_STRING(0, signal_name);
-    GET_STRING(1, cb_name);
-    GET_STRING(2, txid_name);
+    GET_STRING(0, signal_name, "");
+    GET_STRING(1, cb_name, "");
+    GET_STRING(2, txid_name, "");
+
+    /* XXX TODO:
+     * Notes: IMHO this is wrong. This starts processing txid_name as a
+     *        fact. Since Ismos signal_changed->send_ipc_signal code ignores
+     *        any facts it cannot look up (with an "ERROR: NO FACTS!"
+     *        warning) this does not cause major malfunction but it is still
+     *        wrong.
+     *
+     * Rather, this should be:
+     *     nfact = narg - 3;
+     *     args += 3;
+     *     narg -= 3;
+     */
 
     nfact = narg - 2;
+    args += 2;
+    narg -= 2;
     
     e = NULL;
     txid = strtol(txid_name, &e, 10);
@@ -316,8 +366,6 @@ DRES_ACTION(signal_handler)
     OHM_DEBUG(DBG_SIGNAL, "signal='%s', cb='%s' txid='%s'",
               signal_name, cb_name, txid_name);
     
-    args += 3;
-    narg -= 3;
 
     for (i = 0, p = buf; i < narg; i++) {
         facts[i] = "";
@@ -329,14 +377,20 @@ DRES_ACTION(signal_handler)
                 break;
             if (!(name = ohm_structure_get_name(OHM_STRUCTURE(g->facts[0]))))
                 break;
-            p += snprintf(p, MAX_LENGTH, "%s", name);
+            p += snprintf(p, MAX_LENGTH, "%s", name) + 1;
             break;
         }
         case DRES_TYPE_STRING:
             facts[i] = p;
-            p += snprintf(p, MAX_LENGTH, "%s", args[i].v.s);
+            p += snprintf(p, MAX_LENGTH, "%s", args[i].v.s) + 1;
+            break;
+
+        default:
+        case DRES_TYPE_NIL:
+            facts[i] = "";
             break;
         }
+        
     }
 
     facts[nfact] = NULL;
