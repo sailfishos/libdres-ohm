@@ -9,7 +9,7 @@ libdres_la_SOURCES = parser.y lexer.l \
                      compiler.c
 
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
-libdres_la_LIBADD  = @GLIB_LIBS@ @LIBTRACE_LIBS@
+libdres_la_LIBADD  = @GLIB_LIBS@ @LEXLIB@ @LIBTRACE_LIBS@
 
 
 noinst_PROGRAMS = vm-test lexer-test
