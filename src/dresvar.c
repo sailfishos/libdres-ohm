@@ -48,7 +48,11 @@ dres_dresvar_id(dres_t *dres, char *name)
                 return var->id;
         }
     
-    return dres_add_dresvar(dres, name);
+    /* kludgish: don't demand-create new vars once we're resolving */
+    if (!DRES_TST_FLAG(dres, TARGETS_FINALIZED))
+        return dres_add_dresvar(dres, name);
+    else
+        return DRES_ID_NONE;
 }
 
 
@@ -90,7 +94,6 @@ dres_free_dresvars(dres_t *dres)
     dres->dresvars = NULL;
     dres->ndresvar = 0;
 }
-
 
 
 /********************

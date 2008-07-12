@@ -2,7 +2,7 @@ lib_LTLIBRARIES = libdres.la
 
 libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \
-                     factvar.c dresvar.c variables.c scope.c \
+                     factvar.c dresvar.c variables.c \
                      prereq.c graph.c dres.c \
                      vm-stack.c vm-instr.c vm-global.c vm-local.c \
                      vm-method.c vm.c \

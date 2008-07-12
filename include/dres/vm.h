@@ -36,6 +36,7 @@ enum {
     ((g)->nfact == 1 &&                                            \
      !strcmp(ohm_structure_get_name(OHM_STRUCTURE((g)->facts[0])), \
              VM_UNNAMED_GLOBAL))
+
 typedef struct vm_global_s {
     char    *name;                            /* for free-hanging facts */
     int      nfact;

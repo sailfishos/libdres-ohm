@@ -45,7 +45,6 @@ enum {
                  vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 
 
-typedef struct dres_scope_s   dres_scope_t;
 typedef vm_action_t dres_handler_t;
 
 struct dres_s;
@@ -195,12 +194,6 @@ enum {
 #define DRES_SET_FLAG(d, f) ((d)->flags |=  DRES_##f)
 #define DRES_CLR_FLAG(d, f) ((d)->flags &= ~DRES_##f)
 
-struct dres_scope_s {
-    dres_store_t *curr;                     /* current variables */
-    GHashTable   *names;                    /* names of current variables */
-    dres_scope_t *prev;                     /* previous scope */
-};
-
 
 struct dres_s {
     dres_target_t   *targets;
@@ -214,10 +207,7 @@ struct dres_s {
     int              txid;                  /* transaction id */
 
     dres_store_t    *fact_store;
-    dres_scope_t    *scope;
-
     dres_handler_t   fallback;
-
     unsigned long    flags;
     
     dres_initializer_t *initializers;
@@ -262,7 +252,6 @@ void        dres_free_factvars(dres_t *dres);
 int         dres_check_factvar(dres_t *dres, int id, int stamp);
 void        dres_dump_init    (dres_t *dres);
 
-
 /* dresvar.c */
 int         dres_add_dresvar  (dres_t *dres, char *name);
 int         dres_dresvar_id   (dres_t *dres, char *name);
@@ -272,7 +261,6 @@ void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 
 int  dres_local_value(dres_t *dres, int id, dres_value_t *value);
-
 
 /* prereq.c */
 dres_prereq_t *dres_new_prereq (int id);
@@ -293,22 +281,12 @@ void          dres_free_value (dres_value_t *value);
 int           dres_print_value(dres_t *dres,
                                dres_value_t *value, char *buf, size_t size);
 
-
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
-
-/* scope.c */
-int           dres_scope_setvar   (dres_scope_t *scope,
-                                   char *name, dres_value_t *value);
-dres_value_t *dres_scope_getvar   (dres_scope_t *scope, char *name);
-int           dres_scope_push_args(dres_t *dres, char **args);
-int           dres_scope_push     (dres_t *dres, dres_local_t *locals);
-int           dres_scope_pop      (dres_t *dres);
 
 /* compiler.c */
 int dres_compile_target(dres_t *dres, dres_target_t *target);
 int dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code);
-
 
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);

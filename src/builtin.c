@@ -148,22 +148,26 @@ BUILTIN_HANDLER(dres)
     int           nsize;
     int           status;
 
-    if (narg < 1)                 /* XXX TODO should default to first... */
-        return EINVAL;
-    
-    if (args[0].type != DRES_TYPE_STRING)
-        return EINVAL;
-
-    goal = args[0].v.s;
-    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
+    if (narg < 1)
+        goal = NULL;
+    else {
+        if (args[0].type != DRES_TYPE_STRING)
+            return EINVAL;
+        goal = args[0].v.s;
+    }
     
     pc     = dres->vm.pc;
     ninstr = dres->vm.ninstr;
     nsize  = dres->vm.nsize;
 
+    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s",
+          goal ? goal : dres->targets[0].name);
+
     depth++;
     status = dres_update_goal(dres, goal, NULL);
     depth--;
+
+    DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 
     dres->vm.pc     = pc;
     dres->vm.ninstr = ninstr;
@@ -175,32 +179,6 @@ BUILTIN_HANDLER(dres)
     return status;
     
     (void)name;
-    
-#if 0
-    dres_call_t *call = action->call;
-    char         goal[64];
-    int          status;
-    
-    if (action->call->args == NULL)
-        return EINVAL;
-    
-    goal[0] = '\0';
-    dres_print_value(dres, &call->args->value, goal, sizeof(goal));
-    
-    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
-    depth++;
-    dres_scope_push(dres, call->locals);
-    status = dres_update_goal(dres, goal, NULL);
-    dres_scope_pop(dres);
-    depth--;
-    DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
-
-    *ret = NULL;
-    return status;
-#else
-    printf("*** %s not implemented\n", __FUNCTION__);
-    return 0;
-#endif
 }
 
 

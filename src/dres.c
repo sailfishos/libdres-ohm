@@ -29,8 +29,12 @@ static int  initialize_variables(dres_t *dres);
 static int  finalize_variables  (dres_t *dres);
 static int  finalize_actions    (dres_t *dres);
 
+static int  push_locals(dres_t *dres, char **locals);
+static int  pop_locals (dres_t *dres);
+
 static void transaction_commit  (dres_t *dres);
 static void transaction_rollback(dres_t *dres);
+
 
 
 
@@ -308,9 +312,13 @@ dres_finalize(dres_t *dres)
 EXPORTED int
 dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
+#define ROLLBACK(ec)  do { status = (ec); goto rollback; } while (0)
+#define POPLOCALS(ec) do { status = (ec); goto pop; } while (0)
+
     dres_target_t *target;
     int            id, i, status, own_tx;
 
+    
     status = 0;
 
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
@@ -322,8 +330,14 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         if ((status = finalize_targets(dres)) != 0)
             return status;
     
-    if ((target = dres_lookup_target(dres, goal)) == NULL)
-        return EINVAL;
+    if (goal != NULL) {
+        if ((target = dres_lookup_target(dres, goal)) == NULL)
+            return EINVAL;
+    }
+    else {
+        target = dres->targets;
+        goal   = target->name;
+    }
     
     if (!DRES_IS_DEFINED(target->id))
         return EINVAL;
@@ -338,7 +352,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     dres->stamp++;
     dres_store_update_timestamps(dres->fact_store, dres);
     
-    if (locals != NULL && (status = dres_scope_push_args(dres, locals)) != 0)
+    if (locals != NULL && (status = push_locals(dres, locals)) != 0)
         goto rollback;
     
     if (target->prereqs == NULL) {
@@ -358,7 +372,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     }
     
     if (locals != NULL)
-        dres_scope_pop(dres);
+        pop_locals(dres);
     
     if (status == 0) {
         dres_update_target_stamp(dres, target);
@@ -391,6 +405,57 @@ dres_lookup_variable(dres_t *dres, int id)
     }        
 
     return NULL;
+}
+
+
+/********************
+ * push_locals
+ ********************/
+static int
+push_locals(dres_t *dres, char **locals)
+{
+#define FAIL(ec) do { err = (ec); goto fail; } while (0)
+    vm_value_t v;
+    int        err, id, i;
+    
+    if (locals == NULL)
+        return 0;
+    
+    if ((err = vm_scope_push(&dres->vm)) != 0)
+        return err;
+    
+    for (i = 0; locals[i] != NULL; i += 2) {
+        id  = dres_dresvar_id(dres, locals[i]);
+        v.s = locals[i+1];
+
+        if (v.s == NULL)
+            FAIL(EINVAL);
+            
+        if (id == DRES_ID_NONE) {
+            printf("*** cannot set unknown &%s to \"%s\"\n", locals[i], v.s);
+            FAIL(ENOENT);
+        }
+            
+        if ((err = vm_scope_set(&dres->vm.scope, id, DRES_TYPE_STRING, v)) != 0)
+            FAIL(err);
+    }
+    
+    
+    return 0;
+
+ fail:
+    vm_scope_pop(&dres->vm);
+    return err;
+}
+
+
+/********************
+ * pop_locals
+ ********************/
+static int
+pop_locals(dres_t *dres)
+{
+    return vm_scope_pop(&dres->vm);
 }
 
 

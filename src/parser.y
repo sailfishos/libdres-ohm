@@ -203,6 +203,16 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
             $$.value.type = DRES_TYPE_STRING;
             $$.value.v.s  = STRDUP($3);
         }
+        | TOKEN_IDENT ":" TOKEN_IDENT {
+            $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP($3);
+        }
+        | TOKEN_IDENT ":" {
+            $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP("");
+        }
         ;
 
 rules:    rule
