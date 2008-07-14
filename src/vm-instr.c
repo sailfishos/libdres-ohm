@@ -389,7 +389,7 @@ vm_instr_set(vm_state_t *vm)
 
 
 /*
- * GET (XXX TODO), GET FIELD
+ * GET, GET FIELD
  */
 
 
@@ -423,7 +423,7 @@ vm_instr_get_field(vm_state_t *vm)
         FAIL("GET FIELD: destination, global expected");
     
     g    = vm_pop_global(vm->stack);
-    type = vm_pop(vm->stack, &value);
+    type = vm_pop(vm->stack, &value);         /* XXX What ? What for ? */
     
     if (g->nfact < 1)
         FAIL("GET FIELD: nonexisting global");
@@ -483,6 +483,12 @@ vm_instr_get_var(vm_state_t *vm)
      * XXX TODO implement me: fetch named local variable and push its
      *                        value on the stack
      */
+
+    /*
+     * XXX TODO What ??? Isn't vm_instr_get_local doing exactly that ???
+     *          Hmm... What the heck was I thinking of here ?
+     */
+
     VM_EXCEPTION(vm, "%s not implemented", __FUNCTION__);
     return EOPNOTSUPP; /* not reached */
 
@@ -503,7 +509,6 @@ vm_instr_get(vm_state_t *vm)
         return vm_instr_get_local(vm);
     else
         return vm_instr_get_var(vm);
-
 }
 
 
