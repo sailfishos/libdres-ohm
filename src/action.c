@@ -9,10 +9,6 @@
 #include <dres/compiler.h>
 #include "dres-debug.h"
 
-static int  assign_result(dres_t *dres, dres_action_t *action, void **facts);
-static int  assign_value (dres_t *dres, dres_action_t *action,
-                          dres_variable_t *var);
-
 static void free_args  (dres_arg_t *args);
 static void free_locals(dres_local_t *locals);
 
@@ -162,43 +158,6 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
     
     err = vm_exec(&dres->vm, target->code);
     
-    return err;
-    
-#if 0
-
-    dres_action_t  *action;
-    dres_handler_t *handler;
-    void           *retval;
-    int             err;
-
-
-#if NESTED_TRANSACTIONS_DO_WORK
-    dres_store_tx_new(dres->fact_store);
-#endif
-
-    for (action = target->actions; !err && action; action = action->next) {
-        if (action->type != DRES_ACTION_CALL) {
-            printf("***** skipping non-call action...\n");
-            printf("***** what about $a = $b type assignments ?\n");
-            continue;
-        }
-        
-        handler = action->call->handler;
-        if ((err = handler->handler(dres, handler->name, action, &retval)))
-            continue;
-    
-        err = assign_result(dres, action, retval);
-    }
-
-#if NESTED_TRANSACTIONS_DO_WORK
-    if (err)
-        dres_store_tx_rollback(dres->fact_store);
-    else
-        dres_store_tx_commit(dres->fact_store);
-#endif
-#endif    
-
-
     return err;
 }
 
@@ -514,112 +473,6 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
 
     printf("    %s\n", buf);
 }
-
-
-
-/********************
- * assign_result
- ********************/
-static int
-assign_result(dres_t *dres, dres_action_t *action, void **result)
-{
-#define MAX_FACTS 64
-#define FAIL(ec) do { err = ec; goto out; } while(0)
-
-    struct {
-        dres_array_t  head;
-        void         *facts[MAX_FACTS];
-    } arrbuf = { head: { len: 0 } };
-    dres_array_t     *facts = &arrbuf.head;
-    
-    dres_variable_t *var;
-    dres_vartype_t   type;
-    int              nfact, i, err;
-    
-    char          selector[256];
-
-    selector[0] = '\0';
-    dres_print_selector(dres, action->lvalue.selector,
-                        selector, sizeof(selector));
-    
-    /*
-     * XXX TODO
-     *   This whole fact mangling/copying/converting to dres_array_t is so
-     *   butt-ugly that it needs to be cleaned up. The least worst might be
-     *   to put a dres_array_t to dres_action_t and use that everywhere.
-     */
-    
-    for (nfact = 0; result && result[nfact] != NULL; nfact++)
-        ;
-    
-    err = 0;
-    switch (DRES_ID_TYPE(action->lvalue.variable)) {
-
-    case DRES_TYPE_FACTVAR:
-        if (!(var = dres_lookup_variable(dres, action->lvalue.variable)))
-            FAIL(ENOENT);
-      
-        if (action->type == DRES_ACTION_VALUE) {
-            if ((err = assign_value(dres, action, var)))
-                FAIL(err);
-            else
-                return 0;
-        }
-
-        facts->len = nfact;
-        memcpy(&facts->fact[0], result, nfact * sizeof(result[0]));
-        type = VAR_FACT_ARRAY;
-        if (!dres_var_set(var->var, selector, type, facts))
-            FAIL(EINVAL);
-        
-        break;
-    }
-
- out:
-    for (i = 0; i < nfact; i++)
-        g_object_unref(result[i]);
-    FREE(result);
-
-    return err;
-
-    (void)assign_result;
-}
-
-
-
-/********************
- * assign_value
- ********************/
-static int
-assign_value(dres_t *dres, dres_action_t *action, dres_variable_t *var)
-{
-    dres_value_t *value = &action->value;
-    char          selector[256];
-    int           status;
-
-    selector[0] = '\0';
-    dres_print_selector(dres, action->lvalue.selector,
-                        selector, sizeof(selector));
-
-    status = 0;
-    switch (value->type) {
-    case DRES_TYPE_STRING:
-        if (!dres_var_set_field(var->var, action->lvalue.field,
-                                selector, VAR_STRING, &value->v.s))
-            status = EINVAL;
-        break;
-    case DRES_TYPE_INTEGER:
-        if (!dres_var_set_field(var->var, action->lvalue.field,
-                                selector, VAR_INT, &value->v.i))
-            status = EINVAL;
-        break;
-    default:
-        status = EOPNOTSUPP;
-    }
-    
-    return status;
-}
-    
 
 
 /* 
