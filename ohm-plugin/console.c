@@ -189,6 +189,9 @@ command_dump(int id, char *input)
             console_printf(id, "fact store: %s\n", dump);
             g_free(dump);
         }
+        else if (!strcmp(factname, "targets")) {
+            dres_dump_targets(dres);
+        }
         else {
             for (list = ohm_fact_store_get_facts_by_name(fs, factname);
                  list != NULL;
