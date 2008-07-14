@@ -2,7 +2,6 @@
 #define __POLICY_DRES_H__
 
 #include <glib.h>
-#include <dres/variables.h>
 #include <dres/vm.h>
 #include <dres/mm.h>
 
@@ -149,13 +148,12 @@ struct dres_action_s {
 
 
 typedef struct {
-    int          id;
-    int          stamp;                     /* last update stamp */
-    int          txid;                      /*   of stamp */
-    int          txstamp;                   /* stamp before txid */
-    char        *name;
-    dres_var_t  *var;
-    int          flags;
+    int   id;                               /* variable ID */
+    int   stamp;                            /* last update stamp */
+    int   txid;                             /*   of stamp */
+    int   txstamp;                          /* stamp before txid */
+    char *name;                             /* variable name */
+    int   flags;                            /* DRES_VAR_* */
 } dres_variable_t;
 
 enum {
@@ -183,6 +181,14 @@ typedef struct {
     dres_prereq_t *depends;                 /* reversed prerequisites */
 } dres_graph_t;
 
+
+typedef struct dres_store_s {
+    OhmFactStore     *fs;                   /* fact store of our globals */
+    OhmFactStoreView *view;                 /* to track our globals */
+    GHashTable       *ht;                   /* hash table of our globals */
+} dres_store_t;
+
+
 enum {
     DRES_FLAG_UNKNOWN       = 0x0,
     DRES_ACTIONS_FINALIZED  = 0x1,          /* actions resolved to handlers */
@@ -202,11 +208,11 @@ struct dres_s {
     int              nfactvar;
     dres_variable_t *dresvars;
     int              ndresvar;
-
+    dres_store_t     store;
+    
     int              stamp;
     int              txid;                  /* transaction id */
 
-    dres_store_t    *fact_store;
     dres_handler_t   fallback;
     unsigned long    flags;
     
@@ -305,6 +311,16 @@ int dres_register_handler(dres_t *dres, char *name, dres_handler_t handler);
 
 int dres_run_actions(dres_t *dres, dres_target_t *target);
 
+
+/* variables.c */
+int  dres_store_init (dres_t *dres);
+void dres_store_free (dres_t *dres);
+int  dres_store_track(dres_t *dres);
+int  dres_store_check(dres_t *dres);
+
+int  dres_store_tx_new     (dres_t *dres);
+int  dres_store_tx_commit  (dres_t *dres);
+int  dres_store_tx_rollback(dres_t *dres);
 
 
 /* 

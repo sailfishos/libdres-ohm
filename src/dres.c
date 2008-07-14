@@ -32,11 +32,6 @@ static int  finalize_actions    (dres_t *dres);
 static int  push_locals(dres_t *dres, char **locals);
 static int  pop_locals (dres_t *dres);
 
-static void transaction_commit  (dres_t *dres);
-static void transaction_rollback(dres_t *dres);
-
-
-
 
 int depth = 0;
 
@@ -61,12 +56,10 @@ dres_init(char *prefix)
     if (vm_init(&dres->vm, 32))
         goto fail;
 
-    dres->fact_store = dres_store_init(STORE_FACT,prefix,dres_update_var_stamp);
+    if (dres_store_init(dres))
+        goto fail;
 
     if ((status = dres_register_builtins(dres)) != 0)
-        goto fail;
-    
-    if (dres->fact_store == NULL)
         goto fail;
 
     dres->stamp = 1;
@@ -92,8 +85,8 @@ dres_exit(dres_t *dres)
     dres_free_targets(dres);
     dres_free_factvars(dres);
     dres_free_dresvars(dres);
-    
-    dres_store_destroy(dres->fact_store);
+
+    dres_store_free(dres);
 
     FREE(dres);
 }
@@ -128,22 +121,6 @@ dres_parse_file(dres_t *dres, char *path)
 
 
 /********************
- * dres_check_stores
- ********************/
-void
-dres_check_stores(dres_t *dres)
-{
-    dres_variable_t *var;
-    int              i;
-    
-    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
-        if (!dres_store_check(dres->fact_store, var->name + 1))
-            DEBUG(DBG_VAR, "lookup of %s FAILED", var->name + 1);
-    }
-}
-
-
-/********************
  * create_variable
  ********************/
 static int
@@ -152,7 +129,7 @@ create_variable(dres_t *dres, char *name, dres_init_t *fields)
     dres_init_t  *init;
     char         *field;
     dres_value_t *value;
-    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    OhmFactStore *store = ohm_get_fact_store();
     OhmFact      *fact;
     GValue       *gval;
 
@@ -210,18 +187,7 @@ initialize_variables(dres_t *dres)
 static int
 finalize_variables(dres_t *dres)
 {
-    dres_variable_t *v;
-    int              i, monitor;
-
-    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
-        monitor = DRES_TST_FLAG(v, VAR_PREREQ);
-        if (!(v->var = dres_var_init(dres->fact_store, v->name, v, monitor)))
-            return EIO;
-    }
-    
-    dres_store_finish(dres->fact_store);
-
-    return 0;
+    return dres_store_track(dres);
 }
 
 
@@ -340,14 +306,15 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         return EINVAL;
 
     if (!DRES_TST_FLAG(dres, TRANSACTION_ACTIVE)) {
-        if (!dres_store_tx_new(dres->fact_store))
+        if (!dres_store_tx_new(dres))
             return EINVAL;
+
         dres->txid++;
         own_tx = 1;
     }
 
     dres->stamp++;
-    dres_store_update_timestamps(dres->fact_store, dres);
+    dres_store_check(dres);
     
     if (locals != NULL && (status = push_locals(dres, locals)) != 0)
         goto rollback;
@@ -374,12 +341,12 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     if (status == 0) {
         dres_update_target_stamp(dres, target);
         if (own_tx)
-            transaction_commit(dres);
+            dres_store_tx_commit(dres);
     }
     else {
     rollback:
         if (own_tx)
-            transaction_rollback(dres);
+            dres_store_tx_rollback(dres);
     }
     
     return status;
@@ -433,7 +400,7 @@ push_locals(dres_t *dres, char **locals)
             FAIL(ENOENT);
         }
             
-        if ((err = vm_scope_set(&dres->vm.scope, id, DRES_TYPE_STRING, v)) != 0)
+        if ((err = vm_scope_set(dres->vm.scope, id, DRES_TYPE_STRING, v)) != 0)
             FAIL(err);
     }
     
@@ -453,40 +420,6 @@ static int
 pop_locals(dres_t *dres)
 {
     return vm_scope_pop(&dres->vm);
-}
-
-
-/********************
- * transaction_commit
- ********************/
-static void
-transaction_commit(dres_t *dres)
-{
-    dres_store_tx_commit(dres->fact_store);
-    DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
-}
-
-
-/********************
- * transaction_rollback
- ********************/
-static void
-transaction_rollback(dres_t *dres)
-{
-    dres_target_t   *t;
-    dres_variable_t *var;
-    int              i;
-
-    dres_store_tx_rollback(dres->fact_store);
-    DRES_CLR_FLAG(dres, TRANSACTION_ACTIVE);
-
-    for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++)
-        if (t->txid == dres->txid)
-            t->stamp = t->txstamp;
-
-    for (i = 0, var = dres->dresvars; i < dres->ndresvar; i++, var++)
-        if (var->txid == dres->txid)
-            var->stamp = var->txstamp;
 }
 
 

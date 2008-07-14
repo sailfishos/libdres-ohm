@@ -76,13 +76,8 @@ dres_free_factvars(dres_t *dres)
     int              i;
     dres_variable_t *var;
 
-    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
+    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++)
         FREE(var->name);
-#if 0
-        if (var->var)
-            dres_var_destroy(var->var);
-#endif
-    }
     
     FREE(dres->factvars);
 
@@ -103,11 +98,6 @@ dres_check_factvar(dres_t *dres, int id, int refstamp)
     
     DEBUG(DBG_RESOLVE, "%s: %d > %d ?",
           dres_name(dres, id, buf, sizeof(buf)), var->stamp, refstamp);
-    
-#ifdef STAMP_FORCED_UPDATE
-    var->stamp = dres->stamp+1;          /* fake that variables have changed */
-    return TRUE;
-#endif
     
     return var->stamp > refstamp;
 }
