@@ -5,7 +5,7 @@ libdres_la_SOURCES = parser.y lexer.l \
                      factvar.c dresvar.c variables.c \
                      prereq.c graph.c dres.c \
                      vm-stack.c vm-instr.c vm-global.c vm-local.c \
-                     vm-method.c vm.c \
+                     vm-method.c vm-debug.c vm.c \
                      compiler.c
 
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
