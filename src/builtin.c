@@ -143,6 +143,7 @@ BUILTIN_HANDLER(dres)
 {
     dres_t       *dres = (dres_t *)data;
     char         *goal;
+    vm_chunk_t   *chunk;
     unsigned int *pc;
     int           ninstr;
     int           nsize;
@@ -156,19 +157,21 @@ BUILTIN_HANDLER(dres)
         goal = args[0].v.s;
     }
     
+    chunk  = dres->vm.chunk;
     pc     = dres->vm.pc;
     ninstr = dres->vm.ninstr;
     nsize  = dres->vm.nsize;
 
-    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s",
-          goal ? goal : dres->targets[0].name);
-
+    DEBUG(DBG_RESOLVE, "DRES recursing for %sgoal %s",
+          goal ? "" : "the default ", goal ? goal : "");
+    
     depth++;
     status = dres_update_goal(dres, goal, NULL);
     depth--;
 
     DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 
+    dres->vm.chunk  = chunk;
     dres->vm.pc     = pc;
     dres->vm.ninstr = ninstr;
     dres->vm.nsize  = nsize;
