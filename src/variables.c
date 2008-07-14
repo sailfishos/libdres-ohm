@@ -128,6 +128,10 @@ dres_store_check(dres_t *dres)
             name  = ohm_structure_get_name(OHM_STRUCTURE(fact));
             id    = (int)g_hash_table_lookup(store->ht, name);
 
+#if 0
+            printf("*** variable '%s' has changed\n", name);
+#endif
+
             if (!id) {
                 printf("*** %s: unkown variable %s\n", __FUNCTION__, name);
                 continue;
@@ -155,6 +159,8 @@ dres_store_check(dres_t *dres)
 
             updated = TRUE;
         }
+
+        ohm_view_reset_changes(store->view);
     }
     
     return updated;
