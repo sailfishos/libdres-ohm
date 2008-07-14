@@ -312,9 +312,6 @@ dres_finalize(dres_t *dres)
 EXPORTED int
 dres_update_goal(dres_t *dres, char *goal, char **locals)
 {
-#define ROLLBACK(ec)  do { status = (ec); goto rollback; } while (0)
-#define POPLOCALS(ec) do { status = (ec); goto pop; } while (0)
-
     dres_target_t *target;
     int            id, i, status, own_tx;
 
