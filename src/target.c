@@ -138,9 +138,24 @@ dres_dump_targets(dres_t *dres)
         if (t->actions == NULL)
             printf("  no actions\n");
         else {
+            vm_state_t vm;
+            char       buf[16384];
+            
             printf("  actions:\n");
             for (a = t->actions; a; a = a->next)
                 dres_dump_action(dres, a);
+            if (t->code == NULL)
+                printf("  byte code not generated\n");
+            else {
+                vm.chunk  = t->code;
+                vm.pc     = t->code->instrs;
+                vm.ninstr = t->code->ninstr;
+                vm.nsize  = t->code->nsize;
+                vm_dump_chunk(&vm, buf, sizeof(buf), 4);
+
+                printf("  byte code:\n");
+                printf("%s", buf);
+            }
         }
     }
 }
