@@ -316,16 +316,15 @@ typedef struct vm_method_s {
 
 typedef struct vm_state_s {
     vm_stack_t    *stack;                     /* VM stack */
+
     vm_chunk_t    *chunk;                     /* code being executed */
-    
     unsigned int  *pc;                        /* program counter */
     int            ninstr;                    /* # of instructions left */
     int            nsize;                     /* of code left */
 
     vm_method_t   *methods;                   /* action handlers */
     int            nmethod;                   /* number of actions */
-
-    vm_scope_t    *scope;                     /* current variable scope */
+    vm_scope_t    *scope;                     /* current local variables */
     int            nlocal;                    /* number of local variables */
 } vm_state_t;
 
@@ -429,6 +428,10 @@ int vm_scope_pop (vm_state_t *vm);
 
 int vm_scope_set(vm_scope_t *scope, int id, int type, vm_value_t value);
 int vm_scope_get(vm_scope_t *scope, int id, vm_value_t *value);
+
+/* vm-debug.c */
+
+int vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent);
 
 
 #endif /* __DRES_VM_H__ */
