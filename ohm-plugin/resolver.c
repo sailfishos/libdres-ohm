@@ -115,19 +115,22 @@ plugin_init(OhmPlugin *plugin)
         FAIL("failed to initialize DRES library");
     
     if (dres_register_handler(dres, "prolog", prolog_handler) != 0)
-        FAIL("failed to register RESOLVE prolog handler");
+        FAIL("failed to register resolver prolog handler");
 
     if (dres_register_handler(dres, "signal_changed", signal_handler) != 0)
-        FAIL("failed to register RESOLVE signal_changed handler");
+        FAIL("failed to register resolver signal_changed handler");
 
     if (dres_parse_file(dres, DRES_RULE_PATH))
-        FAIL("failed to parse RESOLVE rule file \"%s\"", DRES_RULE_PATH);
-
-    dres_dump_targets(dres);
+        FAIL("failed to parse resolver rule file \"%s\"", DRES_RULE_PATH);
 
     if (prolog_setup(extensions, rules) != 0)
         FAIL("failed to load extensions and rules to prolog interpreter");
 
+    if (dres_finalize(dres) != 0)
+        FAIL("failed to finalize resolver setup");
+
+    dres_dump_targets(dres);
+    
     if (console_init("127.0.0.1:3000"))
         g_warning("resolver plugin: failed to open console");
 
