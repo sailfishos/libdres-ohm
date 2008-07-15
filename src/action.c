@@ -308,17 +308,19 @@ dres_print_selector(dres_t *dres, dres_select_t *s, char *buf, size_t size)
         left -= n;                                  \
     } while (0)
 
-    char *p, value[128];
+    char *p, *t, value[128];
     int   left, n;
 
     p    = buf;
-    left = size;
+    left = size - 1;
     *p   = '\0';
 
-    for (; s != NULL; s = s->next) {
-        P("%s:", s->field.name);
-        dres_print_value(dres, &s->field.value, value, sizeof(value));
-        P("%s", value);
+    for (t = ""; s != NULL; s = s->next, t = ", ") {
+        P("%s%s", t, s->field.name);
+        if (s->field.value.type != DRES_TYPE_UNKNOWN) {
+            dres_print_value(dres, &s->field.value, value, sizeof(value));
+            P(":%s", value);
+        }
     }
 
     return size - left - 1;

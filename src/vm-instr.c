@@ -13,6 +13,7 @@
 int vm_instr_push   (vm_state_t *vm);
 int vm_instr_pop    (vm_state_t *vm);
 int vm_instr_filter (vm_state_t *vm);
+int vm_instr_update (vm_state_t *vm);
 int vm_instr_set    (vm_state_t *vm);
 int vm_instr_get    (vm_state_t *vm);
 int vm_instr_create (vm_state_t *vm);
@@ -37,6 +38,7 @@ vm_run(vm_state_t *vm)
         case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
         case VM_OP_POP:    status = vm_instr_pop(vm);    break;
         case VM_OP_FILTER: status = vm_instr_filter(vm); break;
+        case VM_OP_UPDATE: status = vm_instr_update(vm); break;
         case VM_OP_SET:    status = vm_instr_set(vm);    break;
         case VM_OP_GET:    status = vm_instr_get(vm);    break;
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
@@ -133,7 +135,7 @@ vm_instr_push(vm_state_t *vm)
         
     vm->ninstr--;
     vm->pc    += nsize;
-    vm->nsize -= nsize; /* nsize * sizeof(int) */
+    vm->nsize -= nsize * sizeof(int);
     
     return 0;
 }
@@ -198,7 +200,7 @@ vm_instr_filter(vm_state_t *vm)
     int          nfield, nfact;
     char        *field;
     vm_value_t   value;
-    int          type, empty;
+    int          type;
     int          i, j;
     
     nfield = VM_FILTER_NFIELD(*vm->pc);
@@ -217,39 +219,120 @@ vm_instr_filter(vm_state_t *vm)
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
 
-        for (j = 0, empty = -1; j < g->nfact; j++) {
+        for (j = 0; j < g->nfact; j++) {
             OhmFact    *fact;
             GValue     *gval;
-            int         idx;
             
-            if ((fact = g->facts[j]) == NULL) {
-                if (empty < 0)
-                    empty = j;
+            if ((fact = g->facts[j]) == NULL)
                 continue;
-            }
-
-            if (empty >= 0) {
-                idx           = empty;
-                g->facts[idx] = fact;
-                g->facts[j]   = NULL;
-                empty         = j;
-            }
-            else
-                idx = j;
 
             if ((gval = ohm_fact_get(fact, field)) == NULL)
                 FAIL("fact has no expected field %s", field);
         
             if (!vm_fact_match_field(vm, fact, field, gval, type, &value)) {
                 g_object_unref(fact);
-                g->facts[idx] = NULL;
+                g->facts[j] = NULL;
                 nfact--;
             }
         }
     }
 
+    if (nfact != g->nfact) {
+        for (i = 0, j = 0; j < nfact; i++) {       /* pack facts tightly */
+            if (g->facts[i] != NULL)
+                g->facts[j++] = g->facts[i];
+        }
+    }
+    
     g->nfact = nfact;
     
+
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
+    return 0;
+#undef FAIL
+}
+
+
+/*
+ * UPDATE
+ */
+
+
+/********************
+ * vm_instr_update
+ ********************/
+int
+vm_instr_update(vm_state_t *vm)
+{
+#define FAIL(fmt, args...) do {                   \
+        if (src) vm_global_free(src);             \
+        if (dst) vm_global_free(dst);             \
+        VM_EXCEPTION(vm, fmt, ## args);           \
+    } while (0)
+    
+    vm_global_t *src, *dst;
+    int          nsrc, ndst;
+    vm_value_t   sval, dval;
+    OhmFact     *sfact, *dfact;
+    int          nfield, i, j;
+
+    src    = NULL;
+    dst    = NULL;
+    nfield = VM_UPDATE_NFIELD(*vm->pc);
+
+    if (vm_peek(vm->stack, nfield, &dval) != VM_TYPE_GLOBAL)
+        FAIL("UPDATE: no global destination found in stack");
+    
+    dst  = dval.g;
+    ndst = dst->nfact;
+
+    if (vm_peek(vm->stack, nfield + 1, &sval) != VM_TYPE_GLOBAL)
+        FAIL("UPDATE: no global source found in stack");
+    
+    src  = sval.g;
+    nsrc = src->nfact;
+    
+    if (nsrc > ndst)
+        FAIL("UPDATE: source dimension > destination");
+    else {
+        char   *fields[nfield];
+        GValue *values[nfield];
+
+        for (i = 0; i < nfield; i++)
+            if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
+                FAIL("UPDATE: expected #%d field name not in stack", i);
+        
+        vm_pop_global(vm->stack);                    /* pop destination */
+        vm_pop_global(vm->stack);                    /* pop source */
+
+        for (i = 0; i < nsrc; i++) {
+            sfact = src->facts[i];
+            if ((j = vm_fact_collect_fields(sfact, fields, nfield, values)) < 0)
+                FAIL("UPDATE: source has no field %s", fields[-j]);
+            
+            if ((j = vm_global_find_first(dst, fields, values, nfield)) < 0)
+                FAIL("UPDATE: source #%d with no matching destination", i);
+            
+            dfact = dst->facts[j];
+            if (vm_fact_copy(dfact, sfact) == NULL)
+                FAIL("UPDATE: failed to copy source fact #%d", i);
+
+            g_object_unref(dfact);
+            dst->facts[j] = NULL;
+            dst->nfact--;
+
+            if ((j = vm_global_find_first(dst, fields, values, nfield)) >= 0)
+                FAIL("UPDATE: source #%d has multiple matches", i);
+
+            g_object_unref(sfact);
+            src->facts[i] = NULL;
+            src->nfact--;
+        }
+    }
+
     vm->ninstr--;
     vm->pc++;
     vm->nsize -= sizeof(int);
@@ -422,8 +505,7 @@ vm_instr_get_field(vm_state_t *vm)
     if (vm_type(vm->stack) != VM_TYPE_GLOBAL)
         FAIL("GET FIELD: destination, global expected");
     
-    g    = vm_pop_global(vm->stack);
-    type = vm_pop(vm->stack, &value);         /* XXX What ? What for ? */
+    g = vm_pop_global(vm->stack);
     
     if (g->nfact < 1)
         FAIL("GET FIELD: nonexisting global");
@@ -601,7 +683,7 @@ vm_instr_call(vm_state_t *vm)
     status = vm_method_call(vm, name, m, narg);
 
     if (status)
-        VM_EXCEPTION(vm, "CALL: %s failed with error %d", name, status);
+        VM_EXCEPTION(vm, "CALL: method '%s' failed (error %d)", name, status);
     
     vm->ninstr--;
     vm->pc++;

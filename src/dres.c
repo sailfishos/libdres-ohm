@@ -109,6 +109,8 @@ dres_parse_file(dres_t *dres, char *path)
     status = yyparse(dres);
     fclose(yyin);
 
+    dres_dump_targets(dres);
+
     if (status == 0)
         status = initialize_variables(dres);
     if (status == 0)
@@ -427,11 +429,8 @@ pop_locals(dres_t *dres)
  * dres_update_var_stamp
  ********************/
 void
-dres_update_var_stamp(void *dresp, void *varp)
+dres_update_var_stamp(dres_t *dres, dres_variable_t *var)
 {
-    dres_t          *dres = (dres_t *)dresp;
-    dres_variable_t *var  = (dres_variable_t *)varp;
-    
     if (var->txid != dres->txid) {
         var->txid    = dres->txid;
         var->txstamp = var->stamp;

@@ -150,13 +150,8 @@ dres_store_check(dres_t *dres)
             }
             
             var = dres->factvars + idx;
+            dres_update_var_stamp(dres, var);
             
-            if (var->txid != dres->txid) {
-                var->txid    = dres->txid;
-                var->txstamp = var->stamp;
-            }
-            var->stamp = dres->stamp;
-
             updated = TRUE;
         }
 

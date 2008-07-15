@@ -83,15 +83,19 @@ vm_global_alloc(int nfact)
 EXPORTED void
 vm_global_free(vm_global_t *g)
 {
-    int i;
+    int i, n;
     
-    if (g != NULL) {
-        for (i = 0; i < g->nfact; i++)
-            if (g->facts[i])
-                g_object_unref(g->facts[i]);
-        
-        FREE(g);
+    if (g == NULL)
+        return;
+    
+    for (i = n = 0; n < g->nfact; i++) {
+        if (g->facts[i]) {
+            g_object_unref(g->facts[i]);
+            n++;
+        }
     }
+    
+    FREE(g);
 }
 
 
@@ -321,6 +325,63 @@ vm_fact_get_field(vm_state_t *vm, OhmFact *fact, char *field, vm_value_t *value)
 
 
 /********************
+ * vm_fact_collect_fields
+ ********************/
+int
+vm_fact_collect_fields(OhmFact *f, char **fields, int nfield, GValue **values)
+{
+    int i;
+    
+    for (i = 0; i < nfield; i++)
+        if ((values[i] = ohm_fact_get(f, fields[i])) == NULL)
+            return -i;
+    
+    return 0;
+}
+
+
+/********************
+ * vm_fact_matches
+ ********************/
+int
+vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
+{
+#define GV(v, t) g_value_get_##t(v)
+#define CMP(s, d, t) (GV(s, t) == GV(d, t))
+
+    int     i;
+    GValue *src, *dst;
+
+    for (i = 0; i < nfield; i++) {
+        src = values[i];
+        dst = ohm_fact_get(f, fields[i]);
+        if (dst == NULL)
+            return ENOENT;
+
+        if (G_VALUE_TYPE(src) != G_VALUE_TYPE(dst))
+            return EINVAL;
+
+        switch (G_VALUE_TYPE(src)) {
+        case G_TYPE_INT:     if (!CMP(src, dst, int))    return 0; break;
+        case G_TYPE_UINT:    if (!CMP(src, dst, uint))   return 0; break;
+        case G_TYPE_LONG:    if (!CMP(src, dst, long))   return 0; break;
+        case G_TYPE_ULONG:   if (!CMP(src, dst, ulong))  return 0; break;
+        case G_TYPE_DOUBLE:  if (!CMP(src, dst, double)) return 0; break;
+        case G_TYPE_FLOAT:   if (!CMP(src, dst, float))  return 0; break;
+        case G_TYPE_STRING: 
+            if (strcmp(GV(src, string), GV(dst, string)))
+                return 0;
+            break;
+        default:
+            return EINVAL;
+        }
+    }
+
+    return 1;
+}
+
+
+/********************
  * vm_fact_print
  ********************/
 void
@@ -333,6 +394,22 @@ vm_fact_print(OhmFact *fact)
 }
 
 
+/********************
+ * vm_global_find_first
+ ********************/
+int
+vm_global_find_first(vm_global_t *g, char **fields, GValue **values, int nfield)
+{
+    int i;
+
+    for (i = 0; i < g->nfact; i++) {
+        if (g->facts[i] != NULL)
+            if (vm_fact_matches(g->facts[i], fields, values, nfield))
+                return i;
+    }
+
+    return -1;
+}
 
 
 /* 

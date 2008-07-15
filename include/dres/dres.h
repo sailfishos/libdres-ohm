@@ -237,7 +237,7 @@ int     dres_parse_file(dres_t *dres, char *path);
 int     dres_finalize(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
-void dres_update_var_stamp(void *dresp, void *varp);
+void dres_update_var_stamp(dres_t *dres, dres_variable_t *var);
 void dres_update_target_stamp(dres_t *dres, dres_target_t *target);
 
 

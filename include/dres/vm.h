@@ -86,6 +86,7 @@ enum {
     VM_OP_PUSH,                               /* push a value or scope */
     VM_OP_POP,                                /* pop a value or scope */
     VM_OP_FILTER,                             /* global filtering */
+    VM_OP_UPDATE,                             /* global updating */
     VM_OP_SET,                                /* global assignment */
     VM_OP_GET,                                /* global/local evaluation */ 
     VM_OP_CREATE,                             /* global creation */
@@ -207,6 +208,22 @@ enum {
         if (ec)                                                         \
             goto errlbl;                                                \
     } while (0)
+
+
+/*
+ * UPDATE instructions
+ */
+
+#define VM_UPDATE_NFIELD(instr) VM_OP_ARGS(instr)
+
+#define VM_INSTR_UPDATE(c, errlbl, ec, n) do {                          \
+        unsigned int instr;                                             \
+        instr = VM_INSTR(VM_OP_UPDATE, n);                              \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+
 
 
 /*
@@ -418,6 +435,15 @@ int          vm_fact_get_field  (vm_state_t *vm, OhmFact *fact, char *field,
                                  vm_value_t *value);
 int          vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
                                  GValue *gval, int type, vm_value_t *value);
+
+int          vm_fact_collect_fields(OhmFact *f, char **fields, int nfield,
+                                    GValue **values);
+int          vm_fact_matches       (OhmFact *f, char **fields, GValue **values,
+                                    int nfield);
+int          vm_global_find_first(vm_global_t *g,
+                                  char **fields, GValue **values, int nfield);
+
+
 
 void vm_fact_print(OhmFact *fact);
 

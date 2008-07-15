@@ -112,10 +112,10 @@ optional_prefix: /* empty */
 
 prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
             set_prefix($3);
-#if 0
-	    printf("*** prefix set to \"%s\"\n", current_prefix);
-#endif
         }
+	| TOKEN_PREFIX "=" TOKEN_IDENT TOKEN_EOL {
+            set_prefix($3);
+	}
 
 optional_initializers: { dres->initializers = NULL; }
         | initializers { dres->initializers = $1; dres_dump_init(dres); }
@@ -213,6 +213,11 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
             $$.value.type = DRES_TYPE_STRING;
             $$.value.v.s  = STRDUP("");
         }
+	| TOKEN_IDENT {
+	    $$.name = STRDUP($1);
+	    $$.value.type = DRES_TYPE_UNKNOWN;
+	    $$.value.v.i  = 0;
+	}
         ;
 
 rules:    rule
@@ -399,6 +404,34 @@ arg:      TOKEN_INTEGER {
             if ($$->value.v.s == NULL)
                 YYABORT;
         }
+        | TOKEN_FACTNAME {
+	    /* XXX TODO
+	     * Notes: This does not make much sense like this. Fact names
+	     *     without any dots come in as TOKEN_IDENT above. We could
+	     *     treat TOKEN_IDENT as a fact name and and auto-prepend
+	     *     the current prefix to it. That would require passing in
+	     *     prolog predicate names as strings though so anyway we
+	     *     lose full backward compatibility this or that way.
+	     *
+	     *     The basic problem is that we do not have enough
+	     *     information to tell when an identifier should be treated
+	     *     as a fact name. One reasonable aproach might be to change
+	     *     the current fact name prefixing conventions upside down,
+	     *     ie. prefix fact names that start with a dot and not vice
+	     *     versa. Although we'd lose backward-compatibility more
+	     *     obviously and visibly it would allow us to treat fact names
+	     *     uniformly regardless whether they are passed by value ($) or
+	     *	   passed by name.
+	     */
+            if (($$ = ALLOC(dres_arg_t)) == NULL)
+                YYABORT;
+            $$->value.type = DRES_TYPE_STRING;
+            $$->value.v.s  = FQFN($1);
+            $$->next = NULL;
+
+            if ($$->value.v.s == NULL)
+                YYABORT;
+        }
         | TOKEN_FACTVAR {
             if (($$ = ALLOC(dres_arg_t)) == NULL)
                 YYABORT;
@@ -505,7 +538,7 @@ set_prefix(char *prefix)
 }
 
 /********************
- * fqfn
+ * factname
  ********************/
 char *
 factname(char *name)

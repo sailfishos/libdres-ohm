@@ -12,11 +12,17 @@ TODO
 
 * implement VM_INSTR_GET (get and push the value of a local on the stack)
 
-- symbolic code dumping
+* symbolic code dumping
+
+- code saving/loading
 
 - implement VM exceptions (and related stack cleanup)
 
-- code saving/loading
+- hide vm_* types at the DRES API level (provide equivalent dres_* types
+  and wrapper DRES functions where necessary)
+
+- revise instruction format and encoding / decoding (better ratio of
+  instruction-specific vs. general code)
 
 more general/architectural stuff:
 
@@ -25,8 +31,6 @@ more general/architectural stuff:
 - garbage collection (not needed currently because of our language
   limitations)
 
-- revise instruction encoding / decoding (to have a better ratio of
-  instruction-specific vs. general code)
 
 
 
@@ -39,7 +43,7 @@ Potential / Probable Problems
 Architectural / Philosophical Questions
 ---------------------------------------
 
-- merge type vm_value_t
+- merge type into vm_value_t
 
   This could make the interface to some of the stack-handling functions
   more handy (especially those that now return a type and write a value to

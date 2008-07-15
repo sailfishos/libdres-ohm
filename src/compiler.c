@@ -32,8 +32,12 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
             return ENOMEM;
     
     for (a = target->actions; a != NULL; a = a->next)
-        if ((status = dres_compile_action(dres, a, target->code)) != 0)
+        if ((status = dres_compile_action(dres, a, target->code)) != 0) {
+            printf("failed to compile the following action of target %s\n",
+                   target->name);
+            dres_dump_action(dres, a);
             return status;
+        }
 
     return 0;
 }
@@ -227,6 +231,7 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
     dres_value_t  *value;
     const char    *name;
     int            n, err;
+    int            update, filter;
     
     if (lvalue->variable == DRES_ID_NONE)
         FAIL(EINVAL);
@@ -236,22 +241,46 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
         if ((name = dres_factvar_name(dres, lvalue->variable)) == NULL)
             FAIL(ENOENT);
         VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
-
+        
+        update = filter = FALSE;
         if (lvalue->selector != NULL) {
-            for (n = 0, s = lvalue->selector; s != NULL; n++, s = s->next) {
-                value = &s->field.value;
-                PUSH_VALUE(code, fail, err, value);            
-                VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
+            for (n = 0, s = lvalue->selector; s != NULL; s = s->next) {
+                if (s->field.value.type == DRES_TYPE_UNKNOWN) {
+                    update = TRUE;
+                    continue;
+                }
+                else {
+                    filter = TRUE;
+                    value = &s->field.value;
+                    PUSH_VALUE(code, fail, err, value);            
+                    VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
+                    n++;
+                }
             }
-            VM_INSTR_FILTER(code, fail, err, n);
+            if (filter)
+                VM_INSTR_FILTER(code, fail, err, n);
         }
 
         if (lvalue->field != NULL) {
+            if (update)
+                FAIL(EINVAL);
+            
             VM_INSTR_PUSH_STRING(code, fail, err, lvalue->field);
             VM_INSTR_SET_FIELD(code, fail, err);
         }
-        else
-            VM_INSTR_SET(code, fail, err);
+        else {
+            if (update) {
+                for (n = 0, s = lvalue->selector; s != NULL; s = s->next) {
+                    if (s->field.value.type != DRES_TYPE_UNKNOWN)
+                        continue;
+                    VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
+                    n++;
+                }
+                VM_INSTR_UPDATE(code, fail, err, n);
+            }
+            else
+                VM_INSTR_SET(code, fail, err);
+        }
         break;
         
     case DRES_TYPE_DRESVAR:

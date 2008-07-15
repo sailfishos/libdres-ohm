@@ -18,6 +18,7 @@
 int vm_dump_push  (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_pop   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_filter(vm_state_t *vm, char *buf, size_t size, int indent);
+int vm_dump_update(vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_set   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_get   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_create(vm_state_t *vm, char *buf, size_t size, int indent);
@@ -38,6 +39,7 @@ vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent)
         case VM_OP_PUSH:   n = vm_dump_push(vm, buf, size, indent);   break;
         case VM_OP_POP:    n = vm_dump_pop(vm, buf, size, indent);    break;
         case VM_OP_FILTER: n = vm_dump_filter(vm, buf, size, indent); break;
+        case VM_OP_UPDATE: n = vm_dump_update(vm, buf, size, indent); break;
         case VM_OP_SET:    n = vm_dump_set(vm, buf, size, indent);    break;
         case VM_OP_GET:    n = vm_dump_get(vm, buf, size, indent);    break;
         case VM_OP_CREATE: n = vm_dump_create(vm, buf, size, indent); break;
@@ -155,6 +157,27 @@ vm_dump_filter(vm_state_t *vm, char *buf, size_t size, int indent)
     INDENT(indent);
 
     n += snprintf(buf, size, "filter %d\n", nfield);
+
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
+    return n;
+}
+
+
+/********************
+ * vm_dump_update
+ ********************/
+int
+vm_dump_update(vm_state_t *vm, char *buf, size_t size, int indent)
+{
+    int nfield = VM_UPDATE_NFIELD(*vm->pc);
+    int n;
+
+    INDENT(indent);
+
+    n += snprintf(buf, size, "update %d\n", nfield);
 
     vm->ninstr--;
     vm->pc++;

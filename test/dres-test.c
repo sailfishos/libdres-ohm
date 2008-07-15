@@ -229,7 +229,7 @@ fact_handler(void *data, char *name,
     if ((fact = ohm_fact_new(factname)) == NULL)
         FAIL(ENOMEM);
     
-    gval = ohm_value_from_string(name);
+    gval = ohm_value_from_string(factname);
     ohm_fact_set(fact, "name", gval);
 
     snprintf(stampval, sizeof(stampval), "%d", stamp++);
