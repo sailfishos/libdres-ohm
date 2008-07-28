@@ -41,7 +41,7 @@ int
 dres_target_id(dres_t *dres, char *name)
 {
     dres_target_t *target;
-    int            i;
+    unsigned int   i;
 
     if (name != NULL)
         for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
@@ -60,7 +60,8 @@ dres_target_t *
 dres_lookup_target(dres_t *dres, char *name)
 {
     dres_target_t *target;
-    int            i, id;
+    unsigned int   i;
+    int            id;
     
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++)
         if (!strcmp(name, target->name))
@@ -80,7 +81,7 @@ void
 dres_free_targets(dres_t *dres)
 {
     dres_target_t *target;
-    int            i;
+    unsigned int   i;
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         FREE(target->name);
@@ -104,7 +105,8 @@ dres_dump_targets(dres_t *dres)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
-    int            i, j, id, idx;
+    unsigned int   i, j;
+    int            id, idx;
     char          *sep, name[64];
 
     
@@ -154,7 +156,8 @@ dres_check_target(dres_t *dres, int tid)
 {
     dres_target_t *target, *t;
     dres_prereq_t *prq;
-    int            i, id, update, status;
+    int            id, update, status;
+    unsigned int   i;
     char           buf[32];
 
     DEBUG(DBG_RESOLVE, "checking target %s",

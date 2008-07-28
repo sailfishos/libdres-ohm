@@ -41,7 +41,7 @@ typedef struct dres_s dres_t;
 
 typedef struct {
     int *ids;                              /* prerequisite IDs */
-    int  nid;                              /* number of prerequisites */
+    unsigned int  nid;                     /* number of prerequisites */
 } dres_prereq_t;
 
 typedef struct dres_action_s dres_action_t;
@@ -79,9 +79,9 @@ struct dres_action_s {
     int             immediate;             /* immediate value XXX kludge */
     dres_handler_t *handler;               /* handler */
     int            *arguments;             /* name(arguments...) */
-    int             nargument;             /* number of arguments */
+    unsigned int    nargument;             /* number of arguments */
     dres_assign_t  *variables;             /* name(arguments, variables) */
-    int             nvariable;             /* number of variables */
+    unsigned int    nvariable;             /* number of variables */
     dres_action_t  *next;                  /* more actions */
 };
 
@@ -131,9 +131,9 @@ typedef struct {
 } dres_target_t;
 
 typedef struct {
-    int            ntarget;
-    int            nfactvar;
-    int            ndresvar;
+    unsigned int            ntarget;
+    unsigned int            nfactvar;
+    unsigned int            ndresvar;
     dres_prereq_t *depends;                 /* reversed prerequisites */
 } dres_graph_t;
 
@@ -159,13 +159,13 @@ struct dres_scope_s {
 
 struct dres_s {
     dres_target_t   *targets;
-    int              ntarget;
+    unsigned int     ntarget;
     dres_variable_t *factvars;
-    int              nfactvar;
+    unsigned int     nfactvar;
     dres_variable_t *dresvars;
-    int              ndresvar;
+    unsigned int     ndresvar;
     dres_literal_t  *literals;
-    int              nliteral;
+    unsigned int     nliteral;
 
     int              stamp;
     int              txid;                  /* transaction id */
@@ -176,7 +176,7 @@ struct dres_s {
     dres_scope_t    *scope;
 
     dres_handler_t  *handlers;
-    int              nhandler;
+    unsigned int     nhandler;
     dres_handler_t   fallback;
 
     unsigned long    flags;

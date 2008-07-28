@@ -9,6 +9,9 @@ $fact4 = { name: fact4, value: 4 }
 $fact5 = { name: fact5, value: 5 }
 
 
+all: test1
+	echo(alldone)
+
 test1: touch1 fact1
 	echo(checking1)
 	check(fact4, stamp, 1)
@@ -32,6 +35,24 @@ test2: touch2 fact3
 	check(fact4, stamp, 1)
 	check(fact3, stamp, 2)
 	echo(test2OK)
+	dres(all)
+
+
+testrec1: fact1
+	echo(testrec1)
+	echo(recursing)
+	dres(testrec2)
+	echo(testrec1done)
+
+testrec2: fact2
+	echo(testrec2)
+	echo(gonnafail)
+	fail(foo)
+	echo(testrec2done)
+
+testrecursefail: touch2 testrec1
+	echo(checking2)
+	dres(all)
 
 touch2:
 	echo(touch2)
@@ -47,7 +68,7 @@ test3: touch3 fact5
 	check(fact2, stamp, 202)
 	check(fact4, stamp, 1)
 	check(fact3, stamp, 2)
-	echo(test2OK)
+	echo(test3OK)
 
 touch3:
 	echo(touch3)
