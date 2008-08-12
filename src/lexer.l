@@ -18,6 +18,10 @@
 #  endif
 #endif
 
+static int lexer_push_include(char *path);
+static int lexer_pop_include (void);
+
+
 /*
  * Notes:
  *
@@ -47,7 +51,7 @@ static int  ringoffs = 0;
    } while (0)
 
 #  define SAVEN(v, n) do {                                 \
-       int __size, __len;                                  \
+       int   __size, __len;                                \
        if ((n) > (__len = strlen(v)))                      \
            __size = __len + 1;                             \
        else                                                \
@@ -57,7 +61,7 @@ static int  ringoffs = 0;
        yylval.string = strncpy(ringbuff + ringoffs, v, n); \
        ringbuff[ringoffs + (n)] = '\0';                    \
        ringoffs += __size;                                 \
-   } while (0)
+   } while(0)
 
 #  define INTEGER(v, base) do {                            \
        yylval.integer = strtol(v, NULL, base);             \
@@ -135,8 +139,18 @@ static int  ringoffs = 0;
     } while (0)
 
 int pass_newline = 0;
-int lineno = 1;
-int seen_prefix = 0;
+
+typedef struct lexer_file_s lexer_file_t;
+struct lexer_file_s {
+    char             *path;
+    YY_BUFFER_STATE   yybuf;
+    FILE             *fp;
+    int               lineno;
+    lexer_file_t     *prev;
+};
+
+lexer_file_t *current   = NULL;
+lexer_file_t *processed = NULL;
 
 %}
 
@@ -144,6 +158,7 @@ TAB		^\t/[ \t]*[^#]+
 WS		[ \t]+
 OWS		[ \t]*
 PREFIX		^PREFIX/({WS}|=)
+INCLUDE		^INCLUDE
 COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
 EOL		\n+
@@ -159,7 +174,7 @@ DRESVAR		&{IDENT}
 ESCAPE          \\
 
 %s action
-
+%x incl
 
 %%
 
@@ -169,7 +184,7 @@ ESCAPE          \\
                     if ((c = input()) != '\n')
 		        unput(c);
                     else
-                        lineno++;
+                        current->lineno++;
                 }
 {COMMENT_TRAIL} { int c;
                   DEBUG("ignoring trailing comment");
@@ -183,7 +198,7 @@ ESCAPE          \\
 ^[ \t]*$	{ int c;
    		  if ((c = input()) != '\n')
 		      unput(c);
-		  lineno++;
+		  current->lineno++;
    		  if (!pass_newline)
 		      DEBUG("ignoring empty line");
                   else
@@ -194,7 +209,7 @@ ESCAPE          \\
 		      unput(c);
 		  else {
                       DEBUG("ignoring escaped newline");
-                      lineno++;
+                      current->lineno++;
 		      if ((c = input()) == '\t')
 		          unput(' ');
 		      else
@@ -202,10 +217,25 @@ ESCAPE          \\
                   }
                 }
 
+{INCLUDE}       { BEGIN(incl); }
+
+<incl>[ \t]*    { /* ignore whitespace before path */ }
+<incl>[^ \t\n]+ {
+                  if (lexer_push_include(yytext) != 0) {
+                      printf("failed to open file \"%s\"\n", yytext);
+                      exit(1);
+                  }
+                  BEGIN(INITIAL);
+                }
+
+<<EOF>>         { if (lexer_pop_include() == ENOENT)
+                      yyterminate();
+                }
+
 {IDENT}		{ SAVE(yytext); TOKEN(IDENT);       }
 {PREFIX}        { TOKEN(PREFIX);                    }
-{TAB}           { TOKEN(TAB);                         }
-{EOL}		{ lineno += yyleng; TOKEN(EOL);       }
+{TAB}           { TOKEN(TAB);                            }
+{EOL}		{ current->lineno += yyleng; TOKEN(EOL); }
 \.              { TOKEN(DOT);                         }
 
 {STRING}	{ SAVEN(yytext+1, yyleng-2); TOKEN(STRING);   }
@@ -231,7 +261,77 @@ ESCAPE          \\
 %%
 
 
-int lexer_lineno(void) { return lineno; }
+static int
+lexer_push_include(char *path)
+{
+    lexer_file_t *file;
+    FILE         *fp;
+
+    if ((fp = fopen(path, "r")) == NULL)
+        return errno;
+    else {
+        if ((file = malloc(sizeof(*file))) == NULL) {
+            fclose(fp);
+            return ENOMEM;
+        }
+        memset(file, 0, sizeof(*file));
+        file->path   = strdup(path);
+        file->fp     = fp;
+        file->lineno = 1;
+        file->prev   = current;
+        file->yybuf  = yy_create_buffer(fp, YY_BUF_SIZE);
+
+        current = file;
+        yypush_buffer_state(file->yybuf);
+
+        DEBUG("PUSH \"%s\"...\n", file->path);
+    }
+
+    return 0;
+}
+
+
+static int
+lexer_pop_include(void)
+{
+    lexer_file_t *old;
+
+    if (current == NULL)
+        return ENOENT;
+
+    old     = current;
+    current = old->prev;
+
+    old->prev = processed;
+    processed = old;
+
+    DEBUG("POP: popped \"%s\"\n", old->path);
+
+    if (current != NULL) {
+        yypop_buffer_state();
+        DEBUG("POP: current in \"%s\"\n", current->path);
+        return 0;
+    }
+    else
+        return ENOENT;
+}
+
+
+int
+lexer_open(char *path)
+{
+    return lexer_push_include(path);
+}
+
+
+int
+lexer_lineno(void)
+{
+    return current ? current->lineno : 1;
+}
+
+
+
 
 #ifdef __TEST_LEXER__
 

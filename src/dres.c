@@ -22,7 +22,8 @@ TRACE_DECLARE_COMPONENT(trcdres, "dres",
     TRACE_FLAG_INIT("resolve", "dependency resolving", &DBG_RESOLVE));
     
 
-extern FILE *yyin;
+extern FILE *lexer_open(char *path);
+extern int   lexer_lineno(void);
 extern int   yyparse(dres_t *dres);
 
 static int  initialize_variables(dres_t *dres);
@@ -103,12 +104,11 @@ dres_parse_file(dres_t *dres, char *path)
     if (path == NULL)
         return EINVAL;
     
-    if ((yyin = fopen(path, "r")) == NULL)
-        return errno;
+    if ((status = lexer_open(path)) != 0)
+        return status;
     
     status = yyparse(dres);
-    fclose(yyin);
-
+    
     dres_dump_targets(dres);
 
     if (status == 0)
@@ -511,10 +511,9 @@ dres_dump_sort(dres_t *dres, int *list)
 EXPORTED void
 yyerror(dres_t *dres, const char *msg)
 {
-    extern int lineno;
     extern void dres_parse_error(dres_t *, int, const char *, const char *);
 
-    dres_parse_error(dres, lineno, msg, yylval.string);
+    dres_parse_error(dres, lexer_lineno(), msg, yylval.string);
 }
 
 
