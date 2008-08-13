@@ -21,7 +21,7 @@
   o shell("command arguments...", timeout)
   o prolog(predicate, arguments..., retval)
 
-- add an include-directive to the DRES-parser/lexer
++ add an include-directive to the DRES-parser/lexer
 
 - allow $variables as targets
 
