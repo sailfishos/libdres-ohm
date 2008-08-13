@@ -15,7 +15,7 @@ policy_group(source, othermedia).
  * Here is a bunch of exception for audio routing
  */
 invalid_audio_device_choice(Group, SinkOrSource, _, Device) :-
-    (not(Group=ringtone) ->
+    (not(Group=ringtone), not(audio:privacy_override(_)) ->
          findall(P, audio:available_accessory(SinkOrSource, P), AccessoryList),
          not(AccessoryList==[]),
          not(member(Device, AccessoryList))
@@ -27,6 +27,12 @@ invalid_audio_device_choice(_, sink, public, _) :-
 
 invalid_audio_device_choice(_, sink, _, earpiece) :-
     audio:active_policy_group(ringtone).
+
+invalid_audio_device_choice(othermedia, sink, _, earpiece).
+invalid_audio_device_choice(player    , sink, _, earpiece).
+
+invalid_audio_device_choice(Group, sink, _, ihfandheadset) :-
+     not(Group=ringtone).
 
 /*
 invalid_audio_device_choice(_, sink, _, earpiece) :-
@@ -89,9 +95,9 @@ enforce_pausing(player, earpiece) :-
  */
 /*
 audio_play_preconditions(PolicyGroup, MediaType, PreCondList) :-
-*/
 audio_play_preconditions(_, _, PreCondList) :-
     PreCondList=[[cpu_frequency_request, 300], [cpu_load, lt, 50]].
+*/
 
-reject_audio_play_request(_, _) :-
+reject_group_play_request(_, _) :-
     fail.
