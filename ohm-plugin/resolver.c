@@ -95,6 +95,7 @@ static void
 plugin_init(OhmPlugin *plugin)
 {
 #define DRES_RULE_PATH "/tmp/policy/policy.dres"
+#define DRES_PLC_PATH  "/tmp/policy/policy.plc"
 #define PROLOG_SYSDIR  "/usr/share/prolog/"
 #define PROLOG_RULEDIR "/tmp/policy/prolog/"
 
@@ -109,11 +110,15 @@ plugin_init(OhmPlugin *plugin)
     };
 
     char *rules[] = {
+#if 0
+        DRES_PLC_PATH,
+#else
         PROLOG_RULEDIR"hwconfig",
         PROLOG_RULEDIR"devconfig",
         PROLOG_RULEDIR"interface",
         PROLOG_RULEDIR"profile",
         PROLOG_RULEDIR"audio",
+#endif
         NULL
     };
 
