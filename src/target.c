@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 #include <dres/dres.h>
 #include <dres/compiler.h>
@@ -106,6 +107,8 @@ dres_dump_targets(dres_t *dres)
     dres_action_t *a;
     int            i, j, id, idx;
     char          *sep, name[64];
+    vm_state_t     vm;
+    char           buf[16384];
 
     
     printf("Found %d targets:\n", dres->ntarget);
@@ -135,27 +138,36 @@ dres_dump_targets(dres_t *dres)
                 printf(" still unresolved...\n");
         }
         
-        if (t->actions == NULL)
-            printf("  no actions\n");
-        else {
-            vm_state_t vm;
-            char       buf[16384];
-            
-            printf("  actions:\n");
-            for (a = t->actions; a; a = a->next)
-                dres_dump_action(dres, a);
+        if (t->actions == NULL) {
             if (t->code == NULL)
-                printf("  byte code not generated\n");
-            else {
-                vm.chunk  = t->code;
-                vm.pc     = t->code->instrs;
-                vm.ninstr = t->code->ninstr;
-                vm.nsize  = t->code->nsize;
-                vm_dump_chunk(&vm, buf, sizeof(buf), 4);
+                printf("  no actions\n");
+            else
+                printf("  actions not saved, see bytecode\n");
+        }
+        
+        printf("  actions:\n");
+        if (t->actions == NULL) {
+            if (t->code == NULL)
+                printf("  none\n");
+            else
+                printf("  not saved, see bytecode\n");
+        }
 
-                printf("  byte code:\n");
-                printf("%s", buf);
-            }
+        for (a = t->actions; a; a = a->next)
+            dres_dump_action(dres, a);
+        if (t->code == NULL) {
+            if (t->actions != NULL)
+                printf("  byte code not generated\n");
+        }
+        else {
+            vm.chunk  = t->code;
+            vm.pc     = t->code->instrs;
+            vm.ninstr = t->code->ninstr;
+            vm.nsize  = t->code->nsize;
+            vm_dump_chunk(&vm, buf, sizeof(buf), 4);
+
+            printf("  byte code:\n");
+            printf("%s", buf);
         }
     }
 }
@@ -226,9 +238,154 @@ dres_check_target(dres_t *dres, int tid)
 }
 
 
+/********************
+ * dres_save_targets
+ ********************/
+int
+dres_save_targets(dres_t *dres, dres_buf_t *buf)
+{
+    dres_target_t *t;
+    int            i, j;
+
+    dres_buf_ws32(buf, dres->ntarget);
+    buf->header.ntarget = dres->ntarget;
+
+    for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++) {
+        dres_buf_ws32(buf, t->id);
+        dres_buf_wstr(buf, t->name);
+        if (t->prereqs == NULL)
+            dres_buf_ws32(buf, 0);
+        else {
+            dres_buf_ws32(buf, t->prereqs->nid);
+            
+            for (j = 0; j < t->prereqs->nid; j++) {
+                dres_buf_ws32(buf, t->prereqs->ids[j]);
+                buf->header.ntarget++;
+            }
+        }
+
+        /* actions skipped */
+        
+        if (t->code == NULL) {
+            dres_buf_ws32(buf, 0);
+        }
+        else {
+            dres_buf_ws32(buf, t->code->ninstr);
+            dres_buf_ws32(buf, t->code->nsize);
+            
+#if 1
+            dres_buf_wbuf(buf, (char *)t->code->instrs, t->code->nsize);
+#else /* XXX TODO: this is completely broken now wrt. endianness */
+            for (j = 0; j < t->code->ninstr; j++)
+                dres_buf_wu32(buf, t->code->instrs[j]);
+#endif
+
+            buf->header.ncode++;
+            buf->header.sinstr += t->code->nsize;
+        }
+        
+        if (t->dependencies == NULL)
+            dres_buf_ws32(buf, 0);
+        else {
+            for (j = 0; t->dependencies[j] != DRES_ID_NONE; j++)
+                ;
+            dres_buf_ws32(buf, j + 1);
+
+            for (j = 0; t->dependencies[j] != DRES_ID_NONE; j++)
+                dres_buf_ws32(buf, t->dependencies[j]);
+
+            buf->header.ndependency += j + 1;
+        }
+    }
+
+    return buf->error;
+}
 
 
+/********************
+ * dres_load_targets
+ ********************/
+int
+dres_load_targets(dres_t *dres, dres_buf_t *buf)
+{
+    dres_target_t *t;
+    int            i, j, n;
 
+    dres->ntarget = dres_buf_rs32(buf);
+    dres->targets = dres_buf_alloc(buf, dres->ntarget * sizeof(*dres->targets));
+
+    if (dres->targets == NULL)
+        return ENOMEM;
+
+    for (i = 0, t = dres->targets; i < dres->ntarget; i++, t++) {
+        t->id   = dres_buf_rs32(buf);
+        t->name = dres_buf_rstr(buf);
+        n       = dres_buf_rs32(buf);
+
+        if (n <= 0)
+            t->prereqs = NULL;
+        else {
+            t->prereqs = dres_buf_alloc(buf, sizeof(*t->prereqs));
+
+            if (t->prereqs == NULL)
+                return ENOMEM;
+            
+            t->prereqs->nid = n;
+            t->prereqs->ids = dres_buf_alloc(buf, n * sizeof(*t->prereqs->ids));
+
+            if (t->prereqs->ids == NULL)
+                return ENOMEM;
+
+            for (j = 0; j < t->prereqs->nid; j++)
+                t->prereqs->ids[j] = dres_buf_rs32(buf);
+        }
+
+        /* actions skipped */
+        
+        n = dres_buf_rs32(buf);
+        
+        if (n <= 0)
+            t->code = NULL;
+        else {
+            t->code = dres_buf_alloc(buf, sizeof(*t->code));
+            t->code->ninstr = n;
+            t->code->nsize  = dres_buf_rs32(buf);
+            
+            if (t->code == NULL)
+                return ENOMEM;
+
+#if 1 /* XXX TODO: this is broken wrt. endianness */
+            t->code->instrs = (unsigned int *)dres_buf_rbuf(buf,t->code->nsize);
+#else /* XXX TODO: this is also broken wrt. endianness */
+            t->code->instrs =
+                dres_buf_alloc(buf, t->code->ninstr * sizeof(*t->code->instrs));
+            
+            if (t->code->instrs == NULL)
+                return ENOMEM;
+            
+            for (j = 0; j < t->code->ninstr; j++)
+                t->code->instrs[j] = dres_buf_ru32(buf);
+#endif
+        }
+        
+        n = dres_buf_rs32(buf);
+
+        if (n <= 0)
+            t->dependencies = NULL;
+        else {
+            t->dependencies = dres_buf_alloc(buf, n * sizeof(*t->dependencies));
+            
+            if (t->dependencies == NULL)
+                return ENOMEM;
+                                             
+            for (j = 0; j < n - 1; j++)
+                t->dependencies[j] = dres_buf_rs32(buf);
+            t->dependencies[j] = DRES_ID_NONE;
+        }
+    }
+
+    return buf->error;
+}
 
 
 /* 

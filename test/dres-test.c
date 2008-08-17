@@ -40,40 +40,36 @@ static int  dump_handler (void *data, char *name,
                           vm_stack_entry_t *rv);
 static void dump_facts   (char *format, ...);
 
+static int  register_handlers(dres_t *dres);
+
 
 int
 main(int argc, char *argv[])
 {
     char  *rulefile = TEST_RULEFILE;
+    char   precomp[256];
     char  *all[]    = { "all", NULL };
     char **goals    = all;
-    int    i;
+    int    i, compiled = 0;
+
+    if (argc > 1 && !strcmp(argv[1], "-c")) {
+        compiled = 1;
+        argc--;
+        argv++;
+    }
 
     if (argc > 1)
         rulefile = argv[1];
-
-    g_type_init();
     
+    g_type_init();
+
     if ((store = ohm_fact_store_get_fact_store()) == NULL)
         fatal(1, "failed to initialize OHM fact store");
     
     if ((dres = dres_init(TEST_PREFIX)) == NULL)
         fatal(2, "failed to initialize DRES library");
 
-    if (dres_register_handler(dres, "stamp", stamp_handler) != 0)
-        fatal(3, "failed to register DRES stamp handler");
-    
-    if (dres_register_handler(dres, "touch", touch_handler) != 0)
-        fatal(3, "failed to register DRES touch handler");
-
-    if (dres_register_handler(dres, "fact", fact_handler) != 0)
-        fatal(3, "failed to register DRES fact handler");
-    
-    if (dres_register_handler(dres, "check", check_handler) != 0)
-        fatal(3, "failed to register DRES check handler");
-    
-    if (dres_register_handler(dres, "dump", dump_handler) != 0)
-        fatal(3, "failed to register DRES dump handler");
+    register_handlers(dres);
     
     if (dres_parse_file(dres, rulefile))
         fatal(4, "failed to parse DRES rule file %s", rulefile);
@@ -84,6 +80,10 @@ main(int argc, char *argv[])
     dres_dump_targets(dres);
     printf("=========================================\n");
     
+    snprintf(precomp, sizeof(precomp), "%sc", rulefile);
+    unlink(precomp);
+    dres_save(dres, precomp);
+
     /*exit(0);*/
 
 
@@ -114,7 +114,37 @@ main(int argc, char *argv[])
 #endif
 
     dres_exit(dres);
+
+    if ((dres = dres_load(precomp)) == NULL)
+        fatal(6, "failed to load precompiled DRES file %s", precomp);
     
+    printf("***** Wow, loaded a compiled DRES file. *****\n");
+
+    return 0;
+}
+
+
+/********************
+ * register_handlers
+ ********************/
+static int
+register_handlers(dres_t *dres)
+{
+    if (dres_register_handler(dres, "stamp", stamp_handler) != 0)
+        fatal(3, "failed to register DRES stamp handler");
+    
+    if (dres_register_handler(dres, "touch", touch_handler) != 0)
+        fatal(3, "failed to register DRES touch handler");
+    
+    if (dres_register_handler(dres, "fact", fact_handler) != 0)
+        fatal(3, "failed to register DRES fact handler");
+    
+    if (dres_register_handler(dres, "check", check_handler) != 0)
+        fatal(3, "failed to register DRES check handler");
+    
+    if (dres_register_handler(dres, "dump", dump_handler) != 0)
+        fatal(3, "failed to register DRES dump handler");
+
     return 0;
 }
 

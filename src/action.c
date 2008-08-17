@@ -22,10 +22,14 @@ static void free_locals(dres_local_t *locals);
  * dres_new_call
  ********************/
 dres_call_t *
-dres_new_call(char *name, dres_arg_t *args, dres_local_t *locals)
+dres_new_call(dres_t *dres, char *name, dres_arg_t *args, dres_local_t *locals)
 {
     dres_call_t *call;
-
+    int          err;
+    
+    if ((err = dres_register_handler(dres, name, NULL)) != 0 && err != EEXIST)
+        return NULL;
+    
     if (ALLOC_OBJ(call) == NULL)
         return NULL;
 
@@ -36,6 +40,7 @@ dres_new_call(char *name, dres_arg_t *args, dres_local_t *locals)
     
     call->args   = args;
     call->locals = locals;
+
 
     return call;
 }
@@ -127,7 +132,10 @@ dres_free_actions(dres_action_t *actions)
 EXPORTED int
 dres_register_handler(dres_t *dres, char *name, dres_handler_t handler)
 {
-    return vm_method_add(&dres->vm, name, handler, dres);
+    if (DRES_TST_FLAG(dres, COMPILED))
+        return EINVAL;
+    else
+        return vm_method_add(&dres->vm, name, handler, dres);
 }
 
 

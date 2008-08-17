@@ -27,24 +27,30 @@ vm_method_add(vm_state_t *vm, char *name, vm_action_t handler, void *data)
 {
     vm_method_t *m;
     
-    if (vm_method_lookup(vm, name) != &default_method)
-        return EEXIST;
+    if ((m = vm_method_lookup(vm, name)) != &default_method) {
+        if (m->handler != NULL)
+            return EEXIST;
+    }
+    else {
+        if (REALLOC_ARR(vm->methods, vm->nmethod, vm->nmethod + 1) == NULL)
+            return ENOMEM;
+
+        m = vm->methods + vm->nmethod;
+        
+        m->name = STRDUP(name);
+        m->id   = vm->nmethod;
+
+        if (m->name == NULL)
+            return ENOMEM;
+        
+        vm->nmethod++;
+    }
+
+    if (handler != NULL) {
+        m->handler = handler;
+        m->data    = data;
+    }
     
-    if (REALLOC_ARR(vm->methods, vm->nmethod, vm->nmethod + 1) == NULL)
-        return ENOMEM;
-
-    m = vm->methods + vm->nmethod;
-
-    m->name    = STRDUP(name);
-    m->id      = vm->nmethod;
-    m->handler = handler;
-    m->data    = data;
-
-    if (m->name == NULL)
-        return ENOMEM;
-
-    vm->nmethod++;
-
     return 0;
 }
 
@@ -62,6 +68,21 @@ vm_method_lookup(vm_state_t *vm, char *name)
             return vm->methods + i;
     
     return &default_method;
+}
+
+
+/********************
+ * vm_method_id
+ ********************/
+int
+vm_method_id(vm_state_t *vm, char *name)
+{
+    vm_method_t *m = vm_method_lookup(vm, name);
+
+    if (m == &default_method)
+        return -1;
+    
+    return m->id;
 }
 
 
@@ -100,6 +121,7 @@ vm_method_default(vm_state_t *vm, vm_action_t handler)
 int
 vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
 {
+    vm_action_t       handler;
     vm_stack_entry_t *args = vm_args(vm->stack, narg);
     vm_stack_entry_t  retval;
     vm_value_t        arg;
@@ -108,7 +130,8 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
     if (args == NULL)
         VM_EXCEPTION(vm, "CALL: failed to pop %d args for %s", narg, m->name);
     
-    status = m->handler(m->data, name, args, narg, &retval);
+    handler = m->handler ? m->handler : default_method.handler;
+    status  = handler(m->data, name, args, narg, &retval);
     
     for (i = 0; i < narg; i++) {
         if ((type = vm_pop(vm->stack, &arg)) == VM_TYPE_GLOBAL)

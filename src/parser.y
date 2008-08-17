@@ -347,16 +347,16 @@ varref: TOKEN_FACTVAR {
 
 
 call: TOKEN_IDENT "(" args "," locals ")" {
-            $$ = dres_new_call($1, $3, $5);
+            $$ = dres_new_call(dres, $1, $3, $5);
         }
 	| TOKEN_IDENT "(" args ")" {
-	    $$ = dres_new_call($1, $3, NULL);
+	    $$ = dres_new_call(dres, $1, $3, NULL);
         }
 	| TOKEN_IDENT "(" locals ")" {
-	    $$ = dres_new_call($1, NULL, $3);
+	    $$ = dres_new_call(dres, $1, NULL, $3);
         }
 	| TOKEN_IDENT "(" ")" {
-            $$ = dres_new_call($1, NULL, NULL);
+            $$ = dres_new_call(dres, $1, NULL, NULL);
         }
 	;
 

@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #include <dres/dres.h>
 #include <dres/compiler.h>
@@ -125,6 +126,52 @@ dres_local_value(dres_t *dres, int id, dres_value_t *value)
     
     return 0;
 }
+
+
+/********************
+ * dres_save_dresvars
+ ********************/
+int
+dres_save_dresvars(dres_t *dres, dres_buf_t *buf)
+{
+    dres_variable_t *v;
+    int              i;
+
+    dres_buf_ws32(buf, dres->ndresvar);
+    buf->header.nvariable += dres->ndresvar;
+    
+    for (i = 0, v = dres->dresvars; i < dres->ndresvar; i++, v++) {
+        dres_buf_ws32(buf, v->id);
+        dres_buf_wstr(buf, v->name);
+    }
+    
+    return 0;
+}
+
+
+/********************
+ * dres_load_dresvars
+ ********************/
+int
+dres_load_dresvars(dres_t *dres, dres_buf_t *buf)
+{
+    dres_variable_t *v;
+    int              i;
+
+    dres->ndresvar = dres_buf_rs32(buf);
+    dres->dresvars = dres_buf_alloc(buf,dres->ndresvar*sizeof(*dres->dresvars));
+    
+    if (dres->dresvars == NULL)
+        return ENOMEM;
+    
+    for (i = 0, v = dres->dresvars; i < dres->ndresvar; i++, v++) {
+        v->id   = dres_buf_rs32(buf);
+        v->name = dres_buf_rstr(buf);
+    }
+    
+    return buf->error;
+}
+
 
 
 /* 

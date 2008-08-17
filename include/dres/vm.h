@@ -7,7 +7,7 @@
 
 
 /*
- * miscallenous macros
+ * miscallaneous macros
  */
 
 #define VM_ALIGN_TO(n, a) (((n) + ((a)-1)) & ~((a)-1))
@@ -169,7 +169,7 @@ enum {
     
 
 /*
- * POP instruction
+ * POP instructions
  */
 
 enum {
@@ -265,7 +265,7 @@ enum {
 
 
 /*
- * GET instruction
+ * GET instructions
  */
 
 enum {
@@ -405,6 +405,7 @@ int          vm_method_add    (vm_state_t *vm,
                                char *name, vm_action_t handler, void *data);
 vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
 vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
+int          vm_method_id     (vm_state_t *vm, char *name);
 vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
 int          vm_method_call   (vm_state_t *vm,
                                char *name, vm_method_t *m, int narg);

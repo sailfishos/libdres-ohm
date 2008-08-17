@@ -5,6 +5,7 @@
 #include <dres/vm.h>
 #include <dres/mm.h>
 
+#define DRES_MAGIC    ('D'<<24|('R'<<16)|('E'<<8)|'S')
 #define DRES_MAX_NAME 128
 
 enum {
@@ -194,6 +195,7 @@ enum {
     DRES_ACTIONS_FINALIZED  = 0x1,          /* actions resolved to handlers */
     DRES_TARGETS_FINALIZED  = 0x2,          /* sorted dependency graph */
     DRES_TRANSACTION_ACTIVE = 0x4,          /* has an active transaction */
+    DRES_COMPILED           = 0x8,          /* compiled dres buffer */
 };
 
 #define DRES_TST_FLAG(d, f) ((d)->flags &   DRES_##f)
@@ -222,6 +224,35 @@ struct dres_s {
 };
 
 
+typedef struct {
+    u_int32_t magic;                               /* DRES_MAGIC */
+    u_int32_t ssize;                               /* string table size */
+    u_int32_t ntarget;                             /* # of targets */
+    u_int32_t nprereq;                             /* # of prereqs */
+    u_int32_t ncode;                               /* # of VM code chunks */
+    u_int32_t sinstr;                              /* size of VM instructions */
+    u_int32_t ndependency;                         /* # of dependencies */
+    u_int32_t nvariable;                           /* # of variables */
+    u_int32_t ninit;                               /* # of initializers */
+    u_int32_t nfield;                              /* # of fields */
+    u_int32_t nmethod;                             /* # of methods */
+} dres_header_t;
+
+typedef struct {
+    dres_header_t header;
+    int           error;
+    char         *data;
+    int           dsize;
+    int           dused;
+    char         *strings;
+    int           ssize;
+    int           sused;
+    int           fd;
+} dres_buf_t;
+
+#define DRES_RELOCATE(ptr, diff) ((ptr) = ((void *)(ptr)) + (diff))
+
+
 extern int depth;
 
 #ifndef TRUE
@@ -240,6 +271,9 @@ dres_variable_t *dres_lookup_variable(dres_t *dres, int id);
 void dres_update_var_stamp(dres_t *dres, dres_variable_t *var);
 void dres_update_target_stamp(dres_t *dres, dres_target_t *target);
 
+int     dres_save(dres_t *dres, char *path);
+dres_t *dres_load(char *path);
+
 
 
 /* target.c */
@@ -249,6 +283,9 @@ dres_target_t *dres_lookup_target(dres_t *dres, char *name);
 void           dres_free_targets (dres_t *dres);
 void           dres_dump_targets (dres_t *dres);
 int            dres_check_target (dres_t *dres, int tid);
+int            dres_save_targets (dres_t *dres, dres_buf_t *buf);
+int            dres_load_targets (dres_t *dres, dres_buf_t *buf);
+
 
 /* factvar.c */
 int         dres_add_factvar  (dres_t *dres, char *name);
@@ -257,6 +294,9 @@ const char *dres_factvar_name (dres_t *dres, int id);
 void        dres_free_factvars(dres_t *dres);
 int         dres_check_factvar(dres_t *dres, int id, int stamp);
 void        dres_dump_init    (dres_t *dres);
+int         dres_save_factvars(dres_t *dres, dres_buf_t *buf);
+int         dres_load_factvars(dres_t *dres, dres_buf_t *buf);
+
 
 /* dresvar.c */
 int         dres_add_dresvar  (dres_t *dres, char *name);
@@ -267,6 +307,11 @@ void dres_free_dresvars(dres_t *dres);
 int  dres_check_dresvar(dres_t *dres, int id, int stamp);
 
 int  dres_local_value(dres_t *dres, int id, dres_value_t *value);
+
+int  dres_save_dresvars(dres_t *dres, dres_buf_t *buf);
+int  dres_load_dresvars(dres_t *dres, dres_buf_t *buf);
+
+
 
 /* prereq.c */
 dres_prereq_t *dres_new_prereq (int id);
@@ -279,7 +324,8 @@ void           dres_free_actions(dres_action_t *action);
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action (dres_t *dres, dres_action_t *action);
 #define        dres_free_action dres_free_actions
-dres_call_t   *dres_new_call (char *name, dres_arg_t *args, dres_local_t *vars);
+dres_call_t   *dres_new_call (dres_t *dres,
+                              char *name, dres_arg_t *args, dres_local_t *vars);
 void           dres_free_call(dres_call_t *call);
 
 dres_value_t *dres_copy_value (dres_value_t *value);
@@ -293,6 +339,28 @@ int dres_register_builtins(dres_t *dres);
 /* compiler.c */
 int dres_compile_target(dres_t *dres, dres_target_t *target);
 int dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code);
+
+dres_buf_t *dres_buf_create (int dsize, int ssize);
+void        dres_buf_destroy(dres_buf_t *buf);
+void *dres_buf_alloc(dres_buf_t *buf, int size);
+char *dres_buf_stralloc(dres_buf_t *buf, char *str);
+
+int dres_buf_wu16(dres_buf_t *buf, u_int16_t i);
+int dres_buf_ws16(dres_buf_t *buf, int16_t i);
+int dres_buf_wu32(dres_buf_t *buf, u_int32_t i);
+int dres_buf_ws32(dres_buf_t *buf, int32_t i);
+int dres_buf_wstr(dres_buf_t *buf, char *str);
+int dres_buf_wbuf(dres_buf_t *buf, char *data, int size);
+
+int dres_buf_wdbl(dres_buf_t *buf, double d);
+u_int32_t dres_buf_ru32(dres_buf_t *buf);
+int32_t   dres_buf_rs32(dres_buf_t *buf);
+char     *dres_buf_rstr(dres_buf_t *buf);
+char     *dres_buf_rbuf(dres_buf_t *buf, int size);
+double    dres_buf_rdbl(dres_buf_t *buf);
+
+int     dres_save(dres_t *dres, char *path);
+dres_t *dres_load(char *path);
 
 
 dres_graph_t *dres_build_graph(dres_t *dres, dres_target_t *goal);

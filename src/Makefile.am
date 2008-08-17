@@ -1,5 +1,7 @@
 lib_LTLIBRARIES = libdres.la
+bin_PROGRAMS    = dresc
 
+# DRES library
 libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \
                      factvar.c dresvar.c variables.c \
@@ -9,9 +11,14 @@ libdres_la_SOURCES = parser.y lexer.l \
                      compiler.c
 
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
-libdres_la_LIBADD  = @GLIB_LIBS@ @LEXLIB@ @LIBTRACE_LIBS@
+libdres_la_LIBADD  = @GLIB_LIBS@ @LEXLIB@ @LIBTRACE_LIBS@ -lm
 
+# DRES compiler/binary generator
+dresc_SOURCES = dres-compiler.c
+dresc_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
+dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
+# various test programs
 noinst_PROGRAMS = vm-test lexer-test
 
 vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
