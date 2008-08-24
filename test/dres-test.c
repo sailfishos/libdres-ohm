@@ -80,13 +80,13 @@ main(int argc, char *argv[])
     dres_dump_targets(dres);
     printf("=========================================\n");
     
+#if 0
     snprintf(precomp, sizeof(precomp), "%sc", rulefile);
     unlink(precomp);
     dres_save(dres, precomp);
-
     /*exit(0);*/
-
-
+#endif
+    
     if (argc > 2)
         goals = argv + 2;
 
@@ -113,12 +113,14 @@ main(int argc, char *argv[])
     dump_facts("----------- test4 -------------\n");
 #endif
 
+#if 0
     dres_exit(dres);
 
     if ((dres = dres_load(precomp)) == NULL)
         fatal(6, "failed to load precompiled DRES file %s", precomp);
     
     printf("***** Wow, loaded a compiled DRES file. *****\n");
+#endif
 
     return 0;
 }
