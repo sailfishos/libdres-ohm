@@ -73,14 +73,8 @@ dres_store_free(dres_t *dres)
             if (!OHM_IS_PATTERN(pattern))
                 printf("*** %s@%s:%d ERROR: non-pattern object in view...\n",
                        __FUNCTION__, __FILE__, __LINE__);
-            else {
-                char *s = ohm_structure_to_string(OHM_STRUCTURE(pattern));
-                printf("*** removing pattern %s\n", s);
-                fflush(stdout);
-                g_free(s);
-                                                  
+            else
                 ohm_fact_store_view_remove(store->view, OHM_STRUCTURE(pattern));
-            }
             p = n;
         }
 #endif
@@ -122,13 +116,6 @@ dres_store_track(dres_t *dres)
         if ((pattern = ohm_pattern_new(name)) == NULL)
             return ENOMEM;
 
-        {
-            char *s = ohm_structure_to_string(OHM_STRUCTURE(pattern));
-            printf("*** adding pattern %s\n", s);
-            fflush(stdout);
-            g_free(s);
-        }
-        
         ohm_fact_store_view_add(store->view, OHM_STRUCTURE(pattern));
         g_object_unref(pattern);
         g_hash_table_insert(store->ht, (gpointer)name, (gpointer)id);
