@@ -336,6 +336,8 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
         dres->txid++;
         own_tx = 1;
     }
+    else
+        own_tx = 0;
 
     dres->stamp++;
     dres_store_check(dres);
