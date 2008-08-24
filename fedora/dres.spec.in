@@ -22,8 +22,8 @@ Summary: OHM dependency resolver plugin.
 Group: System Environment/Daemons
 Requires: dres, ohm-plugin-core, ohm
 
-%package tools
-Summary: Miscallaneous DRES tools.
+%package utils
+Summary: Miscallaneous DRES utilities, including dresc.
 Group: Development/Libraries
 Requires: dres
 
@@ -37,8 +37,8 @@ DRES dependency resolver library.
 %description -n ohm-plugin-resolver
 A dependency resolver plugin for OHM.
 
-%description tools
-Miscallaneous DRES tools.
+%description utils
+Miscallaneous DRES utilities, including dresc.
 
 %prep
 %setup -q -n ##__TARDIR__##
@@ -70,7 +70,7 @@ make
 %defattr(-,root,root,-)
 %{_libdir}/ohm/libohm_dres.so
 
-%files tools
+%files utils
 %defattr(-,root,root,-)
 %{_bindir}/dresc
 
