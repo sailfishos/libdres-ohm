@@ -124,19 +124,15 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
     vm_action_t       handler;
     vm_stack_entry_t *args = vm_args(vm->stack, narg);
     vm_stack_entry_t  retval;
-    vm_value_t        arg;
-    int               status, i, type;
+    int               status;
 
-    if (args == NULL)
-        VM_EXCEPTION(vm, "CALL: failed to pop %d args for %s", narg, m->name);
+    if (args == NULL && narg > 0)
+        VM_EXCEPTION(vm, ENOENT,
+                     "CALL: failed to pop %d args for %s", narg, m->name);
     
     handler = m->handler ? m->handler : default_method.handler;
     status  = handler(m->data, name, args, narg, &retval);
-    
-    for (i = 0; i < narg; i++) {
-        if ((type = vm_pop(vm->stack, &arg)) == VM_TYPE_GLOBAL)
-            vm_global_free(arg.g);
-    }
+    vm_stack_cleanup(vm->stack, narg);
     
     if (!status)
         vm_push(vm->stack, retval.type, retval.v);

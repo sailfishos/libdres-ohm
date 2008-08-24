@@ -116,6 +116,22 @@ vm_stack_trim(vm_stack_t *s, int nspace)
 
 
 /********************
+ * vm_stack_cleanup
+ ********************/
+void
+vm_stack_cleanup(vm_stack_t *s, int narg)
+{
+    vm_value_t arg;
+    int        type, i;
+    
+    for (i = 0; i < narg; i++) {
+        if ((type = vm_pop(s, &arg)) == VM_TYPE_GLOBAL)
+            vm_global_free(arg.g);
+    }
+}
+
+
+/********************
  * vm_push_int
  ********************/
 int

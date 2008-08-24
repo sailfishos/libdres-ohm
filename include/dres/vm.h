@@ -2,6 +2,7 @@
 #define __DRES_VM_H__
 
 #include <string.h>
+#include <setjmp.h>
 
 #include <ohm/ohm-fact.h>
 
@@ -328,6 +329,64 @@ typedef struct vm_method_s {
 
 
 /*
+ * VM exceptions
+ *
+ * Notes: Although handling exceptions with setjmp/longjmp for such a primitive
+ *        virtual machine as ours is arguably an overkill, it keeps much of the
+ *        underlying code cleaner and easier to understand.
+ *
+ * Notes: As a convention, internal VM errors raise exceptions internally
+ *        with positive error codes while exceptions from method handlers
+ *        are expected to be positive and are negated in vm_method_call.
+ *        Then this convention is turned upside down in vm_exec, ie. outside
+ *        the VM method errors are positive and internal VM errors are negative.
+ */
+
+
+typedef struct vm_catch_s vm_catch_t;
+struct vm_catch_s {
+    jmp_buf     location;                      /* catch exceptions here */
+    int         depth;                         /* stack depth upon entry */
+    vm_catch_t *prev;                          /* previous entry if any */
+};
+
+
+#define VM_CATCH_PUSH(vm) {                                             \
+        vm_catch_t __catch;                                             \
+        int        __status;                                            \
+                                                                        \
+        __catch.prev  = vm->catch;                                      \
+        __catch.depth = vm->stack ? vm->stack->nentry : 0;              \
+        vm->catch     = &__catch;                                       \
+                                                                        \
+        if ((__status = setjmp(__catch.location)) != 0) {               \
+            printf("*** VM exception %d\n", -__status);                 \
+            if (vm->stack->nentry > __catch.depth) {                    \
+                printf("*** cleaning up the stack...\n");               \
+                vm_stack_cleanup(vm->stack,                             \
+                                 vm->stack->nentry - __catch.depth);    \
+            }                                                           \
+            vm->catch = vm->catch->prev;                                \
+            return -__status;                                           \
+        }                                                               \
+    }
+
+#define VM_CATCH_POP(vm) vm->catch = vm->catch->prev
+
+#define VM_EXCEPTION(vm, err, fmt, args...) do {                            \
+        if (err > 0) {                                                      \
+            printf("%s: VM error %d: "fmt"\n", __FUNCTION__, err, ## args); \
+            fflush(stdout);                                                 \
+        }                                                                   \
+        longjmp(vm->catch->location, err);                                  \
+    } while (0)
+
+
+
+
+
+
+/*
  * VM state
  */
 
@@ -343,25 +402,9 @@ typedef struct vm_state_s {
     int            nmethod;                   /* number of actions */
     vm_scope_t    *scope;                     /* current local variables */
     int            nlocal;                    /* number of local variables */
+
+    vm_catch_t    *catch;                     /* catch exceptions here */
 } vm_state_t;
-
-
-
-/*
- * VM exceptions
- */
-
-/* XXX FIXME: We need decent exception handling. Perhaps this should
- *            push and error (of type VM_TYPE_ERROR) on the stack and
- *            return with an error code (or do a longjmp to a jmp_buf
- *            (eg. vm->exception)...
- */
-#define VM_EXCEPTION(vm, fmt, args...) do {                             \
-        printf("%s: fatal VM error: "fmt"\n", __FUNCTION__, ## args);   \
-        fflush(stdout);                                                 \
-        exit(1);                                                        \
-    } while(0)
-
 
 
 
@@ -371,6 +414,8 @@ vm_stack_t *vm_stack_new (int size);
 void        vm_stack_del (vm_stack_t *s);
 int         vm_stack_grow(vm_stack_t *s, int n);
 int         vm_stack_trim(vm_stack_t *s, int n);
+void        vm_stack_cleanup(vm_stack_t *s, int narg);
+
 
 int vm_type       (vm_stack_t *s);
 int vm_push       (vm_stack_t *s, int type, vm_value_t value);

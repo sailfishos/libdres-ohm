@@ -44,7 +44,7 @@ vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent)
         case VM_OP_GET:    n = vm_dump_get(vm, buf, size, indent);    break;
         case VM_OP_CREATE: n = vm_dump_create(vm, buf, size, indent); break;
         case VM_OP_CALL:   n = vm_dump_call(vm, buf, size, indent);   break;
-        default: VM_EXCEPTION(vm, "invalid instruction 0x%x", *vm->pc);
+        default: VM_EXCEPTION(vm, EINVAL, "invalid instruction 0x%x", *vm->pc);
         }
         
         if (n > 0) {
