@@ -1,7 +1,5 @@
 # -*- makefile -*-
 
-PREFIX = dres.test
-
 $fact1 = { name: 'fact1', value: '1' }
 $fact2 = { name: 'fact2', value: '2' }
 $fact3 = { name: 'fact3', value: '3' }
@@ -94,7 +92,7 @@ fact3: fact4
 
 fact4:
 	echo('actions for fact4...')
-	$dres.test.fact4 = fact(fact4, value, foo4)
+	$fact4 = fact(fact4, value, foo4)
 
 fact5: fact1
 	echo('actions for fact5...')
