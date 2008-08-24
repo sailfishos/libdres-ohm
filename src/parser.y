@@ -569,7 +569,7 @@ factname(char *name)
                  prefix ? prefix : "", prefix ? "." : "", name);
         name = buf;
     }
-    else
+    else if (name[0] == '.')
         return name + 1;
 
     return name;
