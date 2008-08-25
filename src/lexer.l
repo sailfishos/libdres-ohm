@@ -4,7 +4,6 @@
 
 #ifndef __TEST_LEXER__
 #  include <dres/dres.h>
-#  include "parser-types.h"
 #  include "parser.h"
 #endif
 

@@ -6,7 +6,6 @@
 
 #include <dres/dres.h>
 #include <glib-object.h>
-#include "parser-types.h"
 
 #if !defined(DEBUG)
 #  if defined(__TEST_PARSER__) || 0
