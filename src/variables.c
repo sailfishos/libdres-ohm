@@ -105,7 +105,7 @@ dres_store_track(dres_t *dres)
     if ((store->view = ohm_fact_store_new_view(store->fs, NULL)) == NULL)
         return ENOMEM;
     
-    for (i = 0; i < dres->ndresvar; i++) {
+    for (i = 0; i < dres->nfactvar; i++) {
         var  = dres->factvars + i;
         id   = var->id;
         name = var->name;
