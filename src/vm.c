@@ -43,24 +43,8 @@ vm_exec(vm_state_t *vm, vm_chunk_t *code)
     vm->ninstr = code->ninstr;
     vm->nsize  = code->nsize;
     
-#if 0
-    catch.prev  = vm->catch;
-    catch.depth = vm->stack ? vm->stack->nentry : 0;
-    vm->catch = &catch;
-    
-    if ((status = setjmp(catch.location)) != 0) {
-        printf("*** VM exception occured.\n");
-        printf("*** I should clean up the stack till %d entries...\n",
-               catch.depth);
-        vm->catch = catch.prev;
-        return -status;
-    }
-#endif
+    status = VM_TRY(vm);
 
-    VM_CATCH_PUSH(vm);
-    status = vm_run(vm);
-    VM_CATCH_POP(vm);
-    
     /*printf("*** stack depth after vm_exec: %d\n", vm->stack->nentry);*/
 
     return status;         /* should be 0 because of our exceptions */

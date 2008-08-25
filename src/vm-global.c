@@ -230,8 +230,8 @@ vm_fact_set_field(vm_state_t *vm, OhmFact *fact, char *field,
     case VM_TYPE_INTEGER: gval = ohm_value_from_int(value->i);    break;
     case VM_TYPE_DOUBLE:  gval = ohm_value_from_double(value->d); break;
     case VM_TYPE_STRING:  gval = ohm_value_from_string(value->s); break;
-    default: VM_EXCEPTION(vm, EINVAL,
-                          "invalid type 0x%x for field %s", type, field);
+    default: VM_RAISE(vm, EINVAL,
+                      "invalid type 0x%x for field %s", type, field);
     }
 
     ohm_fact_set(fact, field, gval);
@@ -259,8 +259,8 @@ vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
         case G_TYPE_UINT:  i = g_value_get_uint(gval);  break;
         case G_TYPE_LONG:  i = g_value_get_long(gval);  break;
         case G_TYPE_ULONG: i = g_value_get_ulong(gval); break;
-        default: VM_EXCEPTION(vm, EINVAL,
-                              "integer type expected for field %s", field);
+        default: VM_RAISE(vm, EINVAL,
+                          "integer type expected for field %s", field);
         }
         return i == value->i;
 
@@ -268,22 +268,21 @@ vm_fact_match_field(vm_state_t *vm, OhmFact *fact, char *field,
         switch (G_VALUE_TYPE(gval)) {
         case G_TYPE_DOUBLE: d = g_value_get_double(gval);    break;
         case G_TYPE_FLOAT:  d = 1.0*g_value_get_float(gval); break;
-        default: VM_EXCEPTION(vm, EINVAL,
-                              "double type expected for field %s", field);
+        default: VM_RAISE(vm, EINVAL,
+                          "double type expected for field %s", field);
         }
         return d == value->d;
 
     case VM_TYPE_STRING:
         switch (G_VALUE_TYPE(gval)) {
         case G_TYPE_STRING: s = g_value_get_string(gval); break;
-        default: VM_EXCEPTION(vm, EINVAL,
-                              "string type expected for field %s", field);
+        default: VM_RAISE(vm, EINVAL,
+                          "string type expected for field %s", field);
         }
         return !strcmp(s, value->s);
 
     default:
-        VM_EXCEPTION(vm, EINVAL,
-                     "unexpected field type 0x%x for filter", type);
+        VM_RAISE(vm, EINVAL, "unexpected field type 0x%x for filter", type);
     }
     
     return 0;
@@ -321,7 +320,7 @@ vm_fact_get_field(vm_state_t *vm, OhmFact *fact, char *field, vm_value_t *value)
         return VM_TYPE_STRING;
 
     default:
-        VM_EXCEPTION(vm, EINVAL, "unexpected field type field %s", field);
+        VM_RAISE(vm, EINVAL, "unexpected field type field %s", field);
     }
     
     return VM_TYPE_UNKNOWN;

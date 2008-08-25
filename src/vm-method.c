@@ -127,8 +127,8 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
     int               status;
 
     if (args == NULL && narg > 0)
-        VM_EXCEPTION(vm, ENOENT,
-                     "CALL: failed to pop %d args for %s", narg, m->name);
+        VM_RAISE(vm, ENOENT,
+                 "CALL: failed to pop %d args for %s", narg, m->name);
     
     handler = m->handler ? m->handler : default_method.handler;
     status  = handler(m->data, name, args, narg, &retval);

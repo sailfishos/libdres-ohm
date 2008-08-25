@@ -43,7 +43,7 @@ vm_run(vm_state_t *vm)
         case VM_OP_GET:    status = vm_instr_get(vm);    break;
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
         case VM_OP_CALL:   status = vm_instr_call(vm);   break;
-        default: VM_EXCEPTION(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
+        default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
     }
     
@@ -63,11 +63,11 @@ vm_run(vm_state_t *vm)
 int
 vm_instr_push(vm_state_t *vm)
 {
-#define CHECK_AND_GROW(t, nbyte) do {                                        \
-        if (vm->nsize - sizeof(int) < nbyte)                                 \
-            VM_EXCEPTION(vm, EINVAL, "PUSH "#t": not enough data");          \
-        if (vm_stack_grow(vm->stack, 1))                                     \
-            VM_EXCEPTION(vm, ENOMEM, "PUSH "#t": failed to grow the stack"); \
+#define CHECK_AND_GROW(t, nbyte) do {                                    \
+        if (vm->nsize - sizeof(int) < nbyte)                             \
+            VM_RAISE(vm, EINVAL, "PUSH "#t": not enough data");          \
+        if (vm_stack_grow(vm->stack, 1))                                 \
+            VM_RAISE(vm, ENOMEM, "PUSH "#t": failed to grow the stack"); \
     } while (0)
 
     vm_global_t  *g;
@@ -110,27 +110,27 @@ vm_instr_push(vm_state_t *vm)
         if (vm_global_lookup(name, &g) == ENOENT)
             g = vm_global_name(name);
         if (g == NULL)
-            VM_EXCEPTION(vm, ENOENT, "PUSH GLOBAL: failed to look up %s", name);
+            VM_RAISE(vm, ENOENT, "PUSH GLOBAL: failed to look up %s", name);
         vm_push_global(vm->stack, g);
         nsize = 1 + VM_ALIGN_TO(data, sizeof(int)) / sizeof(int);;
         break;
 
     case VM_TYPE_LOCAL:
         if (vm_scope_push(vm) != 0)
-            VM_EXCEPTION(vm, ENOMEM, "PUSH LOCALS: failed to push new scope");
+            VM_RAISE(vm, ENOMEM, "PUSH LOCALS: failed to push new scope");
         for (i = 0; i < data; i++) {
             if (vm_type(vm->stack) != VM_TYPE_INTEGER)
-                VM_EXCEPTION(vm, EINVAL, "PUSH LOCALS: expecting integer ID");
+                VM_RAISE(vm, EINVAL, "PUSH LOCALS: expecting integer ID");
             id   = vm_pop_int(vm->stack);
             type = vm_pop(vm->stack, &v);
             if (vm_scope_set(vm->scope, id, type, v) != 0)
-                VM_EXCEPTION(vm, EINVAL,
+                VM_RAISE(vm, EINVAL,
                              "PUSH LOCALS: failed to set local #0x%x", id);
         }
         nsize = 1;
         break;
         
-    default: VM_EXCEPTION(vm, EINVAL, "invalid type 0x%x to push", type);
+    default: VM_RAISE(vm, EINVAL, "invalid type 0x%x to push", type);
     }
 
         
@@ -160,7 +160,7 @@ vm_instr_pop(vm_state_t *vm)
     switch (kind) {
     case VM_POP_LOCALS:
         if (vm_scope_pop(vm) != 0)
-            VM_EXCEPTION(vm, EINVAL, "POP LOCALS: failed to pop scope");
+            VM_RAISE(vm, EINVAL, "POP LOCALS: failed to pop scope");
         break;
         
     case VM_POP_DISCARD:
@@ -169,7 +169,7 @@ vm_instr_pop(vm_state_t *vm)
         break;
 
     default:
-        VM_EXCEPTION(vm, EINVAL, "POP: invalid POP type 0x%x", kind);
+        VM_RAISE(vm, EINVAL, "POP: invalid POP type 0x%x", kind);
     }
     
     vm->ninstr--;
@@ -191,10 +191,10 @@ vm_instr_pop(vm_state_t *vm)
 int
 vm_instr_filter(vm_state_t *vm)
 {
-#define FAIL(err, fmt, args...) do {            \
-        if (g)                                  \
-            vm_global_free(g);                  \
-        VM_EXCEPTION(vm, err, fmt, ## args);    \
+#define FAIL(err, fmt, args...) do {       \
+        if (g)                             \
+            vm_global_free(g);             \
+        VM_RAISE(vm, err, fmt, ## args);   \
     } while (0)
     
     vm_global_t *g = NULL;
@@ -268,10 +268,10 @@ vm_instr_filter(vm_state_t *vm)
 int
 vm_instr_update(vm_state_t *vm)
 {
-#define FAIL(err, fmt, args...) do {              \
-        if (src) vm_global_free(src);             \
-        if (dst) vm_global_free(dst);             \
-        VM_EXCEPTION(vm, err, fmt, ## args);      \
+#define FAIL(err, fmt, args...) do {          \
+        if (src) vm_global_free(src);         \
+        if (dst) vm_global_free(dst);         \
+        VM_RAISE(vm, err, fmt, ## args);      \
     } while (0)
     
     vm_global_t *src, *dst;
@@ -361,7 +361,7 @@ vm_instr_set_var(vm_state_t *vm)
     int          i;
 
     if (store == NULL)
-        VM_EXCEPTION(vm, EINVAL, "SET: could not determine fact store");
+        VM_RAISE(vm, EINVAL, "SET: could not determine fact store");
 
     dst = vm_pop_global(vm->stack);
     src = vm_pop_global(vm->stack);
@@ -369,7 +369,7 @@ vm_instr_set_var(vm_state_t *vm)
     if (src == NULL || dst == NULL) {
         vm_global_free(src);
         vm_global_free(dst);
-        VM_EXCEPTION(vm, ENOENT, "SET: could not POP expected two globals");
+        VM_RAISE(vm, ENOENT, "SET: could not POP expected two globals");
     }
     
     
@@ -377,8 +377,7 @@ vm_instr_set_var(vm_state_t *vm)
         if (VM_GLOBAL_IS_ORPHAN(src)) {        /* src orphan, assign directly */
             ohm_structure_set_name(OHM_STRUCTURE(src->facts[0]), dst->name);
             if (!ohm_fact_store_insert(store, src->facts[0]))
-                VM_EXCEPTION(vm, ENOMEM,
-                             "SET: failed to insert fact to factstore");
+                VM_RAISE(vm, ENOMEM, "SET: failed to insert fact to factstore");
             g_object_unref(src->facts[0]);
             src->facts[0] = NULL;
             src->nfact    = 0;
@@ -387,20 +386,20 @@ vm_instr_set_var(vm_state_t *vm)
             for (i = 0; i < src->nfact; i++) {
                 fact = vm_fact_dup(src->facts[i], dst->name);
                 if (!ohm_fact_store_insert(store, fact))
-                    VM_EXCEPTION(vm, ENOMEM,
-                                 "SET: failed to insert fact to factstore");
+                    VM_RAISE(vm, ENOMEM,
+                             "SET: failed to insert fact to factstore");
             }
         }
     }
     else {
         if (src->nfact != dst->nfact)
-            VM_EXCEPTION(vm, EINVAL,
+            VM_RAISE(vm, EINVAL,
                          "SET: argument dimensions do not match (%d != %d)",
                          src->nfact, dst->nfact);
         
         for (i = 0; i < src->nfact; i++)
             if (vm_fact_copy(dst->facts[i], src->facts[i]) == NULL)
-                VM_EXCEPTION(vm, EINVAL, "SET: failed to copy fact");
+                VM_RAISE(vm, EINVAL, "SET: failed to copy fact");
     }
     
     vm_global_free(src);
@@ -423,7 +422,7 @@ vm_instr_set_field(vm_state_t *vm)
 #define FAIL(err, fmt, args...) do {            \
         if (g)                                  \
             vm_global_free(g);                  \
-        VM_EXCEPTION(vm, err, fmt, ## args);    \
+        VM_RAISE(vm, err, fmt, ## args);    \
     } while (0)
 
     OhmFactStore *store = ohm_fact_store_get_fact_store();
@@ -490,7 +489,7 @@ vm_instr_get_field(vm_state_t *vm)
 #define FAIL(err, fmt, args...) do {            \
         if (g)                                  \
             vm_global_free(g);                  \
-        VM_EXCEPTION(vm, err, fmt, ## args);    \
+        VM_RAISE(vm, err, fmt, ## args);    \
     } while (0)
 
     OhmFactStore *store = ohm_fact_store_get_fact_store();
@@ -549,7 +548,7 @@ vm_instr_get_local(vm_state_t *vm)
     }
     
     if ((err = vm_push(vm->stack, type, value)) != 0)
-        VM_EXCEPTION(vm, ENOMEM,
+        VM_RAISE(vm, ENOMEM,
                      "GET LOCAL: failed to push value of #0x%x", idx);
 
     vm->ninstr--;
@@ -577,7 +576,7 @@ vm_instr_get_var(vm_state_t *vm)
      *          Hmm... What the heck was I thinking of here ?
      */
 
-    VM_EXCEPTION(vm, ENOSYS, "%s not implemented", __FUNCTION__);
+    VM_RAISE(vm, ENOSYS, "%s not implemented", __FUNCTION__);
     return EOPNOTSUPP; /* not reached */
 
     (void)vm;
@@ -614,7 +613,7 @@ vm_instr_create(vm_state_t *vm)
 #define FAIL(err, fmt, args...) do {            \
         if (g)                                  \
             vm_global_free(g);                  \
-        VM_EXCEPTION(vm, err, fmt, ## args);    \
+        VM_RAISE(vm, err, fmt, ## args);    \
     } while (0)
     
     vm_global_t *g = NULL;
@@ -680,17 +679,17 @@ vm_instr_call(vm_state_t *vm)
     switch ((type = vm_pop(vm->stack, &id))) {
     case VM_TYPE_STRING:  m = vm_method_lookup(vm, id.s); name = id.s; break;
     case VM_TYPE_INTEGER: m = vm_method_by_id(vm, id.i);  name = m->name; break;
-    default: VM_EXCEPTION(vm, EINVAL, "CALL: unknown method ID type 0x%x",type);
+    default: VM_RAISE(vm, EINVAL, "CALL: unknown method ID type 0x%x",type);
     }
     
     if (vm_stack_grow(vm->stack, narg))
-        VM_EXCEPTION(vm, ENOMEM,
+        VM_RAISE(vm, ENOMEM,
                      "CALL: failed to grow the stack by %d entries", narg);
 
     status = vm_method_call(vm, name, m, narg);
 
     if (status)
-        VM_EXCEPTION(vm, -status,
+        VM_RAISE(vm, -status,
                      "CALL: method '%s' failed (error %d)", name, status);
     
     vm->ninstr--;

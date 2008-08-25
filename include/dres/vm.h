@@ -351,7 +351,7 @@ struct vm_catch_s {
 };
 
 
-#define VM_CATCH_PUSH(vm) {                                             \
+#define VM_TRY(vm) ({                                                   \
         vm_catch_t __catch;                                             \
         int        __status;                                            \
                                                                         \
@@ -367,13 +367,16 @@ struct vm_catch_s {
                                  vm->stack->nentry - __catch.depth);    \
             }                                                           \
             vm->catch = vm->catch->prev;                                \
-            return -__status;                                           \
+            __status = -__status;                                       \
         }                                                               \
-    }
+        else {                                                          \
+            __status = vm_run(vm);             /* __status = 0 */       \
+            vm->catch = vm->catch->prev;                                \
+        }                                                               \
+        __status;                                                       \
+    })
 
-#define VM_CATCH_POP(vm) vm->catch = vm->catch->prev
-
-#define VM_EXCEPTION(vm, err, fmt, args...) do {                            \
+#define VM_RAISE(vm, err, fmt, args...) do {                                \
         if (err > 0) {                                                      \
             printf("%s: VM error %d: "fmt"\n", __FUNCTION__, err, ## args); \
             fflush(stdout);                                                 \
