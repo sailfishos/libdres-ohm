@@ -1,4 +1,4 @@
-SUBDIRS        = src include ohm-plugin test
+SUBDIRS        = src include ohm-plugin test doc
 
 pkgconfigdir   = ${libdir}/pkgconfig
 pkgconfig_DATA = src/libdres.pc
