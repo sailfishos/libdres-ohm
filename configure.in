@@ -4,6 +4,7 @@
 AC_PREREQ(2.61)
 AC_INIT(dres, 0.1)
 AC_CONFIG_SRCDIR([src])
+DOC_SUPPORT_INIT()
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADER([include/dres/config.h])
 
@@ -104,4 +105,5 @@ AC_OUTPUT([
 	include/Makefile
 	ohm-plugin/Makefile
 	test/Makefile
+	doc/Makefile
 ])
