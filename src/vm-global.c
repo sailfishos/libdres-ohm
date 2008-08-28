@@ -360,10 +360,10 @@ vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
         src = values[i];
         dst = ohm_fact_get(f, fields[i]);
         if (dst == NULL)
-            return ENOENT;
+            return /*ENOENT*/0;
 
         if (G_VALUE_TYPE(src) != G_VALUE_TYPE(dst))
-            return EINVAL;
+            return /*EINVAL*/0;
 
         switch (G_VALUE_TYPE(src)) {
         case G_TYPE_INT:     if (!CMP(src, dst, int))    return 0; break;
@@ -377,11 +377,13 @@ vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
                 return 0;
             break;
         default:
-            return EINVAL;
+            return /*EINVAL*/0;
         }
     }
 
     return 1;
+#undef GV
+#undef CMP
 }
 
 
