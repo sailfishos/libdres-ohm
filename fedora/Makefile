@@ -1,5 +1,5 @@
 PACKAGE := dres
-VERSION := 0.1
+VERSION := 0.0.2
 
 TOPDIR  := $(shell while [ ! -d fedora -a "`pwd`" != "/" ]; do cd ..; done; \
 		   [ -d fedora ] && pwd || exit 1)

@@ -1,3 +1,9 @@
+libdres (0.0.2) unstable; urgency=low
+
+  * Improved runtime, preliminary support for precompiled/binary rules.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon,  8 Sep 2008 19:56:24 +0300
+
 libdres (0.0.1) unstable; urgency=low
 
   * initial release.
