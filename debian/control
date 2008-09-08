@@ -31,7 +31,7 @@ Description: OHM dependecy resolver plugin.
 
 Package: libdres-utils
 Architecture: any
-Depends: libdres0
+Depends: ${shlibs:Depends} libdres0
 Section: misc
 Description: Miscallaneous OHM dependency resolver library utilities.
  .
