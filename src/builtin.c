@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <ohm/ohm-fact.h>
+#include <prolog/ohm-fact.h>
 #include <dres/dres.h>
 #include "dres-debug.h"
 
@@ -77,7 +77,7 @@ BUILTIN_HANDLER(assign)
     
     char     *prefix;
     char      rval[64], factname[64];
-    OhmFact **facts = NULL;
+    OhmFact **facts;
     int       nfact, i;
     
     if (DRES_ID_TYPE(action->lvalue.variable) != DRES_TYPE_FACTVAR || !ret)
@@ -151,12 +151,12 @@ BUILTIN_HANDLER(echo)
 #define MAX_LENGTH 64
 #define PRINT(s)              \
     do {                      \
-        unsigned int l = strlen(s);    \
-        if (l < (unsigned int)((e-p)-1)) {    \
+        int l = strlen(s);    \
+        if (l < (e-p)-1) {    \
             strcpy(p, s);     \
             p += l;           \
         }                     \
-        else if ((unsigned int)(e-p) > 0) {   \
+        else if (e-p > 0) {   \
             l = (e-p) - 1;    \
             strncpy(p, s, l); \
             p[l] = '\0';      \
@@ -168,7 +168,7 @@ BUILTIN_HANDLER(echo)
     char             arg[MAX_LENGTH];
     char             buf[4096];
     char            *p, *e, *str;
-    unsigned int     i;
+    int              i;
 
     buf[0] = '\0';
 

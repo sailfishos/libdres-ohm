@@ -38,7 +38,7 @@ int
 dres_literal_id(dres_t *dres, char *name)
 {
     dres_literal_t *l;
-    unsigned int    i;
+    int             i;
 
     if (name != NULL)
         for (i = 0, l = dres->literals; i < dres->nliteral; i++, l++) {
@@ -56,7 +56,7 @@ dres_literal_id(dres_t *dres, char *name)
 void
 dres_free_literals(dres_t *dres)
 {
-    unsigned int    i;
+    int             i;
     dres_literal_t *l;
     
     for (i = 0, l = dres->literals; i < dres->nliteral; i++, l++)

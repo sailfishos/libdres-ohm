@@ -4,8 +4,6 @@
 
 #include <dres/dres.h>
 
-#define NOT_IN_GRAPH ((unsigned int)-1)
-
 /*****************************************************************************
  *                  *** prerequisite/dependency handling ***                 *
  *****************************************************************************/
@@ -16,7 +14,7 @@
 int
 dres_add_prereq(dres_prereq_t *dep, int id)
 {
-    if (dep->nid == NOT_IN_GRAPH)                   /* unmark as not present */
+    if (dep->nid < 0)                              /* unmark as not present */
         dep->nid = 0;
 
     if (REALLOC_ARR(dep->ids, dep->nid, dep->nid + 1) == NULL)

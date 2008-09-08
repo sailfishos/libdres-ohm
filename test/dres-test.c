@@ -5,7 +5,7 @@
 #include <errno.h>
 
 #include <dres/dres.h>
-#include <ohm/ohm-fact.h>
+#include <prolog/ohm-fact.h>
 
 #define TEST_PREFIX   "test"
 #define TEST_RULEFILE "./test.dres"
@@ -146,8 +146,7 @@ touch_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     OhmFact  *fact  = NULL;
     GValue   *gval;
     char      name[32], fullname[64], field[64], value[64];
-    unsigned int i;
-    int       status;
+    int       i, status;
 
     if (action->nargument < 1 || !(action->nargument & 0x1))
         FAIL(EINVAL);
@@ -198,8 +197,7 @@ fact_handler(dres_t *dres, char *actname, dres_action_t *action, void **ret)
     OhmFact  *fact  = NULL;
     GValue   *gval;
     char      name[32], fullname[64], field[64], value[64];
-    int       status;
-    unsigned int i;
+    int       i, status;
 
     if (action->nargument < 1 || !(action->nargument & 0x1))
         FAIL(EINVAL);

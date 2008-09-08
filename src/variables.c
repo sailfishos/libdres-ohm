@@ -6,7 +6,7 @@
 #include <glib.h>
 #include <glib-object.h>
 
-#include <ohm/ohm-fact.h>
+#include <prolog/ohm-fact.h>
 
 #include <dres/dres.h>
 #include <dres/compiler.h>
@@ -1175,7 +1175,7 @@ static int get_local_var_field(dres_local_var_t *var, const char *name,
 /* static */
 int get_fields(OhmFact *fact, char **names, int nname)
 {
-    GSList             *field;
+    GList             *field;
     GQuark             qk;
     int                i;
 

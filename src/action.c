@@ -180,7 +180,7 @@ EXPORTED dres_handler_t *
 dres_lookup_handler(dres_t *dres, char *name)
 {
     dres_handler_t *h;
-    unsigned int    i;
+    int             i;
 
     for (i = 0, h = dres->handlers; i < dres->nhandler; i++, h++)
         if (!strcmp(h->name, name))
@@ -235,7 +235,7 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
 {
     dres_action_t *a = action;
     dres_assign_t *v;
-    unsigned int   i, j;
+    int            i, j;
     char           lvalbuf[128], *lval, rvalbuf[128], buf[128], *rval;
     char           arg[64], val[64], *t;
     char           actbuf[1024], *p;

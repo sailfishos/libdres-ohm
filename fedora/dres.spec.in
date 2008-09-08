@@ -1,36 +1,20 @@
-%define _enable_debug_packages 0
+%define __debug_package 0
 %define _unpackaged_files_terminate_build 0
 
-Summary: Dependency resolver for OHM.
+Summary: Policy engine dependency resolver library.
 Name: dres
 Version: ##__VERSION__##
 Release: 1
 License: Proprietary
-Group: Development/Libraries
+Group: Development/Library
 URL: http://127.0.0.1
 Source0: %{name}-%{version}.tar.gz
 BuildArch: ##__ARCH__##
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 
-%package devel
-Summary: Dependency resolver development files.
-Group: Development/Libraries
-Requires: dres
-
-%package -n ohm-plugin-resolver
-Summary: OHM dependency resolver plugin.
-Group: System Environment/Daemons
-Requires: dres, ohm-plugin-core, ohm
-
 %description
-A dependency resolver for OHM.
+The Policy engine dependency resolver library is ... well whatever.
 
-%description devel
-This package contains files necessary for developing with the prolog
-DRES dependency resolver library.
-
-%description -n ohm-plugin-resolver
-A dependency resolver plugin for OHM.
 
 %prep
 %setup -q -n ##__TARDIR__##
@@ -38,11 +22,10 @@ A dependency resolver plugin for OHM.
 %build
 export CFLAGS="-O0 -g3"
 %configure --disable-static
-make
 
 %install
 [ "$RPM_BUILD_ROOT" != "/" ] && rm -rf $RPM_BUILD_ROOT
-%makeinstall
+make DESTDIR=$RPM_BUILD_ROOT install
     
 
 %clean
@@ -51,17 +34,9 @@ make
 
 %files
 %defattr(-,root,root,-)
-%{_libdir}/libdres*
-
-%files devel
-%defattr(-,root,root,-)
-%{_includedir}/dres
-%{_libdir}/pkgconfig/*
-
-%files -n ohm-plugin-resolver
-%defattr(-,root,root,-)
-%{_libdir}/ohm/libohm_dres.so
-
+%{_includedir}/*
+%{_libdir}/*
+#%{_datadir}/%{name}
 
 %changelog
 * Wed Apr 24 2008 Krisztian Litkey <krisztian.litkey@nokia.com> - 

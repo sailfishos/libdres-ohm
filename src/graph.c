@@ -6,9 +6,6 @@
 #include <dres/dres.h>
 #include "dres-debug.h"
 
-#define NOT_IN_GRAPH ((unsigned int)-1)
-
-
 static int graph_build_prereq(dres_t *dres, dres_graph_t *graph,
                               dres_target_t *target, int prereq);
 static int graph_has_prereq(dres_graph_t *graph, int tid, int prid);
@@ -29,8 +26,7 @@ dres_graph_t *
 dres_build_graph(dres_t *dres, dres_target_t *target)
 {
     dres_graph_t *graph;
-    int           prid;
-    unsigned int  i, n;
+    int           prid, i, n;
 
     graph = NULL;
 
@@ -46,7 +42,7 @@ dres_build_graph(dres_t *dres, dres_target_t *target)
         goto fail;
 
     for (i = 0; i < n; i++)
-        graph->depends[i].nid = NOT_IN_GRAPH;    /* node not in graph yet */
+        graph->depends[i].nid = -1;                /* node not in graph yet */
 
     graph->ntarget  = dres->ntarget;
     graph->nfactvar = dres->nfactvar;
@@ -110,8 +106,7 @@ graph_build_prereq(dres_t *dres,
                    dres_graph_t *graph, dres_target_t *target, int prereq)
 {
     dres_target_t *t;
-    int            status;
-    unsigned int   i;
+    int            i, status;
     char           name[32];
 
     if (graph_has_prereq(graph, target->id, prereq))
@@ -163,7 +158,7 @@ graph_add_prereq(dres_t *dres, dres_graph_t *graph, int tid, int prid)
 
     depends = graph->depends + idx;
     
-    if (depends->nid == NOT_IN_GRAPH)
+    if (depends->nid < 0)
         depends->nid = 0;                          /* unmark as not present */
 
     if (!REALLOC_ARR(depends->ids, depends->nid, depends->nid + 1))
@@ -181,8 +176,7 @@ static int
 graph_has_prereq(dres_graph_t *graph, int tid, int prid)
 {
     dres_prereq_t *prereqs;
-    int            idx;
-    unsigned int   i;
+    int            idx, i;
 
     idx = DRES_INDEX(prid);
     
@@ -209,8 +203,7 @@ static int
 graph_add_leafs(dres_t *dres, dres_graph_t *graph)
 {
     dres_prereq_t *prq, *target;
-    unsigned int   i, j;
-    int            id;
+    int            i, j, id;
     char           buf[32];
             
 
@@ -221,7 +214,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
             id = prq->ids[j];
             if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
                 target = graph->depends + DRES_INDEX(id);
-                if (target->nid == NOT_IN_GRAPH) {
+                if (target->nid < 0) {
                     target->nid = 0;            /* unmark as not present */
                     DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
@@ -238,7 +231,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
             id = prq->ids[j];
             if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
                 target = graph->depends + DRES_INDEX(id);
-                if (target->nid == NOT_IN_GRAPH) {
+                if (target->nid < 0) {
                     target->nid = 0;              /* unmark as not present */
                     DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
@@ -254,7 +247,7 @@ graph_add_leafs(dres_t *dres, dres_graph_t *graph)
             id = prq->ids[j];
             if (DRES_ID_TYPE(id) == DRES_TYPE_TARGET) {
                 target = graph->depends + DRES_INDEX(id);
-                if (target->nid == NOT_IN_GRAPH) {
+                if (target->nid < 0) {
                     target->nid = 0;              /* unmark as not present */
                     DEBUG(DBG_GRAPH, "leaf target %s (0x%x) pulled in",
                           dres_name(dres, id, buf, sizeof(buf)), id);
@@ -368,7 +361,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
     int  node, status;
 
     dres_prereq_t *prq;
-    unsigned int   i, j, n;
+    int            i, j, n;
     char           buf[32], buf1[32];
     
 
@@ -391,7 +384,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
     status = 0;
     for (i = 0; i < graph->ndresvar; i++) {
         prq = graph->depends + graph->ntarget + graph->nfactvar + i;
-        if (prq->nid == NOT_IN_GRAPH)  /* not in the graph at all */
+        if (prq->nid == -1)                     /* not in the graph at all */
             continue;
         
         PUSH(Q, dres->dresvars[i].id); /* variables don't depend on anything */
@@ -410,7 +403,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
 
     for (i = 0; i < graph->nfactvar; i++) {
         prq = graph->depends + graph->ntarget + i;
-        if (prq->nid == NOT_IN_GRAPH)             /* not in the graph at all */
+        if (prq->nid == -1)                     /* not in the graph at all */
             continue;
         
         PUSH(Q, dres->factvars[i].id); /* variables don't depend on anything */
@@ -433,7 +426,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
         prq = graph->depends + i;
         t   = dres->targets + i;
         
-        if (prq->nid == NOT_IN_GRAPH)         /* not in the graph at all */
+        if (prq->nid == -1)                     /* not in the graph at all */
             continue;
         
         DEBUG(DBG_GRAPH, "checking target #%d (%s)...", i,

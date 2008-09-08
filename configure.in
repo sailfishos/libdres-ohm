@@ -4,7 +4,6 @@
 AC_PREREQ(2.61)
 AC_INIT(dres, 0.1)
 AC_CONFIG_SRCDIR([src])
-DOC_SUPPORT_INIT()
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADER([include/dres/config.h])
 
@@ -27,11 +26,10 @@ AC_PROG_YACC
 AM_PROG_CC_C_O
 AM_PROG_LIBTOOL
 AM_PROG_LEX
-AC_SUBST(LEXLIB)
 
 # Enable extra GCC flags.
 if test "$GCC" = "yes"; then
-    CPPFLAGS="$CPPFLAGS -Wall -Wformat -Wextra"
+    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
 fi
 
 # Checks for header files.
@@ -52,47 +50,12 @@ PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-# Checks for glib and gobject.
-PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-
-# Checks for gmodule.
-PKG_CHECK_MODULES(GMODULE, gmodule-2.0)
-AC_SUBST(GMODULE_CFLAGS)
-AC_SUBST(GMODULE_LIBS)
-
-# Checks for DBUS.
-PKG_CHECK_MODULES(DBUS, dbus-glib-1 >= 0.70 dbus-1 >= 0.70)
-AC_SUBST(DBUS_CFLAGS)
-AC_SUBST(DBUS_LIBS)
-
-# Checks for libohmplugin and libohmfact.
-PKG_CHECK_MODULES(LIBOHMPLUGIN, libohmplugin)
-AC_SUBST(LIBOHMPLUGIN_CFLAGS)
-AC_SUBST(LIBOHMPLUGIN_LIBS)
-
-PKG_CHECK_MODULES(LIBOHMFACT, libohmfact)
-AC_SUBST(LIBOHMFACT_CFLAGS)
-AC_SUBST(LIBOHMFACT_LIBS)
-
-# OHM build compatibility variables.
-AC_SUBST(OHM_PLUGIN_CFLAGS, "$LIBOHMPLUGIN_CFLAGS $LIBOHMFACT_CFLAGS $GLIB_CFLAGS $DBUS_CFLAGS $GMODULE_CFLAGS")
-AC_SUBST(OHM_PLUGIN_LIBS, "$LIBOHMPLUGIN_LIBS $LIBOHMFACT_LIBS $GLIB_LIBS $DBUS_LIBS $GMODULE_LIBS")
-
-AC_SUBST(OHM_CONF_DIR, "\$(sysconfdir)/ohm")
-AC_SUBST(OHM_PLUGIN_CONF_DIR, "\$(OHM_CONF_DIR)/plugins.d")
-AC_SUBST(OHM_PLUGIN_DIR, "\$(libdir)/ohm")
-
-# Checks for libprolog.
-PKG_CHECK_MODULES(LIBPROLOG, libprolog)
-AC_SUBST(LIBPROLOG_CFLAGS)
-AC_SUBST(LIBPROLOG_LIBS)
-
-# Checks for libtrace.
+# Checks for libfact, libtrace.
+PKG_CHECK_MODULES(LIBFACT, libfact >= 0.0.0)
 PKG_CHECK_MODULES(LIBTRACE, libtrace >= 0.0.0)
-AC_SUBST(LIBTRACE_CFLAGS)
-AC_SUBST(LIBTRACE_LIBS)
+
+AC_SUBST(LIBFACT_CFLAGS)
+AC_SUBST(LIBFACT_LDFLAGS)
 
 # Check symbol visibility constraint support.
 AC_CHECK_CCOPT_VISIBILITY
@@ -103,7 +66,5 @@ AC_OUTPUT([
 	src/Makefile
 	src/libdres.pc
 	include/Makefile
-	ohm-plugin/Makefile
 	test/Makefile
-	doc/Makefile
 ])
