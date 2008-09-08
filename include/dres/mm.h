@@ -30,7 +30,7 @@
                 ptr = __ptr;                                            \
             }                                                           \
             else if ((__ptr = realloc(ptr, __size)) != NULL) {          \
-                if ((n) > (o))                                          \
+	      if ((unsigned)(n) > (unsigned)(o))			\
                     memset(__ptr + (o), 0, ((n)-(o)) * sizeof(*ptr));   \
                 ptr = __ptr;                                            \
             }                                                           \

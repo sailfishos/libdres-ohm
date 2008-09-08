@@ -107,6 +107,7 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
     g_warning("error: %s, on line %d near input %s\n", msg, lineno, token);
     exit(1);
+    (void)dres;
 }
 
 

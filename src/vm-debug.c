@@ -78,7 +78,7 @@ vm_dump_push(vm_state_t *vm, char *buf, size_t size, int indent)
     switch (type) {
     case VM_TYPE_INTEGER:
         n += snprintf(buf, size, "push %d\n",
-                     data ? data - 1 : (int)*(vm->pc + 1));
+                     data ? data - 1 : (unsigned int)*(vm->pc + 1));
         nsize = data ? 1 : 2;
         break;
 

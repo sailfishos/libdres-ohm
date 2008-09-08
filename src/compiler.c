@@ -528,9 +528,10 @@ save_methods(dres_t *dres, dres_buf_t *buf)
 EXPORTED dres_t *
 dres_load(char *path)
 {
-    dres_buf_t  buf;
-    dres_t     *dres;
-    int         size, status;
+    dres_buf_t     buf;
+    dres_header_t *hdr = &buf.header;
+    dres_t        *dres;
+    int            size, status;
     
 
     dres = NULL;
@@ -539,10 +540,10 @@ dres_load(char *path)
     if ((buf.fd = open(path, O_RDONLY)) < 0)
         goto fail;
 
-    if (read(buf.fd, &buf.header, sizeof(buf.header)) != sizeof(buf.header))
+    if (read(buf.fd, hdr, sizeof(*hdr)) != sizeof(*hdr))
         goto fail;
     
-#define NTOHL(_f) buf.header._f = ntohl(buf.header._f)
+#define NTOHL(_f) hdr->_f = ntohl(hdr->_f)
     NTOHL(magic);
     NTOHL(ssize);
     NTOHL(ntarget);
@@ -555,12 +556,12 @@ dres_load(char *path)
     NTOHL(nfield);
     NTOHL(nmethod);
 
-    if (buf.header.magic != DRES_MAGIC) {
+    if (hdr->magic != DRES_MAGIC) {
         errno = EINVAL;
         goto fail;
     }
 
-#define SIZE(type, _f) (sizeof(type) * buf.header._f)
+#define SIZE(type, _f) (sizeof(type) * hdr->_f)
     
     size  = SIZE(dres_target_t     , ntarget);
     size += SIZE(dres_prereq_t     , nprereq);
@@ -574,17 +575,17 @@ dres_load(char *path)
 
     buf.dsize = size;
     buf.dused = 0;
-    buf.ssize = buf.sused = buf.header.ssize;
+    buf.ssize = buf.sused = hdr->ssize;
     
-    size += sizeof(*dres) + buf.header.ssize;
+    size += sizeof(*dres) + hdr->ssize;
 
     if ((dres = (dres_t *)ALLOC_ARR(char, size)) == NULL)
         goto fail;
 
     buf.strings = ((char *)dres) + sizeof(*dres);
-    buf.data    = buf.strings + buf.header.ssize;
+    buf.data    = buf.strings + hdr->ssize;
      
-    if (read(buf.fd, buf.strings, buf.header.ssize) != buf.header.ssize)
+    if (read(buf.fd, buf.strings, hdr->ssize) != (ssize_t)hdr->ssize)
         goto fail;
     
     if ((status = dres_load_targets(dres, &buf)) != 0 ||
@@ -769,7 +770,7 @@ dres_buf_destroy(dres_buf_t *buf)
  * dres_buf_alloc
  ********************/
 void *
-dres_buf_alloc(dres_buf_t *buf, int size)
+dres_buf_alloc(dres_buf_t *buf, size_t size)
 {
     char *ptr;
     
@@ -813,7 +814,7 @@ dres_buf_stralloc(dres_buf_t *buf, char *str)
         
     /* XXX TODO: fold non-empty identical strings as well */
     size = strlen(str) + 1;
-    if (buf->ssize - buf->sused < strlen(str) + 1) {
+    if ((size_t)(buf->ssize - buf->sused) < strlen(str) + 1) {
         buf->error = errno = ENOMEM;
         return NULL;
     }

@@ -242,11 +242,11 @@ typedef struct {
     dres_header_t header;
     int           error;
     char         *data;
-    int           dsize;
-    int           dused;
+    u_int32_t     dsize;
+    u_int32_t     dused;
     char         *strings;
-    int           ssize;
-    int           sused;
+    u_int32_t     ssize;
+    u_int32_t     sused;
     int           fd;
 } dres_buf_t;
 
@@ -344,7 +344,7 @@ int dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code);
 
 dres_buf_t *dres_buf_create (int dsize, int ssize);
 void        dres_buf_destroy(dres_buf_t *buf);
-void *dres_buf_alloc(dres_buf_t *buf, int size);
+void *dres_buf_alloc(dres_buf_t *buf, size_t size);
 char *dres_buf_stralloc(dres_buf_t *buf, char *str);
 
 int dres_buf_wu16(dres_buf_t *buf, u_int16_t i);
