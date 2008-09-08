@@ -11,6 +11,10 @@ static void command_dump   (int id, char *input);
 static void command_set    (int id, char *input);
 static void command_resolve(int id, char *input);
 static void command_prolog (int id, char *input);
+#if 0
+static void command_query  (int id, char *input);
+static void command_eval   (int id, char *input);
+#endif
 static void command_bye    (int id, char *input);
 static void command_grab   (int id, char *input);
 static void command_release(int id, char *input);
@@ -30,6 +34,10 @@ static command_t commands[] = {
     COMMAND(set    , "var value", "Set/change a given fact store variable." ),
     COMMAND(resolve, "[goal]"   , "Run the dependency resolver for a goal." ),
     COMMAND(prolog , NULL       , "Start an interactive prolog shell."      ),
+#if 0
+    COMMAND(query  , NULL       , "Execute a prolog query."                 ),
+    COMMAND(eval   , NULL       , "Evaluate a prolog query."                ),
+#endif
     COMMAND(bye    , NULL       , "Close the resolver terminal session."    ),
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
@@ -259,11 +267,63 @@ command_resolve(int id, char *input)
 static void
 command_prolog(int id, char *input)
 {
-    prolog_shell();
+    prolog_prompt();
 
     (void)id;
     (void)input;
 }
+
+
+#if 0
+/********************
+ * command_query
+ ********************/
+static void
+command_query(int id, char *input)
+{
+    char *goal, *var, *colon, findall[4096];
+    
+
+    if (input == NULL)
+        return;
+
+    for (goal = input; goal[0] == ' ' || goal[0] == '\t'; goal++)
+        ;
+    
+    if (!('A' <= goal[0] && goal[0] <= 'Z')) {
+        console_printf(id, "query must be of the form \"Var: prolog_query\"\n");
+        return;
+    }
+    
+    for (var = colon = goal; *colon && *colon != ':'; colon++)
+        ;
+
+    if (*colon != ':') {
+        console_printf(id, "query must be of the form \"Var: prolog_query\"\n");
+        console_printf(id, "eg. query K: help(K)\n");
+        return;
+    }
+    
+    *colon = '\0';
+    goal = colon + 1;
+
+    snprintf(findall, sizeof(findall), "findall(%s, %s, Result)", var, goal);
+    
+    prolog_run(findall);
+}
+
+
+
+/********************
+ * command_eval
+ ********************/
+static void
+command_eval(int id, char *input)
+{
+    prolog_run(input);
+}
+
+#endif
 
 
 /********************

@@ -44,7 +44,7 @@ typedef void (*completion_cb_t)(int transid, int success);
 OHM_IMPORTABLE(int , prolog_setup , (char **extensions, char **files));
 OHM_IMPORTABLE(void, prolog_free  , (void *retval));
 OHM_IMPORTABLE(void, prolog_dump  , (void *retval));
-OHM_IMPORTABLE(void, prolog_shell , (void));
+OHM_IMPORTABLE(void, prolog_prompt, (void));
 
 OHM_IMPORTABLE(prolog_predicate_t *, prolog_lookup ,
                (char *name, int arity));
@@ -762,7 +762,7 @@ OHM_PLUGIN_REQUIRES_METHODS(dres, 15,
     OHM_IMPORT("prolog.acall"            , prolog_ainvoke),
     OHM_IMPORT("prolog.free_retval"      , prolog_free),
     OHM_IMPORT("prolog.dump_retval"      , prolog_dump),
-    OHM_IMPORT("prolog.shell"            , prolog_shell),
+    OHM_IMPORT("prolog.prompt"           , prolog_prompt),
     OHM_IMPORT("console.open"            , console_open),
     OHM_IMPORT("console.close"           , console_close),
     OHM_IMPORT("console.write"           , console_write),
