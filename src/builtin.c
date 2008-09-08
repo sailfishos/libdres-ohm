@@ -2,32 +2,41 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#include <prolog/ohm-fact.h>
+#include <ohm/ohm-fact.h>
 #include <dres/dres.h>
 #include "dres-debug.h"
 
-#define BUILTIN_HANDLER(b) \
-    static int dres_builtin_##b(dres_t *dres, \
-                                char *name, dres_action_t *action, void **ret)
 
+#define BUILTIN_HANDLER(b)                                              \
+    static int dres_builtin_##b(void *data, char *name,                 \
+                                vm_stack_entry_t *args, int narg,       \
+                                vm_stack_entry_t *rv)
+
+#if 0
 BUILTIN_HANDLER(assign);
+#endif
 BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
 BUILTIN_HANDLER(shell);
 BUILTIN_HANDLER(fail);
-BUILTIN_HANDLER(unknown);
 
 #define BUILTIN(b) { .name = #b, .handler = dres_builtin_##b }
 
-static dres_handler_t builtins[] = {
+typedef struct dres_builtin_s {
+    char           *name;
+    dres_handler_t  handler;
+} dres_builtin_t;
+
+static dres_builtin_t builtins[] = {
+#if 0
     { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
+#endif
     BUILTIN(dres),
     BUILTIN(resolve),
     BUILTIN(echo),
     BUILTIN(shell),
     BUILTIN(fail),
-    { .name = DRES_BUILTIN_UNKNOWN, .handler = dres_builtin_unknown },
     { .name = NULL, .handler = NULL }
 };
 
@@ -37,15 +46,32 @@ static dres_handler_t builtins[] = {
  *****************************************************************************/
 
 /********************
+ * dres_fallback_call
+ ********************/
+int
+dres_fallback_call(void *data, char *name,
+                   vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
+{
+    dres_t *dres = (dres_t *)data;
+
+    if (dres->fallback) 
+        return dres->fallback(data, name, args, narg, rv);
+    else {
+        DEBUG(DBG_RESOLVE, "unknown action %s", name);
+        /* XXX TODO: dump arguments */
+        return EINVAL;
+    }
+    
+}
+
+
+/********************
  * dres_fallback_handler
  ********************/
 int
-dres_fallback_handler(dres_t *dres,
-                      int (*handler)(dres_t *,
-                                     char *, dres_action_t *, void **))
+dres_fallback_handler(dres_t *dres, dres_handler_t handler)
 {
-    dres->fallback.name    = "fallback";
-    dres->fallback.handler = handler;
+    dres->fallback = handler;
     return 0;
 }
 
@@ -56,17 +82,20 @@ dres_fallback_handler(dres_t *dres,
 int
 dres_register_builtins(dres_t *dres)
 {
-    dres_handler_t *h;
+    dres_builtin_t *b;
     int             status;
 
-    for (h = builtins; h->name; h++)
-        if ((status = dres_register_handler(dres, h->name, h->handler)) != 0)
+    for (b = builtins; b->name; b++)
+        if ((status = dres_register_handler(dres, b->name, b->handler)) != 0)
             return status;
-
+    
+    vm_method_default(&dres->vm, dres_fallback_call);
+    
     return 0;
 }
 
 
+#if 0
 /********************
  * dres_builtin_assign
  ********************/
@@ -104,6 +133,7 @@ BUILTIN_HANDLER(assign)
     *ret = facts;
     return 0;
 }
+#endif
 
 
 /********************
@@ -111,26 +141,47 @@ BUILTIN_HANDLER(assign)
  ********************/
 BUILTIN_HANDLER(dres)
 {
-    char goal[64];
-    int  status;
+    dres_t       *dres = (dres_t *)data;
+    char         *goal;
+    vm_chunk_t   *chunk;
+    unsigned int *pc;
+    int           ninstr;
+    int           nsize;
+    int           status;
+
+    if (narg < 1)
+        goal = NULL;
+    else {
+        if (args[0].type != DRES_TYPE_STRING)
+            return EINVAL;
+        goal = args[0].v.s;
+    }
     
-    /* XXX TODO: factstore transaction */
+    chunk  = dres->vm.chunk;
+    pc     = dres->vm.pc;
+    ninstr = dres->vm.ninstr;
+    nsize  = dres->vm.nsize;
+
+    DEBUG(DBG_RESOLVE, "DRES recursing for %sgoal %s",
+          goal ? "" : "the default ", goal ? goal : "");
     
-    if (action->arguments == NULL)
-        return EINVAL;
-    
-    dres_name(dres, action->arguments[0], goal, sizeof(goal));
-    
-    DEBUG(DBG_RESOLVE, "DRES recursing for goal %s", goal);
     depth++;
-    dres_scope_push(dres, action->variables, action->nvariable);
     status = dres_update_goal(dres, goal, NULL);
-    dres_scope_pop(dres);
     depth--;
+
     DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 
-    *ret = NULL;
+    dres->vm.chunk  = chunk;
+    dres->vm.pc     = pc;
+    dres->vm.ninstr = ninstr;
+    dres->vm.nsize  = nsize;
+
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = status;
+
     return status;
+    
+    (void)name;
 }
 
 
@@ -139,7 +190,7 @@ BUILTIN_HANDLER(dres)
  ********************/
 BUILTIN_HANDLER(resolve)
 {
-    return dres_builtin_dres(dres, name, action, ret);
+    return dres_builtin_dres(data, name, args, narg, rv);
 }
 
 
@@ -148,71 +199,33 @@ BUILTIN_HANDLER(resolve)
  ********************/
 BUILTIN_HANDLER(echo)
 {
-#define MAX_LENGTH 64
-#define PRINT(s)              \
-    do {                      \
-        int l = strlen(s);    \
-        if (l < (e-p)-1) {    \
-            strcpy(p, s);     \
-            p += l;           \
-        }                     \
-        else if (e-p > 0) {   \
-            l = (e-p) - 1;    \
-            strncpy(p, s, l); \
-            p[l] = '\0';      \
-            p += l;           \
-        }                     \
-    } while(0)
-
-    dres_variable_t *var;
-    char             arg[MAX_LENGTH];
-    char             buf[4096];
-    char            *p, *e, *str;
-    int              i;
-
-    buf[0] = '\0';
-
-    for (i = 0, e = (p = buf) + sizeof(buf); i < action->nargument; i++) {
-        
-        dres_name(dres, action->arguments[i], arg, MAX_LENGTH);
-
-        switch (arg[0]) {
-        case '&':
-            if ((str = dres_scope_getvar(dres->scope, arg+1)) == NULL)
-                PRINT("???");
-            else {
-                PRINT(str);
-                free(str);
-            }
+    dres_t       *dres = (dres_t *)data;
+    char         *t;
+    int           i;
+    
+    for (i = 0, t = ""; i < narg; i++, t = " ") {
+        printf(t);
+        switch (args[i].type) {
+        case DRES_TYPE_NIL:     printf("<nil>");           break;
+        case DRES_TYPE_INTEGER: printf("%d", args[i].v.i); break;
+        case DRES_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
+        case DRES_TYPE_STRING:  printf("%s", args[i].v.s); break;
+        case DRES_TYPE_FACTVAR:
+            vm_global_print(args[i].v.g);
             break;
-
-        case '$':
-            if (!(var = dres_lookup_variable(dres, action->arguments[i])) ||
-                !dres_var_get_field(var->var, "value", NULL, VAR_STRING, &str))
-                PRINT("???");
-            else {
-                PRINT(str);
-                free(str);
-            }
-            break;
-
         default:
-            PRINT(arg);
-            break;
+            printf("<unknown>");
         }
-
-        PRINT(" ");
     }
 
-    printf("%s\n", buf);
-
-    if (ret != NULL)
-        *ret = NULL;
-
+    printf("\n");
+    
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = 0;
     return 0;
 
-#undef PRINT
-#undef MAX_LENGTH
+    (void)dres;
+    (void)name;
 }
 
 
@@ -221,7 +234,7 @@ BUILTIN_HANDLER(echo)
  ********************/
 BUILTIN_HANDLER(shell)
 {
-    return dres_builtin_unknown(dres, name, action, ret);
+    return dres_fallback_call(data, name, args, narg, rv);
 }
 
 
@@ -230,32 +243,14 @@ BUILTIN_HANDLER(shell)
  ********************/
 BUILTIN_HANDLER(fail)
 {
-    *ret = NULL;
+    rv->type = DRES_TYPE_UNKNOWN;
     return EINVAL;
+
+    (void)data;
+    (void)name;
+    (void)args;
+    (void)narg;
 }
-
-
-/********************
- * dres_builtin_unknown
- ********************/
-BUILTIN_HANDLER(unknown)
-{
-    if (dres->fallback.handler != NULL)
-        return dres->fallback.handler(dres, name, action, ret);
-    else {
-        if (action == NULL)
-            return 0;
-    
-        DEBUG(DBG_RESOLVE, "unknown action %s", name);
-    
-        printf("*** unknown action %s", name);
-        dres_dump_action(dres, action);
-        
-        return EINVAL;
-    }
-}
-
-
 
 
 

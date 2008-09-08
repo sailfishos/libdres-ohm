@@ -166,6 +166,8 @@ graph_add_prereq(dres_t *dres, dres_graph_t *graph, int tid, int prid)
 
     depends->ids[depends->nid++] = tid;
     return 0;
+
+    (void)dres;
 }
 
 

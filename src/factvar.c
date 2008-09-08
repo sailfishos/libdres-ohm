@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <arpa/inet.h>
 
 #include <dres/dres.h>
 #include "dres-debug.h"
@@ -52,6 +53,22 @@ dres_factvar_id(dres_t *dres, char *name)
 
 
 /********************
+ * dres_factvar_name
+ ********************/
+const char *
+dres_factvar_name(dres_t *dres, int id)
+{
+    dres_variable_t *var = NULL;
+    int              idx = DRES_INDEX(id);
+    
+    if (0 <= idx && idx <= dres->nfactvar)
+        var = dres->factvars + idx;
+    
+    return var ? var->name : NULL;
+}
+
+
+/********************
  * dres_free_factvars
  ********************/
 void
@@ -60,13 +77,8 @@ dres_free_factvars(dres_t *dres)
     int              i;
     dres_variable_t *var;
 
-    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++) {
+    for (i = 0, var = dres->factvars; i < dres->nfactvar; i++, var++)
         FREE(var->name);
-#if 0
-        if (var->var)
-            dres_var_destroy(var->var);
-#endif
-    }
     
     FREE(dres->factvars);
 
@@ -88,12 +100,80 @@ dres_check_factvar(dres_t *dres, int id, int refstamp)
     DEBUG(DBG_RESOLVE, "%s: %d > %d ?",
           dres_name(dres, id, buf, sizeof(buf)), var->stamp, refstamp);
     
-#ifdef STAMP_FORCED_UPDATE
-    var->stamp = dres->stamp+1;          /* fake that variables have changed */
-    return TRUE;
-#endif
-    
     return var->stamp > refstamp;
+}
+
+
+/********************
+ * dres_dump_init
+ ********************/
+void
+dres_dump_init(dres_t *dres)
+{
+    dres_initializer_t *init;
+    dres_init_t        *i;
+    char                var[128], *t;
+    
+    for (init = dres->initializers; init != NULL; init = init->next) {
+        dres_name(dres, init->variable, var, sizeof(var));
+        printf("%s = {", var);
+        for (i = init->fields, t = " "; i != NULL; i = i->next, t = ", ") {
+            printf("%s%s: ", t, i->field.name);
+            switch (i->field.value.type) {
+            case DRES_TYPE_INTEGER: printf("%d", i->field.value.v.i);   break;
+            case DRES_TYPE_DOUBLE:  printf("%f", i->field.value.v.d);   break;
+            case DRES_TYPE_STRING:  printf("'%s'", i->field.value.v.s); break;
+            default:                printf("<unknown>");
+            }
+        }
+        printf(" }\n");
+        fflush(stdout);
+    }
+}
+
+
+/********************
+ * dres_save_factvars
+ ********************/
+int
+dres_save_factvars(dres_t *dres, dres_buf_t *buf)
+{
+    dres_variable_t *v;
+    int              i;
+
+    dres_buf_ws32(buf, dres->nfactvar);
+    buf->header.nvariable += dres->nfactvar;
+    
+    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
+        dres_buf_ws32(buf, v->id);
+        dres_buf_wstr(buf, v->name);
+    }
+    
+    return 0;
+}
+
+
+/********************
+ * dres_load_factvars
+ ********************/
+int
+dres_load_factvars(dres_t *dres, dres_buf_t *buf)
+{
+    dres_variable_t *v;
+    int              i;
+
+    dres->nfactvar = dres_buf_rs32(buf);
+    dres->factvars = dres_buf_alloc(buf,dres->nfactvar*sizeof(*dres->factvars));
+    
+    if (dres->factvars == NULL)
+        return ENOMEM;
+    
+    for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
+        v->id   = dres_buf_rs32(buf);
+        v->name = dres_buf_rstr(buf);
+    }
+    
+    return buf->error;
 }
 
 

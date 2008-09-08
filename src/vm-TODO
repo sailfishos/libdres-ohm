@@ -1,0 +1,52 @@
+TODO
+----
+
+* code generation
+
+* implement VM_INSTR_PUSH_LOCALS
+
+* implement the equivalent of dres_scope_push (ie. pushing
+  new locals before calling  a function)
+
+* implement VM_INSTR_GET_FIELD
+
+* implement VM_INSTR_GET (get and push the value of a local on the stack)
+
+* symbolic code dumping
+
+- code saving/loading
+
+- implement VM exceptions (and related stack cleanup)
+
+- hide vm_* types at the DRES API level (provide equivalent dres_* types
+  and wrapper DRES functions where necessary)
+
+- revise instruction format and encoding / decoding (better ratio of
+  instruction-specific vs. general code)
+
+more general/architectural stuff:
+
+- debugging support (callback-based single stepping control)
+
+- garbage collection (not needed currently because of our language
+  limitations)
+
+
+
+
+
+Potential / Probable Problems
+-----------------------------
+- recursive VM invocations (resolver -> actions -> resolver -> other actions...)
+
+
+Architectural / Philosophical Questions
+---------------------------------------
+
+- merge type into vm_value_t
+
+  This could make the interface to some of the stack-handling functions
+  more handy (especially those that now return a type and write a value to
+  a vm_value_t pointer...). We could also get rid of vm_stack_entry_t
+  altogether. Stack entries would simply become vm_value_t's.
+

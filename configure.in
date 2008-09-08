@@ -25,12 +25,6 @@ AC_PROG_LEX
 AC_PROG_YACC
 AM_PROG_CC_C_O
 AM_PROG_LIBTOOL
-AM_PROG_LEX
-
-# Enable extra GCC flags.
-if test "$GCC" = "yes"; then
-    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
-fi
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -45,17 +39,71 @@ AC_FUNC_MALLOC
 AC_FUNC_REALLOC
 AC_CHECK_FUNCS([memset strchr strdup strerror])
 
+# Enable extra GCC flags.
+if test "$GCC" = "yes"; then
+    CPPFLAGS="$CPPFLAGS -Wall -Wformat"
+fi
+
+# Extra compilation warnings.
+AC_ARG_ENABLE(extra-warnings,
+              [  --enable-extra-warnings enable extra compilation warnings],
+              enable_extra_warnings=$enableval,enable_extra_warnings=no)
+if test x$enable_extra_warnings = xyes ; then
+    AC_MSG_CHECKING([for extra compiler warnings])
+    if test "$GCC" = "yes"; then
+        CPPFLAGS="$CPPFLAGS -Wextra"
+        AC_MSG_RESULT(yes)
+    else
+        AC_MSG_RESULT([no (compiler not GCC)])
+    fi
+fi
+
 # Check for glib and gobject (factstore).
 PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-# Checks for libfact, libtrace.
-PKG_CHECK_MODULES(LIBFACT, libfact >= 0.0.0)
-PKG_CHECK_MODULES(LIBTRACE, libtrace >= 0.0.0)
+# Checks for glib and gobject.
+PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
+AC_SUBST(GLIB_CFLAGS)
+AC_SUBST(GLIB_LIBS)
 
-AC_SUBST(LIBFACT_CFLAGS)
-AC_SUBST(LIBFACT_LDFLAGS)
+# Checks for gmodule.
+PKG_CHECK_MODULES(GMODULE, gmodule-2.0)
+AC_SUBST(GMODULE_CFLAGS)
+AC_SUBST(GMODULE_LIBS)
+
+# Checks for DBUS.
+PKG_CHECK_MODULES(DBUS, dbus-glib-1 >= 0.70 dbus-1 >= 0.70)
+AC_SUBST(DBUS_CFLAGS)
+AC_SUBST(DBUS_LIBS)
+
+# Checks for libohmplugin and libohmfact.
+PKG_CHECK_MODULES(LIBOHMPLUGIN, libohmplugin)
+AC_SUBST(LIBOHMPLUGIN_CFLAGS)
+AC_SUBST(LIBOHMPLUGIN_LIBS)
+
+PKG_CHECK_MODULES(LIBOHMFACT, libohmfact)
+AC_SUBST(LIBOHMFACT_CFLAGS)
+AC_SUBST(LIBOHMFACT_LIBS)
+
+# OHM build compatibility variables.
+AC_SUBST(OHM_PLUGIN_CFLAGS, "$LIBOHMPLUGIN_CFLAGS $LIBOHMFACT_CFLAGS $GLIB_CFLAGS $DBUS_CFLAGS $GMODULE_CFLAGS")
+AC_SUBST(OHM_PLUGIN_LIBS, "$LIBOHMPLUGIN_LIBS $LIBOHMFACT_LIBS $GLIB_LIBS $DBUS_LIBS $GMODULE_LIBS")
+
+AC_SUBST(OHM_CONF_DIR, "\$(sysconfdir)/ohm")
+AC_SUBST(OHM_PLUGIN_CONF_DIR, "\$(OHM_CONF_DIR)/plugins.d")
+AC_SUBST(OHM_PLUGIN_DIR, "\$(libdir)/ohm")
+
+# Checks for libprolog.
+PKG_CHECK_MODULES(LIBPROLOG, libprolog)
+AC_SUBST(LIBPROLOG_CFLAGS)
+AC_SUBST(LIBPROLOG_LIBS)
+
+# Checks for libtrace.
+PKG_CHECK_MODULES(LIBTRACE, libtrace >= 0.0.0)
+AC_SUBST(LIBTRACE_CFLAGS)
+AC_SUBST(LIBTRACE_LIBS)
 
 # Check symbol visibility constraint support.
 AC_CHECK_CCOPT_VISIBILITY
@@ -66,5 +114,6 @@ AC_OUTPUT([
 	src/Makefile
 	src/libdres.pc
 	include/Makefile
+	ohm-plugin/Makefile
 	test/Makefile
 ])
