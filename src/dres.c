@@ -18,12 +18,14 @@
 
 
 /* trace flags */
-int DBG_GRAPH, DBG_VAR, DBG_RESOLVE;
+int DBG_GRAPH, DBG_VAR, DBG_RESOLVE, DBG_ACTION, DBG_VM;
 
 TRACE_DECLARE_COMPONENT(trcdres, "dres",
     TRACE_FLAG_INIT("graph"  , "dependency graph"    , &DBG_GRAPH),
     TRACE_FLAG_INIT("var"    , "variable handling"   , &DBG_VAR),
-    TRACE_FLAG_INIT("resolve", "dependency resolving", &DBG_RESOLVE));
+    TRACE_FLAG_INIT("resolve", "dependency resolving", &DBG_RESOLVE),
+    TRACE_FLAG_INIT("action" , "action processing"   , &DBG_ACTION),
+    TRACE_FLAG_INIT("vm"     , "VM execution"        , &DBG_VM));
     
 
 extern int   lexer_open(char *path);

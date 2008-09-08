@@ -13,8 +13,8 @@ libdres_la_SOURCES = parser.y lexer.l \
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
 libdres_la_LIBADD  = @GLIB_LIBS@ @LEXLIB@ @LIBTRACE_LIBS@ -lm
 
-# DRES compiler/binary generator
-dresc_SOURCES = dres-compiler.c
+# DRES binary generator
+dresc_SOURCES = dresc.c
 dresc_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
 dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
@@ -23,8 +23,8 @@ noinst_PROGRAMS = vm-test lexer-test
 
 vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
                    vm-method.c vm-test.c
-vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
-vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@
+vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@ @LIBTRACE_CFLAGS@
+vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LIBTRACE_LIBS@
 
 lexer_test_SOURCES = lexer.l
 lexer_test_CFLAGS  = -D__TEST_LEXER__=1

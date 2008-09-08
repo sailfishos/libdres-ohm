@@ -427,21 +427,37 @@ dres_print_call(dres_t *dres, dres_call_t *call, char *buf, size_t size)
 void
 dres_dump_action(dres_t *dres, dres_action_t *action)
 {
+    char buf[1024];
+
+    dres_print_action(dres, action, buf, sizeof(buf) - 1);
+    buf[sizeof(buf)-1] = '\0';
+    
+    printf("%s", buf);
+}
+
+
+
+/********************
+ * dres_print_action
+ ********************/
+int
+dres_print_action(dres_t *dres, dres_action_t *action, char *buf, size_t size)
+{
 #define P(fmt, args...) do {                        \
-        n     = snprintf(p, left, fmt, ## args);  \
+        n     = snprintf(p, left, fmt, ## args);    \
         p    += n;                                  \
         left -= n;                                  \
     } while (0)
     
     dres_action_t *a = action;
-    char           buf[1024], *p;
+    char          *p;
     int            left, n;
 
     if (a == NULL)
-        return;
+        return 0;
 
     p    = buf;
-    left = sizeof(buf) - 1;
+    left = size - 1;
     
     if (a->lvalue.variable != DRES_ID_NONE) {
         n = dres_print_varref(dres, &a->lvalue, p, left);
@@ -481,8 +497,10 @@ dres_dump_action(dres_t *dres, dres_action_t *action)
         left -= n;
     }
 
-    printf("    %s\n", buf);
+    return size - left - 1;
 }
+
+
 
 
 /* 

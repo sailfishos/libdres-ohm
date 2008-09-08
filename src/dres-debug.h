@@ -9,7 +9,7 @@
     } while (0)
 
 
-extern int DBG_GRAPH, DBG_VAR, DBG_RESOLVE;
+extern int DBG_GRAPH, DBG_VAR, DBG_RESOLVE, DBG_ACTION, DBG_VM;
 
 
 

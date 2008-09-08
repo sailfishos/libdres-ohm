@@ -92,6 +92,7 @@ enum {
     VM_OP_GET,                                /* global/local evaluation */ 
     VM_OP_CREATE,                             /* global creation */
     VM_OP_CALL,                               /* function call */
+    VM_OP_DEBUG,                              /* VM debugging */
 };
 
 
@@ -299,6 +300,25 @@ enum {
     } while (0)
 
 
+/*
+ * DEBUG instructions
+ */
+
+#define VM_DEBUG_LEN(instr) VM_OP_ARGS(instr)
+#define VM_DEBUG_INSTR(len) VM_INSTR(VM_OP_DEBUG, len)
+
+#define VM_INSTR_DEBUG(c, errlbl, ec, val) do {                         \
+        int           len = strlen(val) + 1;                            \
+        int           n   = VM_ALIGN_TO(len, sizeof(int))/sizeof(int);  \
+        unsigned int  instr[1 + n];                                     \
+        instr[0] = VM_DEBUG_INSTR(len);                                 \
+        strcpy((char *)(instr + 1), val);                               \
+        /* could pad here with zeros if (len & 0x3) */                  \
+        ec = vm_chunk_add(c, instr, 1, sizeof(instr));                  \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
+
 
 /*
  * a chunk of VM instructions
@@ -332,8 +352,8 @@ typedef struct vm_method_s {
  * VM exceptions
  *
  * Notes: Although handling exceptions with setjmp/longjmp for such a primitive
- *        virtual machine as ours is arguably an overkill, it keeps much of the
- *        underlying code cleaner and easier to understand.
+ *        virtual machine as ours is arguably an overkill, it should keep some
+ *        of the underlying code cleaner and easier to understand.
  *
  * Notes: As a convention, internal VM errors raise exceptions internally
  *        with positive error codes while exceptions from method handlers

@@ -7,7 +7,7 @@
 #include <dres/mm.h>
 #include <dres/vm.h>
 
-
+#include "dres-debug.h"
 
 
 int vm_instr_push   (vm_state_t *vm);
@@ -18,6 +18,7 @@ int vm_instr_set    (vm_state_t *vm);
 int vm_instr_get    (vm_state_t *vm);
 int vm_instr_create (vm_state_t *vm);
 int vm_instr_call   (vm_state_t *vm);
+int vm_instr_debug  (vm_state_t *vm);
 
 
 /*****************************************************************************
@@ -43,6 +44,7 @@ vm_run(vm_state_t *vm)
         case VM_OP_GET:    status = vm_instr_get(vm);    break;
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
         case VM_OP_CALL:   status = vm_instr_call(vm);   break;
+        case VM_OP_DEBUG:  status = vm_instr_debug(vm);  break;
         default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
     }
@@ -66,7 +68,7 @@ vm_instr_push(vm_state_t *vm)
 #define CHECK_AND_GROW(t, nbyte) do {                                    \
         if (vm->nsize - sizeof(int) < nbyte)                             \
             VM_RAISE(vm, EINVAL, "PUSH "#t": not enough data");          \
-        if (vm_stack_grow(vm->stack, 1))                                 \
+        if (vm_stack_grow(vm->stack, nbyte / sizeof(int)))               \
             VM_RAISE(vm, ENOMEM, "PUSH "#t": failed to grow the stack"); \
     } while (0)
 
@@ -80,11 +82,6 @@ vm_instr_push(vm_state_t *vm)
     int           nsize, id;
     
 
-    /*
-     * XXX Hmm... isn't nsize in bytes (ie. multiplied by sizeof(int)) ???
-     */
-
-    
     switch (type) {
     case VM_TYPE_INTEGER:
         CHECK_AND_GROW(int, sizeof(int));
@@ -699,6 +696,30 @@ vm_instr_call(vm_state_t *vm)
     return 0;
 }
 
+
+/*
+ * DEBUG
+ */
+
+
+/********************
+ * vm_instr_debug
+ ********************/
+int
+vm_instr_debug(vm_state_t *vm)
+{
+    char *info  = (char *)(vm->pc + 1);
+    int   len   = VM_DEBUG_LEN(*vm->pc);
+    int   nsize = 1 + VM_ALIGN_TO(len, sizeof(int)) / sizeof(int);
+    
+    DEBUG(DBG_VM, "%s", info);
+    
+    vm->ninstr--;
+    vm->pc    += nsize;
+    vm->nsize -= nsize * sizeof(int);
+    
+    return 0;
+}
 
 /*****************************************************************************
  *                        *** (code) chunk generation ***                    *

@@ -15,6 +15,8 @@
     } while (0)
 
 
+int DBG_VM = 0;
+
 
 /********************
  * dump_global

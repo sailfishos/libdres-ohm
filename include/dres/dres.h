@@ -323,6 +323,8 @@ dres_action_t *dres_new_action  (int argument);
 void           dres_free_actions(dres_action_t *action);
 int            dres_add_argument(dres_action_t *action, int argument);
 void           dres_dump_action (dres_t *dres, dres_action_t *action);
+int            dres_print_action(dres_t *dres, dres_action_t *action,
+                                 char *buf, size_t size);
 #define        dres_free_action dres_free_actions
 dres_call_t   *dres_new_call (dres_t *dres,
                               char *name, dres_arg_t *args, dres_local_t *vars);
