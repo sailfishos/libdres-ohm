@@ -2,7 +2,7 @@ Source: libdres
 Section: libs
 Priority: optional
 Maintainer: Krisztian Litkey <krisztian.litkey@nokia.com>
-Standards-Version: 3.6.1
+Standards-Version: 3.8.0
 Build-Depends: cdbs, debhelper (>= 4.1.0), libprolog-dev, libglib2.0-dev, libdbus-glib-1-dev, libdbus-1-dev, ohm-dev, libtrace-dev, flex, libncurses5-dev
 
 Package: libdres0
