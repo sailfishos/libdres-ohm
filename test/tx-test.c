@@ -59,6 +59,9 @@ main(int argc, char *argv[])
     dump_facts("after rollback: ");
 
     return 0;
+
+    (void)argc;
+    (void)argv;
 }
 
 

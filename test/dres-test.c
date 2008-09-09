@@ -47,7 +47,6 @@ int
 main(int argc, char *argv[])
 {
     char  *rulefile = TEST_RULEFILE;
-    char   precomp[256];
     char  *all[]    = { "all", NULL };
     char **goals    = all;
     int    i, compiled = 0;
@@ -80,13 +79,6 @@ main(int argc, char *argv[])
     dres_dump_targets(dres);
     printf("=========================================\n");
     
-#if 0
-    snprintf(precomp, sizeof(precomp), "%sc", rulefile);
-    unlink(precomp);
-    dres_save(dres, precomp);
-    /*exit(0);*/
-#endif
-    
     if (argc > 2)
         goals = argv + 2;
 
@@ -102,26 +94,6 @@ main(int argc, char *argv[])
     }
                 
     
-#if 0
-    dres_update_goal(dres, "test2", NULL);
-    dump_facts("----------- test2 -------------\n");
-
-    dres_update_goal(dres, "test3", NULL);
-    dump_facts("----------- test3 -------------\n");
-
-    dres_update_goal(dres, "test4", NULL);
-    dump_facts("----------- test4 -------------\n");
-#endif
-
-#if 0
-    dres_exit(dres);
-
-    if ((dres = dres_load(precomp)) == NULL)
-        fatal(6, "failed to load precompiled DRES file %s", precomp);
-    
-    printf("***** Wow, loaded a compiled DRES file. *****\n");
-#endif
-
     return 0;
 }
 
@@ -168,6 +140,9 @@ stamp_handler(void *data, char *name,
     rv->v.i  = 0;
     
     return 0;
+
+    (void)data;
+    (void)name;
 }
 
 
@@ -229,6 +204,9 @@ touch_handler(void *data, char *name,
     
  fail:
     return status;
+
+    (void)data;
+    (void)name;
 }
 
 
@@ -306,6 +284,9 @@ fact_handler(void *data, char *name,
         FREE(facts);
 
     return EINVAL;
+
+    (void)data;
+    (void)name;
 }
 
 
@@ -362,6 +343,10 @@ check_handler(void *data, char *name,
     }
 
     return 0;
+
+    (void)data;
+    (void)name;
+    
 #undef FAIL
 }
 
@@ -382,6 +367,9 @@ dump_handler(void *data, char *name,
     rv->type = VM_TYPE_INTEGER;
     rv->v.i  = 0;
     return 0;
+
+    (void)data;
+    (void)name;
 }
 
 
@@ -411,6 +399,8 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
     g_warning("error: %s, on line %d near input %s\n", msg, lineno, token);
     exit(1);
+
+    (void)dres;
 }
 
 
