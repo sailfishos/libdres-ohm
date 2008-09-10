@@ -165,9 +165,7 @@ BUILTIN_HANDLER(dres)
     DEBUG(DBG_RESOLVE, "DRES recursing for %sgoal %s",
           goal ? "" : "the default ", goal ? goal : "");
     
-    depth++;
     status = dres_update_goal(dres, goal, NULL);
-    depth--;
 
     DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 

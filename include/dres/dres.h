@@ -262,6 +262,9 @@ extern int depth;
 
 
 /* dres.c */
+dres_t *dres_open(char *path);
+#define dres_close dres_exit
+
 dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
 int     dres_parse_file(dres_t *dres, char *path);

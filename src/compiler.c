@@ -27,8 +27,8 @@ static int load_initializers(dres_t *dres, dres_buf_t *buf);
 static int save_methods     (dres_t *dres, dres_buf_t *buf);
 static int load_methods     (dres_t *dres, dres_buf_t *buf);
 
-extern int  initialize_variables(dres_t *dres); /* XXX TODO: kludge */
-extern int  finalize_variables  (dres_t *dres); /* XXX TODO: kludge */
+extern int initialize_variables(dres_t *dres); /* XXX TODO: kludge */
+extern int finalize_variables  (dres_t *dres); /* XXX TODO: kludge */
 
 
 
@@ -934,7 +934,7 @@ dres_buf_wdbl(dres_buf_t *buf, double d)
     int32_t *integer = dres_buf_alloc(buf, sizeof(*integer));
     int32_t *decimal = dres_buf_alloc(buf, sizeof(*decimal));
 
-    /* XXX TODO fixme */
+    /* XXX TODO fixme, this is _not_ the way to do it. */
     printf("%s@%s:%d: FIXME, please...\n", __FUNCTION__, __FILE__, __LINE__);
 
     if (integer == NULL || decimal == NULL)
@@ -1043,6 +1043,7 @@ dres_buf_rdbl(dres_buf_t *buf)
     int32_t decimal;
     double  d;
 
+    /* XXX TODO: fixme, this is _not_ the way to do it */
     if (read(buf->fd, &integer, sizeof(integer)) != sizeof(integer) ||
         read(buf->fd, &decimal, sizeof(decimal)) != sizeof(decimal)) {
         buf->error = errno;
