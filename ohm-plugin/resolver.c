@@ -85,10 +85,12 @@ static dres_t *dres;
 static void
 plugin_init(OhmPlugin *plugin)
 {
-#define DRES_RULE_PATH "/usr/share/policy/rules/test/policy.dres"
-#define DRES_PLC_PATH  "/usr/share/policy/rules/test/policy.plc"
+#define RULESET "current"
+
+#define DRES_RULE_PATH "/usr/share/policy/rules/"RULESET"/policy.dres"
+#define DRES_PLC_PATH  "/usr/share/policy/rules/"RULESET"/policy.plc"
 #define PROLOG_SYSDIR  "/usr/lib/prolog/"
-#define PROLOG_RULEDIR "/usr/share/policy/rules/test/"
+#define PROLOG_RULEDIR "/usr/share/policy/rules/"RULESET"/"
 
 #define FAIL(fmt, args...) do {                                   \
         g_warning("DRES plugin, %s: "fmt, __FUNCTION__, ## args); \
