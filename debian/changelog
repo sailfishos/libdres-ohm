@@ -1,3 +1,9 @@
+libdres (0.0.3) unstable; urgency=low
+
+  * Ruleset to use is now current instead of test.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 25 Sep 2008 11:20:26 +0300
+
 libdres (0.0.2) unstable; urgency=low
 
   * Improved runtime, preliminary support for precompiled/binary rules.
