@@ -106,11 +106,15 @@ plugin_init(OhmPlugin *plugin)
 #if 0
         DRES_PLC_PATH,
 #else
+#if 0
         PROLOG_RULEDIR"hwconfig",
         PROLOG_RULEDIR"devconfig",
         PROLOG_RULEDIR"interface",
         PROLOG_RULEDIR"profile",
         PROLOG_RULEDIR"audio",
+#else
+        PROLOG_RULEDIR"policy",
+#endif
 #endif
         NULL
     };
