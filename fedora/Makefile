@@ -1,4 +1,4 @@
-PACKAGE := dres
+PACKAGE := libdres
 VERSION := 0.0.3
 
 TOPDIR  := $(shell while [ ! -d fedora -a "`pwd`" != "/" ]; do cd ..; done; \

@@ -2,7 +2,7 @@
 %define _unpackaged_files_terminate_build 0
 
 Summary: Dependency resolver for OHM.
-Name: dres
+Name: libdres
 Version: ##__VERSION__##
 Release: 1
 License: Proprietary
@@ -15,17 +15,17 @@ BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-root
 %package devel
 Summary: Dependency resolver development files.
 Group: Development/Libraries
-Requires: dres
+Requires: libdres
 
 %package -n ohm-plugin-resolver
 Summary: OHM dependency resolver plugin.
 Group: System Environment/Daemons
-Requires: dres, ohm-plugin-core, ohm
+Requires: libdres, ohm-plugin-core, ohm
 
 %package utils
 Summary: Miscallaneous DRES utilities, including dresc.
 Group: Development/Libraries
-Requires: dres
+Requires: libdres
 
 %description
 A dependency resolver for OHM.
