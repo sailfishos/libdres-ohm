@@ -88,6 +88,7 @@ dres_free_targets(dres_t *dres)
         dres_free_prereq(target->prereqs);
         dres_free_actions(target->actions);
         FREE(target->dependencies);
+        vm_chunk_del(target->code);
     }
 
     FREE(dres->targets);

@@ -30,6 +30,20 @@ vm_init(vm_state_t *vm, int stack_size)
 
 
 /********************
+ * vm_exit
+ ********************/
+void
+vm_exit(vm_state_t *vm)
+{
+    if (vm) {
+        vm_stack_del(vm->stack);
+        if (!VM_TST_FLAG(vm, COMPILED))
+            vm_free_methods(vm);
+    }
+}
+
+
+/********************
  * vm_exec
  ********************/
 int

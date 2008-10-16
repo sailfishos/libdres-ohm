@@ -61,8 +61,10 @@ dres_store_free(dres_t *dres)
             if (!OHM_IS_PATTERN(pattern))
                 printf("*** %s@%s:%d ERROR: non-pattern object in view...\n",
                        __FUNCTION__, __FILE__, __LINE__);
-            else
+            else {
                 ohm_fact_store_view_remove(store->view, OHM_STRUCTURE(pattern));
+                g_object_unref(pattern);
+            }
         }
 
         g_object_unref(store->view);

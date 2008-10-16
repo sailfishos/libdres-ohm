@@ -116,12 +116,13 @@ dres_exit(dres_t *dres)
     
     dres_store_free(dres);
 
-    if (!DRES_TST_FLAG(dres, COMPILED))
+    if (DRES_TST_FLAG(dres, COMPILED))
         free(dres);
     else {
         dres_free_targets(dres);
         dres_free_factvars(dres);
         dres_free_dresvars(dres);
+        vm_exit(&dres->vm);
         FREE(dres);
     }
 }

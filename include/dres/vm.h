@@ -407,6 +407,19 @@ struct vm_catch_s {
 
 
 
+/*
+ * VM flags
+ */
+#define VM_TST_FLAG(vm, f) ((vm)->flags &   VM_FLAG_##f)
+#define VM_SET_FLAG(vm, f) ((vm)->flags |=  VM_FLAG_##f)
+#define VM_CLR_FLAG(vm, f) ((vm)->flags &= ~VM_FLAG_##f)
+
+enum {
+    VM_FLAG_UNKNOWN  = 0x0,
+    VM_FLAG_COMPILED = 0x1,                   /* loaded as precompiled */
+};
+
+
 
 
 /*
@@ -427,6 +440,7 @@ typedef struct vm_state_s {
     int            nlocal;                    /* number of local variables */
 
     vm_catch_t    *catch;                     /* catch exceptions here */
+    int            flags;
 } vm_state_t;
 
 
@@ -477,10 +491,12 @@ int          vm_method_id     (vm_state_t *vm, char *name);
 vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
 int          vm_method_call   (vm_state_t *vm,
                                char *name, vm_method_t *m, int narg);
+void         vm_free_methods  (vm_state_t *vm);
 
 /* vm.c */
-int vm_init(vm_state_t *vm, int stack_size);
-int vm_exec(vm_state_t *vm, vm_chunk_t *code);
+int  vm_init(vm_state_t *vm, int stack_size);
+void vm_exit(vm_state_t *vm);
+int  vm_exec(vm_state_t *vm, vm_chunk_t *code);
 
 
 /* vm-global.c */

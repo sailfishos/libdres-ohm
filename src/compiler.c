@@ -13,6 +13,9 @@
 #include <dres/compiler.h>
 #include <dres/vm.h>
 
+#if (!defined(_XOPEN_SOURCE) && !defined(_ISOC99_SOURCE)) || _XOPEN_SOURCE < 600
+double trunc(double);
+#endif
 
 static int compile_value  (dres_t *dres, dres_value_t *value, vm_chunk_t *code);
 static int compile_varref (dres_t *dres, dres_varref_t *vr, vm_chunk_t *code);
@@ -614,6 +617,8 @@ dres_load(char *path)
     DRES_SET_FLAG(dres, COMPILED);
     DRES_SET_FLAG(dres, ACTIONS_FINALIZED);
     DRES_SET_FLAG(dres, TARGETS_FINALIZED);
+
+    VM_SET_FLAG(&dres->vm, COMPILED);
     
     if (initialize_variables(dres) != 0 || finalize_variables(dres) != 0) {
         errno = EINVAL;

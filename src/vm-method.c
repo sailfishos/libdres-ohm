@@ -142,6 +142,26 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
 
 
 /********************
+ * vm_free_methods
+ ********************/
+void
+vm_free_methods(vm_state_t *vm)
+{
+    int          i;
+    vm_method_t *m;
+    
+    for (i = 0, m = vm->methods; i < vm->nmethod; i++, m++)
+        FREE(m->name);
+    
+    FREE(vm->methods);
+    
+    vm->methods = NULL;
+    vm->nmethod = 0;
+}
+
+
+
+/********************
  * vm_unknown_handler
  ********************/
 static int
