@@ -117,7 +117,7 @@ prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
 	}
 
 optional_initializers: { dres->initializers = NULL; }
-        | initializers { dres->initializers = $1; dres_dump_init(dres); }
+        | initializers { dres->initializers = $1; }
         ;
 
 initializers: initializer          { $$ = $1; }
