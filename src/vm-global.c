@@ -134,12 +134,15 @@ vm_fact_reset(OhmFact *fact)
 {
     GSList *l = (GSList *)ohm_fact_get_fields(fact);
     char   *field;
-    GQuark  q;
+    GQuark  quark;
     
     for ( ; l != NULL; l = g_slist_next(l)) {
-        q     = GPOINTER_TO_INT(l->data);
-        field = (char *)g_quark_to_string(q);
-        ohm_fact_set(fact, field, NULL);
+        quark = GPOINTER_TO_INT(l->data);
+        field = (char *)g_quark_to_string(quark);
+        if (field != NULL)
+            ohm_fact_set(fact, field, NULL);
+        else
+            fprintf(stderr, "*** field for quark 0x%x is NULL\n", quark);
     }
 }
 
