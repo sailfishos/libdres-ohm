@@ -253,32 +253,7 @@ DRES_ACTION(prolog_handler)
         argv[i] = args[i].v.s;
     }
     
-    /*
-     * Notes:
-     *
-     *   Strictly speaking passing narg to the prolog predicate is 
-     *   is semantically wrong. This handler takes the name of the
-     *   predicate and the arguments to be passed to it. Thus narg
-     *   equals to the number of predicate arguments + 1.
-     *
-     *   However, according to our prolog predicate calling conventions
-     *   each prolog predicate takes an extra argument which is used to
-     *   pass the predicate results back from Prolog to C. This makes
-     *   the arity of every exported prolog predicate equal to the
-     *   number of arguments + 1. The check in prolog.c:prolog_*call
-     *   checks narg against predicate->arity which is equally wrong
-     *   but the bugs cancel each other out.
-     *
-     *   XXX TODO: Eventually we must fix both bugs, but I cannot do
-     *       it in libprolog safely because I do not want to touch
-     *       the original (old, currently master) branch of dres
-     *       (now that we have tagged it as alpha release) and it has
-     *       the same bug. I will fix it once the new runtime is merged
-     *       in to master.
-     */
-    
-    /*                       see the notes above explaining why + 1 */
-    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg + 1))
+    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg))
         FAIL(EINVAL);
     
     OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
