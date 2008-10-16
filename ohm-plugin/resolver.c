@@ -267,6 +267,7 @@ DRES_ACTION(prolog_handler)
     if ((g->nfact = retval_to_facts(retval, g->facts, MAX_FACTS)) < 0)
         FAIL(EINVAL);
 
+    prolog_free(retval);
 
     rv->type = DRES_TYPE_FACTVAR;
     rv->v.g  = g;
@@ -277,7 +278,7 @@ DRES_ACTION(prolog_handler)
         vm_global_free(g);
     
     if (retval)
-        prolog_free_actions(retval);
+        prolog_free(retval);
     
     return err;
 
