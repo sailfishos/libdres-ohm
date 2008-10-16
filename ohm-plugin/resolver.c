@@ -238,6 +238,7 @@ DRES_ACTION(prolog_handler)
     if (narg < 1 || args[0].type != DRES_TYPE_STRING)
         return EINVAL;
 
+    retval    = NULL;
     pred_name = args[0].v.s;
 
     if ((predicate = prolog_lookup(pred_name, narg)) == NULL)
@@ -276,7 +277,7 @@ DRES_ACTION(prolog_handler)
      *       in to master.
      */
     
-    retval = NULL;        /* see the notes above explaining why + 1 */
+    /*                       see the notes above explaining why + 1 */
     if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg + 1))
         FAIL(EINVAL);
     
