@@ -69,6 +69,7 @@ vm_scope_set(vm_scope_t *scope, int id, int type, vm_value_t value)
     case VM_TYPE_STRING:
         scope->variables[idx].type = type;
         scope->variables[idx].v    = value;
+    case VM_TYPE_NIL: /* happens when setting to the value of an unset local */
         return 0;
     default:
         return EINVAL;
