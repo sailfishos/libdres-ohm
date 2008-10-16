@@ -140,8 +140,10 @@ plugin_init(OhmPlugin *plugin)
     if (dres_finalize(dres) != 0)
         FAIL("failed to finalize resolver setup");
 
+#if 0
     dres_dump_targets(dres);
-    
+#endif    
+
     if (console_init("127.0.0.1:3000"))
         g_warning("resolver plugin: failed to open console");
 
