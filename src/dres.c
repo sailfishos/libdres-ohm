@@ -34,6 +34,7 @@ extern int   yyparse(dres_t *dres);
 
 int  initialize_variables(dres_t *dres);
 int  finalize_variables  (dres_t *dres);
+static void free_initializers   (dres_t *dres);
 static int  finalize_actions    (dres_t *dres);
 
 static int  push_locals(dres_t *dres, char **locals);
@@ -122,6 +123,7 @@ dres_exit(dres_t *dres)
         dres_free_targets(dres);
         dres_free_factvars(dres);
         dres_free_dresvars(dres);
+        free_initializers(dres);
         vm_exit(&dres->vm);
         FREE(dres);
     }
@@ -193,6 +195,21 @@ create_variable(dres_t *dres, char *name, dres_init_t *fields)
     return 0;
 
     (void)dres;
+}
+
+
+/********************
+ * free_initializers
+ ********************/
+void
+free_initializers(dres_t *dres)
+{
+    dres_initializer_t *p, *n;
+    
+    for (p = dres->initializers; p != NULL; p = n) {
+        n = p->next;
+        FREE(p);
+    }
 }
 
 
