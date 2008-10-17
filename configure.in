@@ -2,16 +2,16 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.61)
-AC_INIT(dres, 0.1)
+AC_INIT(dres, 0.0.4)
 AC_CONFIG_SRCDIR([src])
 DOC_SUPPORT_INIT()
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADER([include/dres/config.h])
 
 # libtool
-LT_CURRENT=2
+LT_CURRENT=0
 LT_REVISION=0
-LT_AGE=0
+LT_AGE=4
 AC_SUBST(LT_CURRENT)
 AC_SUBST(LT_REVISION)
 AC_SUBST(LT_AGE)
