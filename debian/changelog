@@ -1,3 +1,12 @@
+libdres (0.0.4) unstable; urgency=low
+
+  * Load 'current' policy rules.
+  * Don't dump targets/ruleset upon startup.
+  * Fix memory leaks on the cleanup code paths.
+  * Allow references to unset locals.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Fri, 17 Oct 2008 14:12:31 +0300
+
 libdres (0.0.3) unstable; urgency=low
 
   * Ruleset to use is now current instead of test.
