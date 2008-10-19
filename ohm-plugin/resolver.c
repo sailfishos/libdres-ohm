@@ -255,8 +255,10 @@ DRES_ACTION(prolog_handler)
         argv[i] = args[i].v.s;
     }
     
-    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg))
+    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg)) {
+        prolog_dump(retval);                    /* dump any exceptions */
         FAIL(EINVAL);
+    }
     
     OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
     prolog_dump(retval);
