@@ -68,8 +68,9 @@ main(int argc, char *argv[])
     if (dres_parse_file(dres, in))
         fatal(4, "failed to parse input file %s", in);
 
-    dres_finalize(dres);
-    
+    if (dres_finalize(dres))
+        fatal(5, "failed to finalize DRES rule file %s", in);
+
     if (verbose) {
         printf("Targets found in input file %s:\n", in);
         dres_dump_targets(dres);
