@@ -53,8 +53,7 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
     
     for (a = target->actions; a != NULL; a = a->next)
         if ((status = dres_compile_action(dres, a, target->code)) != 0) {
-            printf("failed to compile the following action of target %s\n",
-                   target->name);
+            DRES_ERROR("failed to compile action for target %s:", target->name);
             dres_dump_action(dres, a);
             return status;
         }
@@ -147,8 +146,8 @@ compile_value(dres_t *dres, dres_value_t *value, vm_chunk_t *code)
     return 0;
 
  fail:
-    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
-           err, strerror(err));
+    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
+               err, strerror(err));
     return err;
 }
 
@@ -184,7 +183,7 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
         }
 
         if (varref->field != NULL) {
-            printf("*** %s: implement VM GET FIELD...", __FUNCTION__);
+            DRES_ERROR("%s: implement VM GET FIELD...", __FUNCTION__);
             FAIL(EOPNOTSUPP);
         }
         break;
@@ -200,8 +199,8 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
     return 0;
 
  fail:
-    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
-           err, strerror(err));
+    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
+               err, strerror(err));
     return err;
 #undef FAIL
 }
@@ -241,8 +240,8 @@ compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
     return 0;
 
  fail:
-    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
-           err, strerror(err));
+    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
+               err, strerror(err));
     return err;
 }
 
@@ -321,8 +320,8 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
     return 0;
 
  fail:
-    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
-           err, strerror(err));
+    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
+               err, strerror(err));
     return err;
 #undef FAIL
 }
@@ -341,8 +340,8 @@ compile_discard(dres_t *dres, vm_chunk_t *code)
     return 0;
 
  fail:
-    printf("*** %s: code generation failed (%d: %s)\n", __FUNCTION__,
-           err, strerror(err));
+    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
+               err, strerror(err));
     return err;
 
     (void)dres;
@@ -362,8 +361,8 @@ compile_debug(const char *info, vm_chunk_t *code)
     return 0;
     
  fail:
-    printf("*** %s: code generation failed for debug info \"%s\" (%d: %s)\n",
-           __FUNCTION__, info, err, strerror(err));
+    DRES_ERROR("%s: code generation failed for debug info \"%s\" (%d: %s)",
+               __FUNCTION__, info, err, strerror(err));
     return err;
 }
 
@@ -940,7 +939,7 @@ dres_buf_wdbl(dres_buf_t *buf, double d)
     int32_t *decimal = dres_buf_alloc(buf, sizeof(*decimal));
 
     /* XXX TODO fixme, this is _not_ the way to do it. */
-    printf("%s@%s:%d: FIXME, please...\n", __FUNCTION__, __FILE__, __LINE__);
+    DRES_WARNING("%s@%s:%d: FIXME, please...", __FUNCTION__, __FILE__,__LINE__);
 
     if (integer == NULL || decimal == NULL)
         return ENOMEM;

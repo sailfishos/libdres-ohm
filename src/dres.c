@@ -36,6 +36,7 @@ int  initialize_variables(dres_t *dres);
 int  finalize_variables  (dres_t *dres);
 static void free_initializers   (dres_t *dres);
 static int  finalize_actions    (dres_t *dres);
+static int  check_undefined     (dres_t *dres);
 
 static int  push_locals(dres_t *dres, char **locals);
 static int  pop_locals (dres_t *dres);
@@ -95,7 +96,7 @@ dres_init(char *prefix)
     dres->stamp = 1;
 
     if (prefix != NULL && prefix[0] != '\0')
-        printf("*** WARNING: ignoring deprecated DRES prefix \"%s\"\n", prefix);
+        DRES_WARNING("ignoring deprecated DRES prefix \"%s\"", prefix);
     
     return dres;
     
@@ -145,7 +146,9 @@ dres_parse_file(dres_t *dres, char *path)
         return status;
     
     status = yyparse(dres);
-    
+
+    if (status == 0)
+        status = check_undefined(dres);
     if (status == 0)
         status = initialize_variables(dres);
     if (status == 0)
@@ -234,6 +237,35 @@ initialize_variables(dres_t *dres)
 
 
 /********************
+ * check_undefined
+ ********************/
+static int
+check_undefined(dres_t *dres)
+{
+    dres_target_t *target, *prereq;
+    int            i, j, id;
+
+    for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
+        if (target->prereqs == NULL)
+            continue;
+        for (j = 0; j < target->prereqs->nid; j++) {
+            id = target->prereqs->ids[j];
+            if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
+                continue;
+            prereq = dres->targets + DRES_INDEX(id);
+            if (!DRES_IS_DEFINED(prereq->id)) {
+                DRES_ERROR("Undefined target '%s' referenced from '%s'.",
+                           prereq->name, target->name);
+                return ENOENT;
+            }
+        }
+    }
+    
+    return 0;
+}
+
+
+/********************
  * finalize_variables
  ********************/
 int
@@ -257,6 +289,7 @@ finalize_actions(dres_t *dres)
     
     status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
+        DRES_INFO("Compiling actions for target %s...", target->name);
         for (action = target->actions; action; action = action->next) {
             if (action->type != DRES_ACTION_CALL)
                 continue;
@@ -269,8 +302,6 @@ finalize_actions(dres_t *dres)
         if ((status = dres_compile_target(dres, target)) != 0)
             return status;
     }
-
-    printf("*** succefully compiled all targets\n");
 
     DRES_SET_FLAG(dres, ACTIONS_FINALIZED);
     return 0;
@@ -289,6 +320,8 @@ finalize_targets(dres_t *dres)
     int            i;
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
+        DRES_INFO("Compiling dependency check for target %s...", target->name);
+
         dres_name(dres, target->id, goal, sizeof(goal));
 
         if ((graph = dres_build_graph(dres, target)) == NULL)
@@ -450,7 +483,7 @@ push_locals(dres_t *dres, char **locals)
             FAIL(EINVAL);
             
         if (id == DRES_ID_NONE) {
-            printf("*** cannot set unknown &%s to \"%s\"\n", locals[i], v.s);
+            DRES_ERROR("cannot set unknown &%s to \"%s\"", locals[i], v.s);
             FAIL(ENOENT);
         }
             

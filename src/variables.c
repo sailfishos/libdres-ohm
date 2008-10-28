@@ -59,8 +59,8 @@ dres_store_free(dres_t *dres)
             n = p->next;
             pattern = p->data;
             if (!OHM_IS_PATTERN(pattern))
-                printf("*** %s@%s:%d ERROR: non-pattern object in view...\n",
-                       __FUNCTION__, __FILE__, __LINE__);
+                DRES_ERROR("%s@%s:%d: non-pattern object in view...",
+                           __FUNCTION__, __FILE__, __LINE__);
             else {
                 ohm_fact_store_view_remove(store->view, OHM_STRUCTURE(pattern));
                 g_object_unref(pattern);
@@ -135,7 +135,7 @@ dres_store_check(dres_t *dres)
     if ((changes = ohm_view_get_changes(store->view)) != NULL) {
         for (l = changes; l != NULL; l = g_slist_next(l)) {
             if (!OHM_PATTERN_IS_MATCH(l->data)) {
-                printf("*** %s: invalid data from view\n", __FUNCTION__);
+                DRES_ERROR("%s: invalid data from view", __FUNCTION__);
                 continue;
             }
             
@@ -145,23 +145,23 @@ dres_store_check(dres_t *dres)
             id    = (int)g_hash_table_lookup(store->ht, name);
 
 #if 0
-            printf("*** variable '%s' has changed\n", name);
+            DRES_INFO("variable '%s' has changed", name);
 #endif
 
             if (!id) {
-                printf("*** %s: unkown variable %s\n", __FUNCTION__, name);
+                DRES_ERROR("%s: unkown variable %s", __FUNCTION__, name);
                 continue;
             }
 
             if (DRES_ID_TYPE(id) != DRES_TYPE_FACTVAR) {
-                printf("*** %s: got invalid type for variable %s (0x%x)\n",
-                       __FUNCTION__, name, id);
+                DRES_ERROR("%s: got invalid type for variable %s (0x%x)",
+                           __FUNCTION__, name, id);
                 continue;
             }
             
             if ((idx = DRES_INDEX(id)) >= dres->nfactvar) {
-                printf("*** %s: invalid index %d for variable %s\n",
-                       __FUNCTION__, idx, name);
+                DRES_ERROR("%s: invalid index %d for variable %s",
+                           __FUNCTION__, idx, name);
                 continue;
             }
             

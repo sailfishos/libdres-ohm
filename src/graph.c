@@ -272,26 +272,6 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
     /*
      * Notes:
      *
-     *    I sincerely apologize to mankind the existence of this code...
-     *    It is not so much the code but more the whole hairy combination
-     *    of the code, the data structures and their (mis)use. I promise
-     *    to really clean it up once we have the basic infrastucture pulled
-     *    together and somewhat working functionally.
-     *
-     *    You have been warned...
-     *
-     *    Lasciate ogne speranza, voi ch'intrate...
-     *
-     *    Abandon all hope, ye who enter here...
-     *
-     *    Not to mention ye who dares to touch this...
-     */
-    
-
-
-    /*
-     * Notes #2:
-     *
      *   We sort our dependency graph toplogically to determine one of
      *   the possible check orders. We attempt to follow the principles
      *   of the following algorithm:
@@ -308,7 +288,7 @@ dres_sort_graph(dres_t *dres, dres_graph_t *graph)
      *       if graph has edges then
      *           output error message (graph has a cycle)
      *       else 
-     *           output message (proposed topologically sorted order: L)
+     *           return topologically sorted order: L
      */
 
 

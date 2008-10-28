@@ -108,7 +108,6 @@ dres_dump_targets(dres_t *dres)
     dres_action_t *a;
     int            i, j, id, idx;
     char          *sep, name[64];
-    vm_state_t     vm;
     char           buf[16384];
 
     
@@ -161,11 +160,14 @@ dres_dump_targets(dres_t *dres)
                 printf("  byte code not generated\n");
         }
         else {
+            vm_state_t vm;
+            int        indent = 4;
+    
             vm.chunk  = t->code;
             vm.pc     = t->code->instrs;
             vm.ninstr = t->code->ninstr;
             vm.nsize  = t->code->nsize;
-            vm_dump_chunk(&vm, buf, sizeof(buf), 4);
+            vm_dump_chunk(&vm, buf, sizeof(buf), indent);
 
             printf("  byte code:\n");
             printf("%s", buf);
@@ -222,8 +224,7 @@ dres_check_target(dres_t *dres, int tid)
                 }
                 break;
             default:
-                printf("*** BUG: invalid prereq 0x%x for %s ***\n",
-                       id, target->name);
+                DRES_ERROR("BUG: invalid prereq 0x%x for %s", id, target->name);
                 break;
             }
         }
