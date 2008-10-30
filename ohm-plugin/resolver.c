@@ -343,7 +343,7 @@ DRES_ACTION(rule_handler)
             argv[2*i]   = (char *)'d';
             argv[2*i+1] = (char *)&args[i].v.d;
             break;
-        defaukt:
+        default:
             FAIL(EINVAL);
         }
     }

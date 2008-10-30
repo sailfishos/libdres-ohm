@@ -1,5 +1,5 @@
 
-#define MAX_ARGS 32                        /* to dres as local variables */
+#define MAX_CMDARGS 32                      /* to dres as local variables */
 
 
 static int parse_dres_args(char *input, char **args, int narg);
@@ -231,7 +231,7 @@ static void
 command_resolve(int id, char *input)
 {
     char *goal;
-    char *args[MAX_ARGS * 2 + 1];
+    char *args[MAX_CMDARGS * 2 + 1];
     int   i;
 
     if (!input[0]) {

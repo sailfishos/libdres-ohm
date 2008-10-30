@@ -117,6 +117,7 @@ schedule_updated(gpointer fact, gpointer name, gpointer value,
 static OhmFact *
 object_to_fact(char *name, char **object)
 {
+#if 0
     OhmFact      *fact;
     GValue       *value;
     char         *field;
@@ -133,7 +134,32 @@ object_to_fact(char *name, char **object)
         value = ohm_value_from_string(object[i+1]);
         ohm_fact_set(fact, field, value);
     }
+#else
+    OhmFact *fact;
+    GValue  *value;
+    char    *field, *v;
+    int      i, type;
+
+    if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
+        return NULL;
     
+    if ((fact = ohm_fact_new(name)) == NULL)
+        return NULL;
+    
+    for (i = 3; object[i] != NULL; i += 3) {
+        field = object[i];
+        type  = (int)object[i+1];
+        v     = object[i+2];
+        switch (type) {
+        case 's': value = ohm_value_from_string(v);                  break;
+        case 'i': value = ohm_value_from_unsigned((unsigned long)v); break;
+        case 'd': value = ohm_value_from_double(*(double *)v);       break;
+        default:  value = ohm_value_from_string("<invalid type>");   break;
+        }
+        ohm_fact_set(fact, field, value);
+    }
+#endif    
+
     return fact;
 }
 
