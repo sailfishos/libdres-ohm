@@ -267,7 +267,7 @@ command_resolve(int id, char *input)
 static void
 command_prolog(int id, char *input)
 {
-    prolog_prompt();
+    rules_prompt();
 
     (void)id;
     (void)input;

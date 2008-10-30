@@ -17,13 +17,28 @@
 
 #include <ohm/ohm-plugin.h>
 #include <ohm/ohm-plugin-debug.h>
+#include <ohm/ohm-plugin-log.h>
 #include <ohm/ohm-fact.h>
-
 
 #include "console.h"
 #include "factstore.h"
 
+#if 0
+#ifdef __PRECOMPILED_RULESETS__
+#  define POLICY_SUFFIX ".plc"
+#else
+#  define POLICY_SUFFIX ""
+#endif
+#define PROLOG_SYSDIR  "/usr/lib/prolog/"
+#define POLICY_RULESET RULESET_PATH"/policy"POLICY_SUFFIX
+#endif
 
+#define RULESET        "current"
+#define RULESET_PATH   "/usr/share/policy/rules/"RULESET
+#define DRES_RULESET   RULESET_PATH"/policy.dres"
+
+
+/* debug flags */
 static int DBG_RESOLVE, DBG_PROLOG, DBG_SIGNAL, DBG_FACTS;
 
 OHM_DEBUG_PLUGIN(resolver,
@@ -33,27 +48,35 @@ OHM_DEBUG_PLUGIN(resolver,
     OHM_DEBUG_FLAG("facts"   , "fact handling"       , &DBG_FACTS));
 
 
-
-
-typedef void (*completion_cb_t)(int transid, int success);
-
-
-
-
 /* rule engine methods */
-OHM_IMPORTABLE(int , prolog_setup , (char **extensions, char **files));
-OHM_IMPORTABLE(void, prolog_free  , (void *retval));
-OHM_IMPORTABLE(void, prolog_dump  , (void *retval));
-OHM_IMPORTABLE(void, prolog_prompt, (void));
+#if 0
+OHM_IMPORTABLE(int , rules_setup      , (char **extensions, char **files));
+#endif
+OHM_IMPORTABLE(void, rules_free_result, (void *retval));
+OHM_IMPORTABLE(void, rules_dump_result, (void *retval));
+OHM_IMPORTABLE(void, rules_prompt     , (void));
 
-OHM_IMPORTABLE(prolog_predicate_t *, prolog_lookup ,
-               (char *name, int arity));
-OHM_IMPORTABLE(int                 , prolog_invoke ,
-               (prolog_predicate_t *pred, void *retval, ...));
-OHM_IMPORTABLE(int                 , prolog_vinvoke,
-               (prolog_predicate_t *pred, void *retval, va_list ap));
-OHM_IMPORTABLE(int                 , prolog_ainvoke,
-               (prolog_predicate_t *pred, void *retval,void **args, int narg));
+OHM_IMPORTABLE(int , rule_find        , (char *name, int arity));
+OHM_IMPORTABLE(int , rule_eval        ,
+               (int rule, void *retval, void **args, int narg));
+
+
+static void plugin_exit(OhmPlugin *plugin);
+
+static int  rules_init(void);
+static void rules_exit(void);
+static int  rule_lookup(const char *name, int arity);
+
+static GHashTable *ruletbl;
+
+
+static int  resolver_init(void);
+static void resolver_exit(void);
+
+
+
+/* signaling */
+typedef void (*completion_cb_t)(int transid, int success);
 
 OHM_IMPORTABLE(int, signal_changed,(char *signal, int transid,
                                     int factc, char **factv,
@@ -62,9 +85,6 @@ OHM_IMPORTABLE(int, signal_changed,(char *signal, int transid,
 
 OHM_IMPORTABLE(void, completion_cb, (int transid, int success));
 
-DRES_ACTION(prolog_handler);
-DRES_ACTION(signal_handler);
-
 static void dump_signal_changed_args(char *signame, int transid, int factc,
                                      char**factv, completion_cb_t callback,
                                      unsigned long timeout);
@@ -72,7 +92,22 @@ static int  retval_to_facts(char ***objects, OhmFact **facts, int max);
 
 
 
+DRES_ACTION(rule_handler);
+DRES_ACTION(signal_handler);
+
 static dres_t *dres;
+
+typedef struct {
+    const char     *name;
+    dres_handler_t  handler;
+} handler_t;
+
+static handler_t handlers[] = {
+    { "prolog"        , rule_handler,   },
+    { "rule"          , rule_handler,   },
+    { "signal_changed", signal_handler, },
+    { NULL, NULL }
+};
 
 
 /*****************************************************************************
@@ -85,84 +120,19 @@ static dres_t *dres;
 static void
 plugin_init(OhmPlugin *plugin)
 {
-#define RULESET "current"
-
-#define DRES_RULE_PATH "/usr/share/policy/rules/"RULESET"/policy.dres"
-#define DRES_PLC_PATH  "/usr/share/policy/rules/"RULESET"/policy.plc"
-#define PROLOG_SYSDIR  "/usr/lib/prolog/"
-#define PROLOG_RULEDIR "/usr/share/policy/rules/"RULESET"/"
-
-#define FAIL(fmt, args...) do {                                   \
-        g_warning("DRES plugin, %s: "fmt, __FUNCTION__, ## args); \
-        goto fail;                                                \
-    } while (0)
-
-    char *extensions[] = {
-        PROLOG_SYSDIR"extensions/fact",
-        NULL
-    };
-
-    char *rules[] = {
-#if 0
-        DRES_PLC_PATH,
-#else
-#if 0
-        PROLOG_RULEDIR"hwconfig",
-        PROLOG_RULEDIR"devconfig",
-        PROLOG_RULEDIR"interface",
-        PROLOG_RULEDIR"profile",
-        PROLOG_RULEDIR"audio",
-#else
-        PROLOG_RULEDIR"policy",
-#endif
-#endif
-        NULL
-    };
-    
     if (!OHM_DEBUG_INIT(resolver))
-        FAIL("failed to initialize debugging");
-
-    if ((dres = dres_init(NULL)) == NULL)
-        FAIL("failed to initialize DRES library");
+        OHM_WARNING("resolver plugins failed to initialize debugging");
     
-    if (dres_register_handler(dres, "prolog", prolog_handler) != 0)
-        FAIL("failed to register resolver prolog handler");
-
-    if (dres_register_handler(dres, "signal_changed", signal_handler) != 0)
-        FAIL("failed to register resolver signal_changed handler");
-
-    if (dres_parse_file(dres, DRES_RULE_PATH))
-        FAIL("failed to parse resolver rule file \"%s\"", DRES_RULE_PATH);
-
-    if (prolog_setup(extensions, rules) != 0)
-        FAIL("failed to load extensions and rules to prolog interpreter");
-
-    if (dres_finalize(dres) != 0)
-        FAIL("failed to finalize resolver setup");
-
-#if 0
-    dres_dump_targets(dres);
-#endif    
-
-    if (console_init("127.0.0.1:3000"))
-        g_warning("resolver plugin: failed to open console");
-
-    if (factstore_init())
-        FAIL("factstore initialization failed");
+    if (resolver_init() != 0 || rules_init() != 0 || factstore_init() != 0 ||
+        console_init("127.0.0.1:3000") != 0) {
+        plugin_exit(plugin);
+        exit(1);
+    }
     
     OHM_DEBUG(DBG_RESOLVE, "resolver initialized");
-
     return;
 
- fail:
-    if (dres) {
-        dres_exit(dres);
-        dres = NULL;
-    }
-    exit(1);
-
     (void)plugin;
-#undef FAIL
 }
 
 
@@ -173,12 +143,8 @@ static void
 plugin_exit(OhmPlugin *plugin)
 {
     factstore_exit();
-
-    if (dres) {
-        dres_exit(dres);
-        dres = NULL;
-    }
-
+    resolver_exit();
+    rules_exit();
     console_exit();
 
     (void)plugin;
@@ -197,6 +163,120 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 
     (void)dres;
 }
+
+
+/********************
+ * resolver_init
+ ********************/
+static int
+resolver_init(void)
+{
+    handler_t *h;
+
+    /* initialize resolver with our ruleset */
+    OHM_DEBUG(DBG_RESOLVE, "Initializing resolver...");
+    if ((dres = dres_open(DRES_RULESET)) == NULL) {
+        OHM_ERROR("failed to to open resolver file \"%s\"", DRES_RULESET);
+        return EINVAL;
+    }
+    
+    /* register resolver handlers implemented by us */
+    OHM_DEBUG(DBG_RESOLVE, "Registering resolver handlers...");
+    for (h = handlers; h->name != NULL; h++) {
+        /*                              XXXTODO */
+        if (dres_register_handler(dres, (char *)h->name, h->handler) != 0) {
+            OHM_ERROR("failed to register resolver handler \"%s\"", h->name);
+            return EINVAL;
+        }
+    }
+    
+    /* finalize/check resolver ruleset */
+    OHM_DEBUG(DBG_RESOLVE, "Finalizing resolver ruleset...");
+    if (dres_finalize(dres) != 0) {
+        OHM_ERROR("failed to finalize resolver ruleset");
+        return EINVAL;
+    }
+    
+    return 0;
+}
+
+
+/********************
+ * resolver_exit
+ ********************/
+static void
+resolver_exit(void)
+{
+    if (dres) {
+        dres_exit(dres);
+        dres = NULL;
+    }
+}
+
+
+
+/********************
+ * rules_init
+ ********************/
+static int
+rules_init(void)
+{
+#if 0
+    /* XXX TODO
+     * Notes:
+     *     This is still (lib)prolog specific and we need to get rid of it.
+     *     The best way would be to have a decent configuration infrastruture
+     *     in core OHM (with per plugin configuration parameters) and use that
+     *     to set up the rule engine.
+     *
+     *     Another alternative would be to try and generalize the interface
+     *     by merging the arrays to a single one (and separate rules from
+     *     extensions by a NULL). After all probably alternative rule engines
+     *     also need a way to initialize themselves from external rule files.
+     */
+    
+    char *extensions[] = {
+        PROLOG_SYSDIR"extensions/fact",
+        NULL
+    };
+
+    char *rules[] = {
+        POLICY_RULESET,
+        NULL
+    };
+
+    
+    OHM_DEBUG(DBG_RESOLVE, "Setting up rule engine...");
+    if (rules_setup(extensions, rules) != 0) {
+        OHM_ERROR("failed to set up rule engine (prolog interpreter)");
+        return EINVAL;
+    }
+#endif
+
+    ruletbl = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
+
+    /* XXX TODO:
+     * if we had an appropriate prolog plugin interface for
+     * iterating over the discovered predicates we could prefill the
+     * rule table here...
+     */
+    
+    return ruletbl == NULL ? ENOMEM : 0;
+}
+
+
+/********************
+ * rules_exit
+ ********************/
+static void
+rules_exit(void)
+{
+    if (ruletbl != NULL) {
+        g_hash_table_destroy(ruletbl);
+        ruletbl = NULL;
+    }
+}
+
 
 
 
@@ -219,49 +299,62 @@ OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
 
 
 /********************
- * prolog_handler
+ * rule_handler
  ********************/
-DRES_ACTION(prolog_handler)
+DRES_ACTION(rule_handler)
 {
 #define FAIL(ec) do { err = ec; goto fail; } while (0)
 #define MAX_FACTS 63
-#define MAX_ARGS  32
+#define MAX_ARGS  (32*2)
 
-    prolog_predicate_t   *predicate;
-    char                 *pred_name;
-    char                 *argv[MAX_ARGS];
-    char               ***retval;
-    vm_global_t          *g = NULL;
-    int                   i, err;
+    int            rule;
+    char          *rule_name;
+    char          *argv[MAX_ARGS];
+    char        ***retval;
+    vm_global_t   *g = NULL;
+    int            i, err;
 
     
-    OHM_DEBUG(DBG_RESOLVE, "prolog handler entered...");
+    OHM_DEBUG(DBG_RESOLVE, "rule evaluation (prolog handler) entered...");
     
     if (narg < 1 || args[0].type != DRES_TYPE_STRING)
         return EINVAL;
 
     retval    = NULL;
-    pred_name = args[0].v.s;
+    rule_name = args[0].v.s;
 
-    if ((predicate = prolog_lookup(pred_name, narg)) == NULL)
+    if ((rule = rule_lookup(rule_name, narg)) < 0)
         FAIL(ENOENT);
     
     args++;
     narg--;
 
     for (i = 0; i < narg; i++) {
-        if (args[i].type != DRES_TYPE_STRING)
+        switch (args[i].type) {
+        case DRES_TYPE_STRING:
+            argv[2*i]   = (char *)'s';
+            argv[2*i+1] = args[i].v.s;
+            break;
+        case DRES_TYPE_INTEGER:
+            argv[2*i]   = (char *)'i';
+            argv[2*i+1] = (char *)args[i].v.i;
+            break;
+        case DRES_TYPE_DOUBLE:
+            argv[2*i]   = (char *)'d';
+            argv[2*i+1] = (char *)&args[i].v.d;
+            break;
+        defaukt:
             FAIL(EINVAL);
-        argv[i] = args[i].v.s;
+        }
     }
     
-    if (!prolog_ainvoke(predicate, &retval, (void **)argv, narg)) {
-        prolog_dump(retval);                    /* dump any exceptions */
+    if (!rule_eval(rule, &retval, (void **)argv, narg)) {
+        rules_dump_result(retval);             /* dump any exceptions */
         FAIL(EINVAL);
     }
     
     OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
-    prolog_dump(retval);
+    rules_dump_result(retval);
 
     if ((g = vm_global_alloc(MAX_FACTS)) == NULL)
         FAIL(ENOMEM);
@@ -269,7 +362,7 @@ DRES_ACTION(prolog_handler)
     if ((g->nfact = retval_to_facts(retval, g->facts, MAX_FACTS)) < 0)
         FAIL(EINVAL);
 
-    prolog_free(retval);
+    rules_free_result(retval);
 
     rv->type = DRES_TYPE_FACTVAR;
     rv->v.g  = g;
@@ -280,7 +373,7 @@ DRES_ACTION(prolog_handler)
         vm_global_free(g);
     
     if (retval)
-        prolog_free(retval);
+        rules_free_result(retval);
     
     return err;
 
@@ -434,9 +527,8 @@ static void dump_signal_changed_args(char *signame, int transid, int factc,
     OHM_DEBUG(DBG_SIGNAL, "calling signal_changed(%s, %d,  %d, %p, %p, %lu)",
           signame, transid, factc, factv, callback, timeout);
 
-    for (i = 0;  i < factc;  i++) {
+    for (i = 0; i < factc; i++)
         OHM_DEBUG(DBG_SIGNAL, "   fact[%d]: '%s'", i, factv[i]);
-    }
 }
 
 
@@ -444,6 +536,47 @@ static void dump_signal_changed_args(char *signame, int transid, int factc,
 /*****************************************************************************
  *                        *** misc. helper routines ***                      *
  *****************************************************************************/
+
+
+/********************
+ * rule_lookup
+ ********************/
+static int
+rule_lookup(const char *name, int arity)
+{
+    char     key[128], *keyp;
+    int      rule;
+    gpointer value;
+    
+    /*
+     * XXX TODO: we could avoid the lookup here by allowing an arbitrary
+     *           void *data to be attached to DRES actions (or actually
+     *           dres action invokations) and store the rule ID there.
+     */
+    
+    snprintf(key, sizeof(key), "%s/%d", name, arity);
+    
+    if ((rule = (int)g_hash_table_lookup(ruletbl, key)) > 0)
+        return rule - 1;
+    
+    if ((rule = rule_find((char *)name, arity)) < 0)
+        return -1;
+
+    value = (gpointer)(rule + 1);
+    keyp  = g_strdup(key);
+
+    if (keyp == NULL) {
+        OHM_ERROR("failed to insert rule %s/%d into rule hash table",
+                  name, arity);
+        return -1;
+    }
+
+    g_hash_table_insert(ruletbl, keyp, value);
+    return rule;
+}
+
+
+
 
 
 #include "console.c"
@@ -459,27 +592,29 @@ OHM_PLUGIN_DESCRIPTION("dres",
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_REQUIRES("prolog", "console");
+OHM_PLUGIN_REQUIRES("rule_engine", "console");
 
 OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
     OHM_EXPORT(update_goal, "resolve")
 );
 
-OHM_PLUGIN_REQUIRES_METHODS(dres, 15,
-    OHM_IMPORT("prolog.setup"            , prolog_setup),
-    OHM_IMPORT("prolog.lookup"           , prolog_lookup),
-    OHM_IMPORT("prolog.call"             , prolog_invoke),
-    OHM_IMPORT("prolog.vcall"            , prolog_vinvoke),
-    OHM_IMPORT("prolog.acall"            , prolog_ainvoke),
-    OHM_IMPORT("prolog.free_retval"      , prolog_free),
-    OHM_IMPORT("prolog.dump_retval"      , prolog_dump),
-    OHM_IMPORT("prolog.prompt"           , prolog_prompt),
-    OHM_IMPORT("console.open"            , console_open),
-    OHM_IMPORT("console.close"           , console_close),
-    OHM_IMPORT("console.write"           , console_write),
-    OHM_IMPORT("console.printf"          , console_printf),
-    OHM_IMPORT("console.grab"            , console_grab),
-    OHM_IMPORT("console.ungrab"          , console_ungrab),
+OHM_PLUGIN_REQUIRES_METHODS(dres, 12,
+#if 0
+    OHM_IMPORT("rule_engine.setup" , rules_setup),
+#endif
+    OHM_IMPORT("rule_engine.find"  , rule_find),
+    OHM_IMPORT("rule_engine.eval"  , rule_eval),
+    OHM_IMPORT("rule_engine.free"  , rules_free_result),
+    OHM_IMPORT("rule_engine.dump"  , rules_dump_result),
+    OHM_IMPORT("rule_engine.prompt", rules_prompt),
+
+    OHM_IMPORT("console.open"  , console_open),
+    OHM_IMPORT("console.close" , console_close),
+    OHM_IMPORT("console.write" , console_write),
+    OHM_IMPORT("console.printf", console_printf),
+    OHM_IMPORT("console.grab"  , console_grab),
+    OHM_IMPORT("console.ungrab", console_ungrab),
+
     OHM_IMPORT("signaling.signal_changed", signal_changed)
 );
 
