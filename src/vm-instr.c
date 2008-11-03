@@ -320,7 +320,8 @@ vm_instr_update(vm_state_t *vm)
                 FAIL(EINVAL, "UPDATE: failed to copy source fact #%d", i);
 
             g_object_unref(dfact);
-            dst->facts[j] = NULL;
+            if (j < dst->nfact - 1)
+                dst->facts[j] = dst->facts[dst->nfact - 1];
             dst->nfact--;
 
             if ((j = vm_global_find_first(dst, fields, values, nfield)) >= 0)
