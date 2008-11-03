@@ -466,8 +466,10 @@ static int
 push_locals(dres_t *dres, char **locals)
 {
 #define FAIL(ec) do { err = (ec); goto fail; } while (0)
-    vm_value_t v;
-    int        err, id, i;
+    vm_value_t   v;
+    char        *name, *value;
+    int          err, id, i;
+    unsigned int type;
     
     if (locals == NULL)
         return 0;
@@ -475,28 +477,42 @@ push_locals(dres_t *dres, char **locals)
     if ((err = vm_scope_push(&dres->vm)) != 0)
         return err;
     
-    for (i = 0; locals[i] != NULL; i += 2) {
-        id  = dres_dresvar_id(dres, locals[i]);
-        v.s = locals[i+1];
-
-        if (v.s == NULL)
-            FAIL(EINVAL);
-            
-        if (id == DRES_ID_NONE) {
-            DRES_ERROR("cannot set unknown &%s to \"%s\"", locals[i], v.s);
+    i = 0;
+    while (locals[i] != NULL) {
+        name = locals[i++];
+        type = (int)locals[i++];
+        
+        if (type < 0xff) {
+            value = locals[i++];
+            switch (type) {
+            case 's': type = DRES_TYPE_STRING;  v.s = value;            break;
+            case 'i': type = DRES_TYPE_INTEGER; v.i = (int)value;       break;
+            case 'd': type = DRES_TYPE_DOUBLE;  v.d = *(double *)value; break;
+            default:
+                DRES_ERROR("local value of invalid type 0x%x", type);
+                FAIL(EINVAL);
+            }
+        }
+        else {
+            v.s  = (char *)type;
+            type = DRES_TYPE_STRING;
+        }
+        
+        if ((id = dres_dresvar_id(dres, name)) == DRES_ID_NONE) {
+            DRES_ERROR("cannot set unknown &%s", name);
             FAIL(ENOENT);
         }
             
-        if ((err = vm_scope_set(dres->vm.scope, id, DRES_TYPE_STRING, v)) != 0)
+        if ((err = vm_scope_set(dres->vm.scope, id, type, v)) != 0)
             FAIL(err);
     }
-    
     
     return 0;
 
  fail:
     vm_scope_pop(&dres->vm);
     return err;
+#undef FAIL
 }
 
 

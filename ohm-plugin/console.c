@@ -231,7 +231,7 @@ static void
 command_resolve(int id, char *input)
 {
     char *goal;
-    char *args[MAX_CMDARGS * 2 + 1];
+    char *args[MAX_CMDARGS * 3 + 1];
     int   i;
 
     if (!input[0]) {
@@ -424,8 +424,10 @@ find_command(char *name)
 static int
 parse_dres_args(char *input, char **args, int narg)
 {
-    char *next, *var, *val, **arg;
-    int   i;
+    static double dbl;                       /* ouch.... */
+
+    char  *next, *var, *val, **arg;
+    int     i;
 
     next = input;
     arg  = args;
@@ -448,9 +450,31 @@ parse_dres_args(char *input, char **args, int narg)
         
         if ((next = strchr(val, ' ')) != NULL)
             *next++ = '\0';
-    
+
         *arg++ = var;
-        *arg++ = val;
+        
+        if (val[1] == ':') {
+            switch (val[0]) {
+            string:
+            case 's':
+                *arg++ = (char *)'s';
+                i++;
+                *arg++ = val + 2;
+                break;
+            case 'i':
+                *arg++ = (char *)'i';
+                i++;
+                *arg++ = (char *)strtoul(val + 2, NULL, 10);
+                break;
+            case 'd':
+                *arg++ = (char *)'d';
+                dbl = strtod(val + 2, NULL);
+                *arg++ = (char *)(void *)&dbl;
+                break;
+            default:
+                goto string;
+            }
+        }
     }
     *arg = NULL;
 
