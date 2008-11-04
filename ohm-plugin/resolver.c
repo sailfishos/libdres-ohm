@@ -121,7 +121,7 @@ static void
 plugin_init(OhmPlugin *plugin)
 {
     if (!OHM_DEBUG_INIT(resolver))
-        OHM_WARNING("resolver plugins failed to initialize debugging");
+        OHM_WARNING("resolver plugin failed to initialize debugging");
     
     if (resolver_init() != 0 || rules_init() != 0 || factstore_init() != 0 ||
         console_init("127.0.0.1:3000") != 0) {
