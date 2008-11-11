@@ -23,19 +23,13 @@
 #include "console.h"
 #include "factstore.h"
 
-#if 0
-#ifdef __PRECOMPILED_RULESETS__
-#  define POLICY_SUFFIX ".plc"
+#define DEFAULT_CONSOLE "127.0.0.1:3000"
+#ifndef __PRECOMPILED_RULESET__
+#define DEFAULT_RULESET "/usr/share/policy/rules/current/policy.dres"
 #else
-#  define POLICY_SUFFIX ""
-#endif
-#define PROLOG_SYSDIR  "/usr/lib/prolog/"
-#define POLICY_RULESET RULESET_PATH"/policy"POLICY_SUFFIX
+#define DEFAULT_RULESET "/usr/share/policy/rules/current/policy.dresc"
 #endif
 
-#define RULESET        "current"
-#define RULESET_PATH   "/usr/share/policy/rules/"RULESET
-#define DRES_RULESET   RULESET_PATH"/policy.dres"
 
 
 /* debug flags */
@@ -49,9 +43,6 @@ OHM_DEBUG_PLUGIN(resolver,
 
 
 /* rule engine methods */
-#if 0
-OHM_IMPORTABLE(int , rules_setup      , (char **extensions, char **files));
-#endif
 OHM_IMPORTABLE(void, rules_free_result, (void *retval));
 OHM_IMPORTABLE(void, rules_dump_result, (void *retval));
 OHM_IMPORTABLE(void, rules_prompt     , (void));
@@ -95,6 +86,7 @@ static int  retval_to_facts(char ***objects, OhmFact **facts, int max);
 DRES_ACTION(rule_handler);
 DRES_ACTION(signal_handler);
 
+static char   *ruleset;
 static dres_t *dres;
 
 typedef struct {
@@ -120,19 +112,25 @@ static handler_t handlers[] = {
 static void
 plugin_init(OhmPlugin *plugin)
 {
+    const char *console;
+
     if (!OHM_DEBUG_INIT(resolver))
         OHM_WARNING("resolver plugin failed to initialize debugging");
     
+    if ((console = ohm_plugin_get_param(plugin, "console")) == NULL)
+        console = DEFAULT_CONSOLE;
+
+    if ((ruleset = ohm_plugin_get_param(plugin, "ruleset")) == NULL)
+        ruleset = DEFAULT_RULESET;
+
     if (resolver_init() != 0 || rules_init() != 0 || factstore_init() != 0 ||
-        console_init("127.0.0.1:3000") != 0) {
+        console_init(console ? console : DEFAULT_CONSOLE) != 0) {
         plugin_exit(plugin);
         exit(1);
     }
     
     OHM_DEBUG(DBG_RESOLVE, "resolver initialized");
     return;
-
-    (void)plugin;
 }
 
 
@@ -173,10 +171,12 @@ resolver_init(void)
 {
     handler_t *h;
 
+    OHM_INFO("resolver: using ruleset %s", ruleset);
+
     /* initialize resolver with our ruleset */
     OHM_DEBUG(DBG_RESOLVE, "Initializing resolver...");
-    if ((dres = dres_open(DRES_RULESET)) == NULL) {
-        OHM_ERROR("failed to to open resolver file \"%s\"", DRES_RULESET);
+    if ((dres = dres_open(ruleset)) == NULL) {
+        OHM_ERROR("failed to to open resolver file \"%s\"", ruleset);
         return EINVAL;
     }
     
@@ -221,38 +221,6 @@ resolver_exit(void)
 static int
 rules_init(void)
 {
-#if 0
-    /* XXX TODO
-     * Notes:
-     *     This is still (lib)prolog specific and we need to get rid of it.
-     *     The best way would be to have a decent configuration infrastruture
-     *     in core OHM (with per plugin configuration parameters) and use that
-     *     to set up the rule engine.
-     *
-     *     Another alternative would be to try and generalize the interface
-     *     by merging the arrays to a single one (and separate rules from
-     *     extensions by a NULL). After all probably alternative rule engines
-     *     also need a way to initialize themselves from external rule files.
-     */
-    
-    char *extensions[] = {
-        PROLOG_SYSDIR"extensions/fact",
-        NULL
-    };
-
-    char *rules[] = {
-        POLICY_RULESET,
-        NULL
-    };
-
-    
-    OHM_DEBUG(DBG_RESOLVE, "Setting up rule engine...");
-    if (rules_setup(extensions, rules) != 0) {
-        OHM_ERROR("failed to set up rule engine (prolog interpreter)");
-        return EINVAL;
-    }
-#endif
-
     ruletbl = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, NULL);
 
     /* XXX TODO:
@@ -599,9 +567,6 @@ OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
 );
 
 OHM_PLUGIN_REQUIRES_METHODS(dres, 12,
-#if 0
-    OHM_IMPORT("rule_engine.setup" , rules_setup),
-#endif
     OHM_IMPORT("rule_engine.find"  , rule_find),
     OHM_IMPORT("rule_engine.eval"  , rule_eval),
     OHM_IMPORT("rule_engine.free"  , rules_free_result),

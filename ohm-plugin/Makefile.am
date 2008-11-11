@@ -1,5 +1,8 @@
 pkglib_LTLIBRARIES = libohm_dres.la
 pkglibdir          = @OHM_PLUGIN_DIR@
+EXTRA_DIST         = $(config_DATA)
+configdir          = $(sysconfdir)/ohm/plugins.d
+config_DATA        = dres.ini
 
 libohm_dres_la_SOURCES = resolver.c
 libohm_dres_la_CFLAGS = @OHM_PLUGIN_CFLAGS@ @LIBPROLOG_CFLAGS@

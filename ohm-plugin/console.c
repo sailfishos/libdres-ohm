@@ -34,10 +34,6 @@ static command_t commands[] = {
     COMMAND(set    , "var value", "Set/change a given fact store variable." ),
     COMMAND(resolve, "[goal]"   , "Run the dependency resolver for a goal." ),
     COMMAND(prolog , NULL       , "Start an interactive prolog shell."      ),
-#if 0
-    COMMAND(query  , NULL       , "Execute a prolog query."                 ),
-    COMMAND(eval   , NULL       , "Evaluate a prolog query."                ),
-#endif
     COMMAND(bye    , NULL       , "Close the resolver terminal session."    ),
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
@@ -55,6 +51,8 @@ static int console;
 static int
 console_init(char *address)
 {
+    OHM_INFO("resolver: using console %s", address);
+
     console = console_open(address,
                            console_opened, console_closed, console_input,
                            NULL, FALSE);
@@ -274,58 +272,6 @@ command_prolog(int id, char *input)
 }
 
 
-#if 0
-/********************
- * command_query
- ********************/
-static void
-command_query(int id, char *input)
-{
-    char *goal, *var, *colon, findall[4096];
-    
-
-    if (input == NULL)
-        return;
-
-    for (goal = input; goal[0] == ' ' || goal[0] == '\t'; goal++)
-        ;
-    
-    if (!('A' <= goal[0] && goal[0] <= 'Z')) {
-        console_printf(id, "query must be of the form \"Var: prolog_query\"\n");
-        return;
-    }
-    
-    for (var = colon = goal; *colon && *colon != ':'; colon++)
-        ;
-
-    if (*colon != ':') {
-        console_printf(id, "query must be of the form \"Var: prolog_query\"\n");
-        console_printf(id, "eg. query K: help(K)\n");
-        return;
-    }
-    
-    *colon = '\0';
-    goal = colon + 1;
-
-    snprintf(findall, sizeof(findall), "findall(%s, %s, Result)", var, goal);
-    
-    prolog_run(findall);
-}
-
-
-
-/********************
- * command_eval
- ********************/
-static void
-command_eval(int id, char *input)
-{
-    prolog_run(input);
-}
-
-#endif
-
-
 /********************
  * command_grab
  ********************/
@@ -480,73 +426,6 @@ parse_dres_args(char *input, char **args, int narg)
 
     return 0;
 }
-
-
-
-#if 0
-/********************
- * dres_goal
- ********************/
-static void
-dres_goal(int cid, char *cmd)
-{
-    char  buf[2048];
-    char *goal;
-    char *varname;
-    char *value;
-    char *args[MAX_ARGS * 2 + 1];
-    int   i;
-    char  dbgstr[MAX_ARGS * 32];
-    char *p, *e, *sep;
-
-    if (!cmd || !*cmd) 
-        goto syntax_error;
-
-    strncpy(buf, cmd, sizeof(buf));
-    buf[sizeof(buf)-1] = '\0';
-
-    goal = value = buf;
-    i = 0;
-
-    if ((varname = strchr(value, ' ')) != NULL) {
-        *varname++ = '\0';
-
-        while ((value = strchr(varname, '=')) != NULL) {
-            *value++ = '\0';
-
-            args[i++] = varname;
-            args[i++] = value;
-            
-            if (i >= MAX_ARGS * 2 || (varname = strchr(value, ' ')) == NULL)
-                break;
-            *varname++ = '\0';
-       }
-    }
-
-    args[i] = NULL;
-
-    p  = dbgstr;
-    e  = p + sizeof(dbgstr);
-    p += snprintf(p, e-p, "building goal '%s' with arguments '", goal);
-    for (i = 0, sep="";  args[i] != NULL;  i += 2, sep = " ") {
-        p += snprintf(p, e-p, "%s%s %s", sep, args[i], args[i+1]);
-    }
-    snprintf(p, e-p, "%s<null>'", sep);
-    DEBUG("%s", dbgstr);
-
-    dres_update_goal(dres, goal, args);
-
-    return;
-
- syntax_error:
-    console_printf(cid, "invalid dres arguments \"%s\"\n", cmd);
-}
-#endif
-
-
-
-
-
 
 
 
