@@ -69,6 +69,7 @@ make
 %files -n ohm-plugin-resolver
 %defattr(-,root,root,-)
 %{_libdir}/ohm/libohm_dres.so
+%{_sysconfdir}/ohm/plugins.d/dres.ini
 
 %files utils
 %defattr(-,root,root,-)
