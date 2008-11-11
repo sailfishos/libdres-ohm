@@ -320,7 +320,7 @@ finalize_targets(dres_t *dres)
     int            i;
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
-        DRES_INFO("Compiling dependency check for target %s...", target->name);
+        DRES_INFO("Compiling dependency graph for target %s...", target->name);
 
         dres_name(dres, target->id, goal, sizeof(goal));
 
