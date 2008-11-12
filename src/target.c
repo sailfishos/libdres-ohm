@@ -153,8 +153,11 @@ dres_dump_targets(dres_t *dres)
                 printf("  not saved, see bytecode\n");
         }
 
-        for (a = t->actions; a; a = a->next)
+        for (a = t->actions; a; a = a->next) {
+            printf("    ");
             dres_dump_action(dres, a);
+            printf("\n");
+        }
         if (t->code == NULL) {
             if (t->actions != NULL)
                 printf("  byte code not generated\n");

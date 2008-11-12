@@ -265,12 +265,18 @@ vm_instr_filter(vm_state_t *vm)
 int
 vm_instr_update(vm_state_t *vm)
 {
+#if 0
 #define FAIL(err, fmt, args...) do {          \
-        if (src) vm_global_free(src);         \
-        if (dst) vm_global_free(dst);         \
+        if (src) vm_global_free(src); /* no need, done by vm_stack_cleanup */ \
+        if (dst) vm_global_free(dst); /* no need, done by vm_stack_cleanup */ \
         VM_RAISE(vm, err, fmt, ## args);      \
     } while (0)
-    
+#else
+#define FAIL(err, fmt, args...) do {          \
+        VM_RAISE(vm, err, fmt, ## args);      \
+    } while (0)
+#endif
+
     vm_global_t *src, *dst;
     int          nsrc, ndst;
     vm_value_t   sval, dval;

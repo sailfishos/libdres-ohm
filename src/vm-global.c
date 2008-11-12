@@ -107,8 +107,19 @@ vm_global_print(vm_global_t *g)
 {
     int i;
 
-    for (i = 0; i < g->nfact; i++)
-        vm_fact_print(g->facts[i]);
+    if (g->name != NULL)
+        printf("global <%s>\n", g->name);
+    else {
+        printf("global with %d facts:\n", g->nfact);
+        for (i = 0; i < g->nfact; i++) {
+            if (g->facts[i]) {
+                printf("#%d: ", i);
+                vm_fact_print(g->facts[i]);
+            }
+            else
+                printf("#%d: <NULL>\n", i);
+        }
+    }
 }
 
 

@@ -122,12 +122,11 @@ void
 vm_stack_cleanup(vm_stack_t *s, int narg)
 {
     vm_value_t arg;
-    int        type, i;
+    int        type, i, j;
     
-    for (i = 0; i < narg; i++) {
+    for (i = 0; i < narg; i++)
         if ((type = vm_pop(s, &arg)) == VM_TYPE_GLOBAL)
             vm_global_free(arg.g);
-    }
 }
 
 
