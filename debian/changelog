@@ -1,3 +1,9 @@
+libdres (0.0.5) unstable; urgency=low
+
+  * 
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 13 Nov 2008 13:29:05 +0200
+
 libdres (0.0.4) unstable; urgency=low
 
   * Load 'current' policy rules.
