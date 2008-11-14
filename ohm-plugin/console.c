@@ -305,7 +305,7 @@ command_release(int id, char *input)
 static void
 command_debug(int id, char *input)
 {
-    char buf[1024];
+    char buf[8*1024];
 
     if (!strcmp(input, "list") || !strcmp(input, "help")) {
         trace_list_flags(NULL, buf, sizeof(buf),
