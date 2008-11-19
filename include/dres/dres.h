@@ -5,22 +5,9 @@
 #include <dres/vm.h>
 #include <dres/mm.h>
 
-#define DRES_ERROR(fmt, args...) do {             \
-        fprintf(stderr, "*** "fmt"\n", ## args);  \
-        fflush(stderr);                           \
-    } while (0)
-
-#define DRES_WARNING(fmt, args...) do {           \
-        fprintf(stderr, "*** "fmt"\n", ## args);  \
-        fflush(stderr);                           \
-    } while (0)
-
-#define DRES_INFO(fmt, args...) do {              \
-        fprintf(stdout, fmt"\n", ## args);        \
-        fflush(stdout);                           \
-    } while (0)
-
-
+#define DRES_ERROR   VM_ERROR
+#define DRES_WARNING VM_WARNING
+#define DRES_INFO    VM_INFO
 
 #define DRES_MAGIC    ('D'<<24|('R'<<16)|('E'<<8)|'S')
 #define DRES_MAX_NAME 128

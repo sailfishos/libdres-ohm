@@ -13,6 +13,21 @@
 
 #define VM_ALIGN_TO(n, a) (((n) + ((a)-1)) & ~((a)-1))
 
+#define VM_ERROR(fmt, args...) do {                   \
+        fprintf(stderr, "[ERROR] "fmt"\n", ## args);  \
+        fflush(stderr);                               \
+    } while (0)
+
+#define VM_WARNING(fmt, args...) do {                   \
+        fprintf(stderr, "[WARNING] "fmt"\n", ## args);  \
+        fflush(stderr);                                 \
+    } while (0)
+
+#define VM_INFO(fmt, args...) do {                      \
+        fprintf(stdout, "[INFO] "fmt"\n", ## args);     \
+        fflush(stdout);                                 \
+    } while (0)
+
 
 /*
  * VM stack
@@ -395,21 +410,20 @@ struct vm_catch_s {
         if ((__status = setjmp(__catch.location)) != 0) {               \
             vm_exception_t *e = &__catch.exception;                     \
                                                                         \
-            printf("*** VM exception %d\n", __status);                  \
+            VM_ERROR("VM exception %d", __status);                      \
             if (e->error != 0) {                                        \
                 if (e->message[0])                                      \
-                    printf("***   %s\n", e->message);                   \
+                    VM_ERROR("  %s", e->message);                       \
                 if (e->context)                                         \
-                    printf("***   while excecuting %s\n", e->context);  \
+                    VM_ERROR("  while excecuting %s", e->context);      \
             }                                                           \
             fflush(stdout);                                             \
             if (vm->stack->nentry > __catch.depth) {                    \
-                printf("*** cleaning up the stack...\n");               \
+                VM_INFO("cleaning up the stack...");                    \
                 vm_stack_cleanup(vm->stack,                             \
                                  vm->stack->nentry - __catch.depth);    \
             }                                                           \
             vm->catch = vm->catch->prev;                                \
-            __status = -__status;                                       \
         }                                                               \
         else {                                                          \
             __status = vm_run(vm);             /* __status = 0 */       \
