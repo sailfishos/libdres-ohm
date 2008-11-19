@@ -374,7 +374,6 @@ typedef struct {
         (e)->context    = NULL;    \
     } while (0)
 
-
 typedef struct vm_catch_s vm_catch_t;
 struct vm_catch_s {
     jmp_buf         location;                  /* catch exceptions here */

@@ -499,7 +499,7 @@ push_locals(dres_t *dres, char **locals)
         }
         
         if ((id = dres_dresvar_id(dres, name)) == DRES_ID_NONE) {
-            DRES_ERROR("cannot set unknown &%s", name);
+            DRES_ERROR("cannot set undeclared variable &%s", name);
             FAIL(ENOENT);
         }
             

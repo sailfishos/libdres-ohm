@@ -12,12 +12,10 @@
                                 vm_stack_entry_t *args, int narg,       \
                                 vm_stack_entry_t *rv)
 
-#if 0
-BUILTIN_HANDLER(assign);
-#endif
 BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
+BUILTIN_HANDLER(fact);
 BUILTIN_HANDLER(shell);
 BUILTIN_HANDLER(fail);
 
@@ -29,12 +27,10 @@ typedef struct dres_builtin_s {
 } dres_builtin_t;
 
 static dres_builtin_t builtins[] = {
-#if 0
-    { .name = DRES_BUILTIN_ASSIGN, .handler = dres_builtin_assign },
-#endif
     BUILTIN(dres),
     BUILTIN(resolve),
     BUILTIN(echo),
+    BUILTIN(fact),
     BUILTIN(shell),
     BUILTIN(fail),
     { .name = NULL, .handler = NULL }
@@ -95,47 +91,6 @@ dres_register_builtins(dres_t *dres)
 }
 
 
-#if 0
-/********************
- * dres_builtin_assign
- ********************/
-BUILTIN_HANDLER(assign)
-{
-    OhmFactStore *store = ohm_fact_store_get_fact_store();
-    GSList       *list;
-    
-    char     *prefix;
-    char      rval[64], factname[64];
-    OhmFact **facts;
-    int       nfact, i;
-    
-    if (DRES_ID_TYPE(action->lvalue.variable) != DRES_TYPE_FACTVAR || !ret)
-        return EINVAL;
-    
-    if (action->immediate != DRES_ID_NONE) {
-        *ret = NULL;
-        return 0;              /* handled in action.c:assign_result */
-    }
-    
-    prefix = dres_get_prefix(dres);
-    dres_name(dres, action->rvalue.variable, rval, sizeof(rval));
-    snprintf(factname, sizeof(factname), "%s%s", prefix, rval + 1);
-    
-    if ((list = ohm_fact_store_get_facts_by_name(store, factname)) != NULL) {
-        nfact = g_slist_length(list);
-        if ((facts = ALLOC_ARR(OhmFact *, nfact + 1)) == NULL)
-            return ENOMEM;
-        for (i = 0; i < nfact && list != NULL; i++, list = g_slist_next(list))
-            facts[i] = g_object_ref((OhmFact *)list->data);
-        facts[i] = NULL;
-    }
-    
-    *ret = facts;
-    return 0;
-}
-#endif
-
-
 /********************
  * dres_builtin_dres
  ********************/
@@ -148,7 +103,7 @@ BUILTIN_HANDLER(dres)
     int           ninstr;
     int           nsize;
     int           status;
-    char         *info;
+    const char   *info;
 
     if (narg < 1)
         goal = NULL;
@@ -227,6 +182,90 @@ BUILTIN_HANDLER(echo)
     rv->v.i  = 0;
     return 0;
 
+    (void)dres;
+    (void)name;
+}
+
+
+/********************
+ * dres_builtin_fact
+ ********************/
+BUILTIN_HANDLER(fact)
+{
+    dres_t       *dres = (dres_t *)data;
+    vm_global_t  *g;
+    GValue       *value;
+    char         *field;
+    int           a, i, err;
+
+    if (narg < 1) {
+        DRES_ERROR("builtin 'fact': called with no arguments");
+        return EINVAL;
+    }
+    
+    if ((g = vm_global_alloc(narg)) == NULL) {
+        DRES_ERROR("builtin 'fact': failed to allocate new global");
+        return ENOMEM;
+    }
+    
+    for (a = 0, i = 0; a < narg && i < narg; a++) {
+        g->facts[a] = ohm_fact_new("foo");
+        while (i < narg) {
+            if (args[i].type != DRES_TYPE_STRING) {
+                DRES_ERROR("builtin 'fact': invalid field name (type 0x%x)",
+                           args[i].type);
+                err = EINVAL;
+                goto fail;
+            }
+
+            field = args[i].v.s;
+            if (!field[0]) {
+                i++;
+                break;
+            }
+            
+            if (i == narg - 1) {
+                DRES_ERROR("builtin 'fact': missing value for field %s", field);
+                err = EINVAL;
+                goto fail;
+            }
+
+            i++;
+            
+            switch (args[i].type) {
+            case DRES_TYPE_INTEGER:
+                value = ohm_value_from_int(args[i].v.i);
+                break;
+            case DRES_TYPE_STRING:
+                value = ohm_value_from_string(args[i].v.s);
+                break;
+            case DRES_TYPE_DOUBLE:
+                value = ohm_value_from_double(args[i].v.d);
+                break;
+            default:
+                DRES_ERROR("builtin 'fact': invalid value for field %s", field);
+                err = EINVAL;
+                goto fail;
+            }
+            
+            ohm_fact_set(g->facts[a], field, value);
+            
+            i++;
+        }
+    }
+    
+    g->nfact = a;
+
+    rv->type = DRES_TYPE_FACTVAR;
+    rv->v.g  = g;
+    return 0;
+
+ fail:
+    if (g)
+        vm_global_free(g);
+    
+    return err;
+    
     (void)dres;
     (void)name;
 }
