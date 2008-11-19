@@ -34,7 +34,7 @@ static command_t commands[] = {
     COMMAND(help   , NULL       , "Get help on the available commands."     ),
     COMMAND(dump   , "[var]"    , "Dump a given or all factstore variables."),
     COMMAND(set    , "var value", "Set/change a given fact store variable." ),
-    COMMAND(resolve, "[goal]"   , "Run the dependency resolver for a goal." ),
+    COMMAND(resolve, "[goal arg1=val1,...]", "Run the dependency resolver for a goal." ),
     COMMAND(prolog , NULL       , "Start an interactive prolog shell."      ),
     COMMAND(bye    , NULL       , "Close the resolver terminal session."    ),
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
@@ -241,7 +241,7 @@ static void
 command_resolve(int id, char *input)
 {
     char *goal;
-    char *args[MAX_CMDARGS * 3 + 1];
+    char *args[MAX_CMDARGS * 3 + 1], *t;
     int   i;
 
     if (!input[0]) {
@@ -262,9 +262,31 @@ command_resolve(int id, char *input)
     
     console_printf(id, "updating goal \"%s\"\n", goal);
     if (args[0]) {
-        console_printf(id, "  with the following arguments:\n");
-        for (i = 0; args[i] != NULL; i += 2)
-            console_printf(id, "    %s=%s\n", args[i], args[i+1]);
+        console_printf(id, "with arguments:");
+        for (i = 0, t = " "; args[i] != NULL; i += 3, t = ", ") {
+            char *var, *val;
+            int   type;
+            
+            var  = args[i];
+            type = (int)args[i + 1];
+            val  = args[i + 2];
+            
+            switch (type) {
+            case 's':
+                console_printf(id, "%s%s='%s'", t, var, val);
+                break;
+            case 'i':
+                console_printf(id, "%s%s=%d", t, var, (int)val);
+                break;
+            case 'd':
+                console_printf(id, "%s%s=%f", t, var, *(double *)val);
+                break;
+            default:
+                console_printf(id, "%s<unknown type 0x%x>", t, type);
+                break;
+            }
+        }
+        console_printf(id, "\n");
     }
     
     dres_update_goal(dres, goal, args);
@@ -385,19 +407,23 @@ parse_dres_args(char *input, char **args, int narg)
     static double dbl;                       /* ouch.... */
 
     char  *next, *var, *val, **arg;
-    int     i;
+    int     i, ndbl = 0;
 
     next = input;
     arg  = args;
     for (i = 0; next && *next && i < narg; i++) {
         while (*next == ' ')
             next++;
-        var = next;
-        val = strchr(next, ' ');
 
-        if (!*var || val == NULL)
+        var = next;
+        val = strchr(next, '=');
+
+        if (!*var)
             break;
         
+        if (val == NULL)
+            return EINVAL;
+
         *val++ = '\0';
 
         while (*val == ' ')
@@ -406,14 +432,13 @@ parse_dres_args(char *input, char **args, int narg)
         if (!*val)
             return EINVAL;
         
-        if ((next = strchr(val, ' ')) != NULL)
+        if ((next = strchr(val, ',')) != NULL)
             *next++ = '\0';
 
         *arg++ = var;
         
         if (val[1] == ':') {
             switch (val[0]) {
-            string:
             case 's':
                 *arg++ = (char *)'s';
                 i++;
@@ -428,10 +453,23 @@ parse_dres_args(char *input, char **args, int narg)
                 *arg++ = (char *)'d';
                 dbl = strtod(val + 2, NULL);
                 *arg++ = (char *)(void *)&dbl;
+                ndbl++;
+                if (ndbl > 1) {
+                    console_printf(console,
+                                   "This test code is unable to pass multiple "
+                                   "doubles (variable %s) to resolver.", var);
+                    return EINVAL;
+                }
                 break;
             default:
-                goto string;
+                goto oldstring;
             }
+        }
+        else {
+        oldstring:
+            *arg++ = (char *)'s';
+            i++;
+            *arg++ = val;
         }
     }
     *arg = NULL;
