@@ -1,6 +1,9 @@
 #!/usr/bin/make -f
 SHELL+= -e
 
+GIT_HEAD := $(shell git --version >& /dev/null && \
+               git log -1 --pretty='format:%H' HEAD || echo "no git")
+
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
 
@@ -24,10 +27,19 @@ debian/stamp-autogen:
 	cd $(DEB_BUILDDIR) && ./autogen.sh
 	touch $@
 
+debian/control::
+	@sed -e 's/__GIT_ID__/$(GIT_HEAD)/g' debian/control.in > $@
+
 clean::
 	-rm -rf debian/stamp-autogen
 
 # do not include docs and changelogs in these packages
-#DEB_INSTALL_DOCS_libdres := --no-act
-#DEB_INSTALL_CHANGELOGS_libdres := --no-act
+DEB_INSTALL_DOCS_libdres0 := --no-act
+DEB_INSTALL_CHANGELOGS_libdres0 := --no-act
+DEB_INSTALL_DOCS_libdres-dev := --no-act
+DEB_INSTALL_CHANGELOGS_libdres-dev := --no-act
+DEB_INSTALL_DOCS_ohm-plugin-resolver := --no-act
+DEB_INSTALL_CHANGELOGS_ohm-plugin-resolver := --no-act
+DEB_INSTALL_DOCS_libdres-utils := --no-act
+DEB_INSTALL_CHANGELOGS_libdres-utils := --no-act
 
