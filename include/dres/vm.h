@@ -362,12 +362,25 @@ typedef struct vm_method_s {
  *        the VM method errors are positive and internal VM errors are negative.
  */
 
+typedef struct {
+    int         error;                         /* error code */
+    char        message[256];                  /* error message */
+    const char *context;                       /* exception context */
+} vm_exception_t;
+
+#define VM_RESET_EXCEPTION(e) do { \
+        (e)->error      = 0;       \
+        (e)->message[0] = '\0';    \
+        (e)->context    = NULL;    \
+    } while (0)
+
 
 typedef struct vm_catch_s vm_catch_t;
 struct vm_catch_s {
-    jmp_buf     location;                      /* catch exceptions here */
-    int         depth;                         /* stack depth upon entry */
-    vm_catch_t *prev;                          /* previous entry if any */
+    jmp_buf         location;                  /* catch exceptions here */
+    int             depth;                     /* stack depth upon entry */
+    vm_exception_t  exception;                 /* exception details */
+    vm_catch_t     *prev;                      /* previous entry if any */
 };
 
 
@@ -375,12 +388,22 @@ struct vm_catch_s {
         vm_catch_t __catch;                                             \
         int        __status;                                            \
                                                                         \
+        VM_RESET_EXCEPTION(&__catch.exception);                         \
         __catch.prev  = vm->catch;                                      \
         __catch.depth = vm->stack ? vm->stack->nentry : 0;              \
         vm->catch     = &__catch;                                       \
                                                                         \
         if ((__status = setjmp(__catch.location)) != 0) {               \
-            printf("*** VM exception %d\n", -__status);                 \
+            vm_exception_t *e = &__catch.exception;                     \
+                                                                        \
+            printf("*** VM exception %d\n", __status);                  \
+            if (e->error != 0) {                                        \
+                if (e->message[0])                                      \
+                    printf("***   %s\n", e->message);                   \
+                if (e->context)                                         \
+                    printf("***   while excecuting %s\n", e->context);  \
+            }                                                           \
+            fflush(stdout);                                             \
             if (vm->stack->nentry > __catch.depth) {                    \
                 printf("*** cleaning up the stack...\n");               \
                 vm_stack_cleanup(vm->stack,                             \
@@ -396,12 +419,14 @@ struct vm_catch_s {
         __status;                                                       \
     })
 
-#define VM_RAISE(vm, err, fmt, args...) do {                                \
-        if (err > 0) {                                                      \
-            printf("%s: VM error %d: "fmt"\n", __FUNCTION__, err, ## args); \
-            fflush(stdout);                                                 \
-        }                                                                   \
-        longjmp(vm->catch->location, err);                                  \
+#define VM_RAISE(vm, err, fmt, args...) do {                            \
+        vm_exception_t *e = &vm->catch->exception;                      \
+                                                                        \
+        e->error = err;                                                 \
+        snprintf(e->message, sizeof(e->message), "%s: VM error: "fmt,   \
+                 __FUNCTION__, ## args);                                \
+        e->context = vm->info;                                          \
+        longjmp(vm->catch->location, err);                              \
     } while (0)
 
 
@@ -441,6 +466,8 @@ typedef struct vm_state_s {
 
     vm_catch_t    *catch;                     /* catch exceptions here */
     int            flags;
+
+    const char    *info;                      /* debug info for current pc */
 } vm_state_t;
 
 

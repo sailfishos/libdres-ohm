@@ -137,7 +137,7 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
     if (!status)
         vm_push(vm->stack, retval.type, retval.v);
 
-    return status;
+    return -status;
 }
 
 

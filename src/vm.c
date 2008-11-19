@@ -59,8 +59,6 @@ vm_exec(vm_state_t *vm, vm_chunk_t *code)
     
     status = VM_TRY(vm);
 
-    /*printf("*** stack depth after vm_exec: %d\n", vm->stack->nentry);*/
-
     return status;         /* should be 0 because of our exceptions */
 }
 

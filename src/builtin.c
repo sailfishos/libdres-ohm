@@ -148,6 +148,7 @@ BUILTIN_HANDLER(dres)
     int           ninstr;
     int           nsize;
     int           status;
+    char         *info;
 
     if (narg < 1)
         goal = NULL;
@@ -157,10 +158,12 @@ BUILTIN_HANDLER(dres)
         goal = args[0].v.s;
     }
     
+    /* save VM context */
     chunk  = dres->vm.chunk;
     pc     = dres->vm.pc;
     ninstr = dres->vm.ninstr;
     nsize  = dres->vm.nsize;
+    info   = dres->vm.info;
 
     DEBUG(DBG_RESOLVE, "DRES recursing for %sgoal %s",
           goal ? "" : "the default ", goal ? goal : "");
@@ -169,10 +172,12 @@ BUILTIN_HANDLER(dres)
 
     DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
 
+    /* restore VM context */
     dres->vm.chunk  = chunk;
     dres->vm.pc     = pc;
     dres->vm.ninstr = ninstr;
     dres->vm.nsize  = nsize;
+    dres->vm.info   = info;
 
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = status;
@@ -241,8 +246,15 @@ BUILTIN_HANDLER(shell)
  ********************/
 BUILTIN_HANDLER(fail)
 {
+    int err;
+    
+    if (narg > 0 && args[0].type == DRES_TYPE_INTEGER)
+        err = args[0].v.i;
+    else
+        err = EINVAL;
+    
     rv->type = DRES_TYPE_UNKNOWN;
-    return EINVAL;
+    return err;
 
     (void)data;
     (void)name;

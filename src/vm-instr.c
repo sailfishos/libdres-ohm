@@ -720,7 +720,8 @@ vm_instr_debug(vm_state_t *vm)
     int   nsize = 1 + VM_ALIGN_TO(len, sizeof(int)) / sizeof(int);
     
     DEBUG(DBG_VM, "%s", info);
-    
+    vm->info = info;
+
     vm->ninstr--;
     vm->pc    += nsize;
     vm->nsize -= nsize * sizeof(int);

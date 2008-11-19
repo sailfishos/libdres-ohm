@@ -1,5 +1,7 @@
 
 #define MAX_CMDARGS 32                      /* to dres as local variables */
+#define REDO_LAST   "!"
+
 
 
 static int parse_dres_args(char *input, char **args, int narg);
@@ -92,7 +94,7 @@ console_exit(void)
 static void
 console_opened(int id, struct sockaddr *peer, int peerlen)
 {
-    printf("***** console 0x%x opened.\n", id);
+    OHM_INFO("new console 0x%x opened", id);
 
     console_printf(id, "OHMng Dependency Resolver Console\n");
     console_printf(id, "Type help to get a list of available commands.\n\n");
@@ -109,7 +111,7 @@ console_opened(int id, struct sockaddr *peer, int peerlen)
 static void
 console_closed(int id)
 {
-    printf("***** console 0x%x closed.\n", id);
+    OHM_INFO("console 0x%x closed", id);
 }
 
 
@@ -119,6 +121,8 @@ console_closed(int id)
 static void
 console_input(int id, char *input, void *data)
 {
+    static char last[256] = "\0";
+
     command_t    *command;
     char          name[64], *args, *s, *d;
     unsigned int  n;
@@ -127,6 +131,9 @@ console_input(int id, char *input, void *data)
         console_printf(id, CONSOLE_PROMPT);
         return;
     }
+
+    if (!strcmp(input, REDO_LAST) && last[0] != '\0')
+        input = last;
     
     n = 0;
     s = input;
@@ -146,6 +153,11 @@ console_input(int id, char *input, void *data)
     else
         console_printf(id, "unknown console command \"%s\"\n", input);
     
+    if (strcmp(input, REDO_LAST)) {
+        strncpy(last, input, sizeof(last) - 1);
+        last[sizeof(last) - 1] = '\0';
+    }
+
     console_printf(id, CONSOLE_PROMPT);
 
     (void)data;
