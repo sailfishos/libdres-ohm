@@ -432,6 +432,25 @@ vm_global_find_first(vm_global_t *g, char **fields, GValue **values, int nfield)
 }
 
 
+/********************
+ * vm_global_find_next
+ ********************/
+int
+vm_global_find_next(vm_global_t *g, int idx,
+                    char **fields, GValue **values, int nfield)
+{
+    int i;
+
+    for (i = idx + 1; i < g->nfact; i++) {
+        if (g->facts[i] != NULL)
+            if (vm_fact_matches(g->facts[i], fields, values, nfield))
+                return i;
+    }
+
+    return -1;
+}
+
+
 /* 
  * Local Variables:
  * c-basic-offset: 4

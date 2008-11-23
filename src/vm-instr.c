@@ -298,7 +298,9 @@ vm_instr_update(vm_state_t *vm)
     
     src  = sval.g;
     nsrc = src->nfact;
-    
+
+
+#if 0 /* original semantics, no multiple fact occurence allowed */    
     if (nsrc > ndst)
         FAIL(EOVERFLOW, "UPDATE: source dimension > destination");
     else {
@@ -338,6 +340,47 @@ vm_instr_update(vm_state_t *vm)
             src->nfact--;
         }
     }
+#else /* multiple fact occurence allowed */
+    {
+        char   *fields[nfield];
+        GValue *values[nfield];
+        int     match;
+
+        for (i = 0; i < nfield; i++)
+            if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
+                FAIL(ENOENT, "UPDATE: expected #%d field name not in stack", i);
+        
+        vm_pop_global(vm->stack);                    /* pop destination */
+        vm_pop_global(vm->stack);                    /* pop source */
+
+        for (i = 0; i < nsrc; i++) {
+            sfact = src->facts[i];
+            if ((j = vm_fact_collect_fields(sfact, fields, nfield, values)) < 0)
+                FAIL(ENOENT, "UPDATE: source has no field %s", fields[-j]);
+            
+            match = FALSE;
+            for (j = vm_global_find_first(dst, fields, values, nfield);
+                 j >= 0;
+                 j = vm_global_find_next(dst, j, fields, values, nfield)) {
+                match = TRUE;
+
+                dfact = dst->facts[j];
+                if (vm_fact_copy(dfact, sfact) == NULL)
+                    FAIL(EINVAL, "UPDATE: failed to copy source fact #%d", i);
+            }
+            
+            if (!match)
+                FAIL(ENOENT,
+                     "UPDATE: source #%d has no matching destination", i);
+            
+            g_object_unref(sfact);
+            src->facts[i] = NULL;
+            src->nfact--;
+        }
+        for (j = 0; j < dst->nfact; j++)
+            g_object_unref(dst->facts[j]);
+    }
+#endif
 
     vm->ninstr--;
     vm->pc++;
