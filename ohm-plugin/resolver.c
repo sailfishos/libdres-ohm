@@ -183,7 +183,7 @@ resolver_init(void)
     /* register resolver handlers implemented by us */
     OHM_DEBUG(DBG_RESOLVE, "Registering resolver handlers...");
     for (h = handlers; h->name != NULL; h++) {
-        /*                              XXXTODO */
+        /*                              XXX TODO */
         if (dres_register_handler(dres, (char *)h->name, h->handler) != 0) {
             OHM_ERROR("failed to register resolver handler \"%s\"", h->name);
             return EINVAL;
@@ -519,7 +519,7 @@ rule_lookup(const char *name, int arity)
     /*
      * XXX TODO: we could avoid the lookup here by allowing an arbitrary
      *           void *data to be attached to DRES actions (or actually
-     *           dres action invokations) and store the rule ID there.
+     *           dres action invocations) and store the rule ID there.
      */
     
     snprintf(key, sizeof(key), "%s/%d", name, arity);

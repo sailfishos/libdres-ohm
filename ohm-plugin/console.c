@@ -18,6 +18,7 @@ static void command_query  (int id, char *input);
 static void command_eval   (int id, char *input);
 #endif
 static void command_bye    (int id, char *input);
+static void command_quit   (int id, char *input);
 static void command_grab   (int id, char *input);
 static void command_release(int id, char *input);
 static void command_debug  (int id, char *input);
@@ -37,6 +38,7 @@ static command_t commands[] = {
     COMMAND(resolve, "[goal arg1=val1,...]", "Run the dependency resolver for a goal." ),
     COMMAND(prolog , NULL       , "Start an interactive prolog shell."      ),
     COMMAND(bye    , NULL       , "Close the resolver terminal session."    ),
+    COMMAND(quit   , NULL       , "Close the resolver terminal session."    ),
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
     COMMAND(debug  , "list|set...", "Configure runtime debugging/tracing."  ),
@@ -183,6 +185,18 @@ command_bye(int id, char *input)
 
 
 /********************
+ * command_quit
+ ********************/
+static void
+command_quit(int id, char *input)
+{
+    console_close(id);
+
+    (void)input;
+}
+
+
+/********************
  * command_dump
  ********************/
 static void
@@ -199,7 +213,9 @@ command_dump(int id, char *input)
     while (*p) {
         while (*p == ' ' || *p == ',')
             p++;
-        for (q = factname; isalnum(*p) || *p == '_' || *p == '.'; *q++ = *p++)
+        if (*p == '$')
+            p++;
+        for (q = factname; *p && *p != ','; *q++ = *p++)
             ;
         *q = '\0';
         if (!strcmp(factname, "all")) {
