@@ -364,6 +364,8 @@ set_fact(int cid, char *buf)
      */
     
     for (str = buf; (name = strtok(str, ",")) != NULL; str = NULL) {
+        if (*name == '$')
+            name++;
         if ((p = strchr(name, '=')) != NULL) {
             *p++ = 0;
             value = p;
@@ -395,7 +397,33 @@ set_fact(int cid, char *buf)
                                    name, selector);
                 else {
                     for (i = 0; i < n; i++) {
-                        gval = ohm_value_from_string(value);
+                        if (value[1] == ':') {
+                            switch (value[0]) {
+                                int    ival;
+                                double dval;
+                                
+                            case 'i':
+                                ival = (int)strtol(value + 2, NULL, 10);
+                                gval = ohm_value_from_int(ival);
+                                break;
+                                
+                            case 's':
+                                gval = ohm_value_from_string(value + 2);
+                                break;
+                                
+                            case 'd':
+                                dval = strtod(value + 2, NULL);
+                                gval = ohm_value_from_double(dval);
+                                break;
+
+                            default:
+                                gval = ohm_value_from_string(value);
+                                break;
+                            }
+                        }
+                        else
+                            gval = ohm_value_from_string(value);
+                        
                         ohm_fact_set(facts[i], member, gval);
                         console_printf(cid, "%s:%s = %s\n", name,
                                        member, value);
