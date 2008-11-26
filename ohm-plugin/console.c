@@ -41,7 +41,7 @@ static command_t commands[] = {
     COMMAND(quit   , NULL       , "Close the resolver terminal session."    ),
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
-    COMMAND(debug  , "list|set...", "Configure runtime debugging/tracing."  ),
+    COMMAND(debug  , "list|set|rule...", "Configure runtime debugging/tracing."  ),
     END
 };
 
@@ -375,6 +375,9 @@ command_debug(int id, char *input)
             console_printf(id, "failed to parse debugging flags.\n");
         else
             console_printf(id, "Debugging configuration updated.\n");
+    }
+    else if (!strncmp(input, "rule ", 5)) {
+        rules_trace(input + 5);
     }
 }
 

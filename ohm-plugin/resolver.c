@@ -46,6 +46,7 @@ OHM_DEBUG_PLUGIN(resolver,
 OHM_IMPORTABLE(void, rules_free_result, (void *retval));
 OHM_IMPORTABLE(void, rules_dump_result, (void *retval));
 OHM_IMPORTABLE(void, rules_prompt     , (void));
+OHM_IMPORTABLE(int , rules_trace      , (char *));
 
 OHM_IMPORTABLE(int , rule_find        , (char *name, int arity));
 OHM_IMPORTABLE(int , rule_eval        ,
@@ -566,12 +567,13 @@ OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
     OHM_EXPORT(update_goal, "resolve")
 );
 
-OHM_PLUGIN_REQUIRES_METHODS(dres, 12,
+OHM_PLUGIN_REQUIRES_METHODS(dres, 13,
     OHM_IMPORT("rule_engine.find"  , rule_find),
     OHM_IMPORT("rule_engine.eval"  , rule_eval),
     OHM_IMPORT("rule_engine.free"  , rules_free_result),
     OHM_IMPORT("rule_engine.dump"  , rules_dump_result),
     OHM_IMPORT("rule_engine.prompt", rules_prompt),
+    OHM_IMPORT("rule_engine.trace" , rules_trace),
 
     OHM_IMPORT("console.open"  , console_open),
     OHM_IMPORT("console.close" , console_close),
