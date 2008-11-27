@@ -66,11 +66,6 @@ PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
 AC_SUBST(GLIB_CFLAGS)
 AC_SUBST(GLIB_LIBS)
 
-# Checks for glib and gobject.
-PKG_CHECK_MODULES(GLIB, glib-2.0 gobject-2.0)
-AC_SUBST(GLIB_CFLAGS)
-AC_SUBST(GLIB_LIBS)
-
 # Checks for gmodule.
 PKG_CHECK_MODULES(GMODULE, gmodule-2.0)
 AC_SUBST(GMODULE_CFLAGS)
