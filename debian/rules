@@ -1,8 +1,8 @@
 #!/usr/bin/make -f
 SHELL+= -e
 
-GIT_HEAD := $(shell git --version >& /dev/null && \
-               git log -1 --pretty='format:%H' HEAD || echo "no git")
+GIT_VERSION := $(shell [ -x ./git-version.sh ] && \
+                           ./git-version.sh || echo "unknown")
 
 # Uncomment this to turn on verbose mode.
 #export DH_VERBOSE=1
@@ -28,7 +28,7 @@ debian/stamp-autogen:
 	touch $@
 
 debian/control::
-	@sed -e 's/__GIT_ID__/$(GIT_HEAD)/g' debian/control.in > $@
+	@sed -e 's/__GIT_ID__/$(GIT_VERSION)/g' debian/control.in > $@
 
 clean::
 	-rm -rf debian/stamp-autogen
