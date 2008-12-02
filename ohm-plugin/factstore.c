@@ -152,7 +152,7 @@ object_to_fact(char *name, char **object)
         v     = object[i+2];
         switch (type) {
         case 's': value = ohm_value_from_string(v);                  break;
-        case 'i': value = ohm_value_from_unsigned((unsigned long)v); break;
+        case 'i': value = ohm_value_from_int(v);                     break;
         case 'd': value = ohm_value_from_double(*(double *)v);       break;
         default:  value = ohm_value_from_string("<invalid type>");   break;
         }
