@@ -1,3 +1,12 @@
+libdres (0.0.6) unstable; urgency=low
+
+  * Rule tracing support on the console.
+  * Changed semantics of UPDATE to allow multiple occurence of a fact.
+  * Improved resolver argument passing from dres debugging console.
+  * Minor VM exception improvements.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 27 Nov 2008 15:09:11 +0200
+
 libdres (0.0.5) unstable; urgency=low
 
   * Miscallaneous fixes and improvements.
