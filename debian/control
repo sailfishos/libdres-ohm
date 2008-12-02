@@ -8,7 +8,7 @@ Build-Depends: cdbs, debhelper (>= 4.1.0), libprolog-dev, libglib2.0-dev, libdbu
 Package: libdres0
 Architecture: any
 Depends: ${shlibs:Depends}
-XB-GIT-ID: __GIT_ID__
+XB-GIT-ID: 2f3bfe58a0521a6178e404baecd1ac5b966ffaf6
 Description: OHM dependency resolver library.
  Dependency resolver library for OHM.
  .
@@ -27,7 +27,7 @@ Package: ohm-plugin-resolver
 Architecture: any
 Section: libs
 Depends: ${shlibs:Depends}, libdres0, swi-prolog, ohm, libprolog0
-XB-GIT-ID: __GIT_ID__
+XB-GIT-ID: 2f3bfe58a0521a6178e404baecd1ac5b966ffaf6
 Description: OHM dependecy resolver plugin.
  A dependency resolver plugin for OHM.
 
@@ -35,7 +35,7 @@ Package: libdres-utils
 Architecture: any
 Depends: ${shlibs:Depends}, libdres0
 Section: misc
-XB-GIT-ID: __GIT_ID__
+XB-GIT-ID: 2f3bfe58a0521a6178e404baecd1ac5b966ffaf6
 Description: Miscallaneous OHM dependency resolver library utilities.
  .
  This package contains miscallaneous OHM dependency resolver utilities
