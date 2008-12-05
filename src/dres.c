@@ -58,7 +58,7 @@ dres_open(char *path)
         return NULL;
 
     if ((status = dres_parse_file(dres, path)) != 0) {
-        dres_close(dres);
+        dres_exit(dres);
         errno = status;
         dres  = NULL;
     }
@@ -137,7 +137,7 @@ dres_exit(dres_t *dres)
 EXPORTED int
 dres_parse_file(dres_t *dres, char *path)
 {
-    int status;
+    int status, i;
     
     if (path == NULL)
         return EINVAL;
@@ -155,6 +155,8 @@ dres_parse_file(dres_t *dres, char *path)
         status = finalize_variables(dres);
 
     dres->vm.nlocal = dres->ndresvar;
+    for (i = 0; i < dres->ndresvar; i++)
+        vm_set_varname(&dres->vm, i, dres->dresvars[i].name);
     
     return status;
 }

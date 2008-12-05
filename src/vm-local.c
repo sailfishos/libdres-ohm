@@ -10,6 +10,46 @@
 
 
 /********************
+ * vm_set_varname
+ ********************/
+int
+vm_set_varname(vm_state_t *vm, int id, const char *name)
+{
+    if (id < 0 || id >= vm->nlocal)
+        return EOVERFLOW;
+    
+    if (vm->names == NULL)
+        if ((vm->names = ALLOC_ARR(char *, vm->nlocal)) == NULL)
+            return ENOMEM;
+    
+    if ((vm->names[id] = STRDUP(name)) == NULL)
+        return ENOMEM;
+    
+    return 0;
+}
+
+
+/********************
+ * vm_free_varnames
+ ********************/
+void
+vm_free_varnames(vm_state_t *vm)
+{
+    int i;
+    
+    if (vm->names != NULL) {
+        for (i = 0; i < vm->nlocal; i++) {
+            if (vm->names[i] != NULL) {
+                FREE(vm->names[i]);
+                vm->names[i] = NULL;
+            }
+        }
+        FREE(vm->names);
+        vm->names = NULL;
+    }
+}
+
+/********************
  * vm_scope_push
  ********************/
 int

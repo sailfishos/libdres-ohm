@@ -412,10 +412,40 @@ struct vm_catch_s {
                                                                         \
             VM_ERROR("VM exception %d", __status);                      \
             if (e->error != 0) {                                        \
+                int         i, type;                                    \
+                vm_value_t  v;                                          \
+                char       *name;                                       \
+                                                                        \
                 if (e->message[0])                                      \
                     VM_ERROR("  %s", e->message);                       \
                 if (e->context)                                         \
                     VM_ERROR("  while excecuting %s", e->context);      \
+                                                                        \
+                VM_ERROR("  local variables:");                         \
+                for (i = 0; i < vm->nlocal; i++) {                      \
+                    type = vm_scope_get(vm->scope, i, &v);              \
+                    name = vm->names && vm->names[i] ?                  \
+                        vm->names[i] : "<unknown>";                     \
+                    switch (type) {                                     \
+                    case VM_TYPE_UNKNOWN:                               \
+                    case VM_TYPE_NIL:                                   \
+                        /* VM_ERROR("    0x%x (%s) is unset", i, name);*/ \
+                        break;                                          \
+                    case VM_TYPE_INTEGER:                               \
+                        VM_ERROR("    0x%x (%s): %d", i, name, v.i);    \
+                        break;                                          \
+                    case VM_TYPE_DOUBLE:                                \
+                        VM_ERROR("    0x%x (%s): %f", i, name, v.d);    \
+                        break;                                          \
+                    case VM_TYPE_STRING:                                \
+                        VM_ERROR("    0x%x (%s): '%s'", i, name,        \
+                                 v.s && v.s[0] ? v.s : "");             \
+                        break;                                          \
+                    default:                                            \
+                        VM_ERROR("    0x%x (%s): ???", i, name);        \
+                        break;                                          \
+                    }                                                   \
+                }                                                       \
             }                                                           \
             fflush(stdout);                                             \
             if (vm->stack->nentry > __catch.depth) {                    \
@@ -476,6 +506,7 @@ typedef struct vm_state_s {
     int            nmethod;                   /* number of actions */
     vm_scope_t    *scope;                     /* current local variables */
     int            nlocal;                    /* number of local variables */
+    char         **names;                     /* names of local variables */
 
     vm_catch_t    *catch;                     /* catch exceptions here */
     int            flags;
@@ -579,6 +610,10 @@ int vm_scope_pop (vm_state_t *vm);
 
 int vm_scope_set(vm_scope_t *scope, int id, int type, vm_value_t value);
 int vm_scope_get(vm_scope_t *scope, int id, vm_value_t *value);
+
+int  vm_set_varname  (vm_state_t *vm, int id, const char *name);
+void vm_free_varnames(vm_state_t *vm);
+
 
 /* vm-debug.c */
 

@@ -37,8 +37,10 @@ vm_exit(vm_state_t *vm)
 {
     if (vm) {
         vm_stack_del(vm->stack);
-        if (!VM_TST_FLAG(vm, COMPILED))
+        if (!VM_TST_FLAG(vm, COMPILED)) {
             vm_free_methods(vm);
+            vm_free_varnames(vm);
+        }
     }
 }
 
