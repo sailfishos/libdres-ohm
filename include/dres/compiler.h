@@ -24,7 +24,7 @@
  *          either by putting the NOEXPORT_BY_DEFAULT in the beginning
  *          of every module or a commonly included header or by instructing your
  *          compiler/linker to do so (eg. with -fvisibility=hidden for GCC)
-
+ *
  *        - Mark symbols to be exported by the EXPORTED macro.
  *
  *      Depending on the ratio of exported vs. all non-static variables it

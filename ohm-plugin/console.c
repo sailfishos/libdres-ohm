@@ -22,6 +22,7 @@ static void command_quit   (int id, char *input);
 static void command_grab   (int id, char *input);
 static void command_release(int id, char *input);
 static void command_debug  (int id, char *input);
+static void command_statistics(int id, char *input);
 
 #define COMMAND(c, a, d) {                                      \
     name:       #c,                                             \
@@ -42,6 +43,7 @@ static command_t commands[] = {
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
     COMMAND(debug  , "list|set|rule...", "Configure runtime debugging/tracing."  ),
+    COMMAND(statistics, NULL, "Print rule evaluation statistics."),
     END
 };
 
@@ -71,11 +73,6 @@ console_init(char *address)
 static void
 console_exit(void)
 {
-    /*
-     * XXX TODO: Currently OHM does not clean up plugins in reverse
-     *           dependency order so cross-plugin calls upon cleanup
-     *           are not safe. 
-     */
 #if 0
     if (console > 0)
         console_close(console);
@@ -202,7 +199,7 @@ command_quit(int id, char *input)
 static void
 command_dump(int id, char *input)
 {
-    OhmFactStore *fs = ohm_fact_store_get_fact_store();;
+    OhmFactStore *fs = ohm_fact_store_get_fact_store();
     OhmFact      *fact;
     GSList       *list;
     char          factname[128], *p, *q, *dump;
@@ -379,6 +376,18 @@ command_debug(int id, char *input)
     else if (!strncmp(input, "rule ", 5)) {
         rules_trace(input + 5);
     }
+}
+
+
+/********************
+ * command_statistics
+ ********************/
+static void
+command_statistics(int id, char *input)
+{
+    (void)id;
+    
+    rule_statistics(input);
 }
 
 

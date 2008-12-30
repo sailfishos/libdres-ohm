@@ -51,6 +51,7 @@ OHM_IMPORTABLE(int , rules_trace      , (char *));
 OHM_IMPORTABLE(int , rule_find        , (char *name, int arity));
 OHM_IMPORTABLE(int , rule_eval        ,
                (int rule, void *retval, void **args, int narg));
+OHM_IMPORTABLE(void, rule_statistics  , (char *));
 
 
 static void plugin_exit(OhmPlugin *plugin);
@@ -62,7 +63,7 @@ static int  rule_lookup(const char *name, int arity);
 static GHashTable *ruletbl;
 
 
-static int  resolver_init(void);
+static int  resolver_init(const char *ruleset);
 static void resolver_exit(void);
 
 
@@ -87,7 +88,6 @@ static int  retval_to_facts(char ***objects, OhmFact **facts, int max);
 DRES_ACTION(rule_handler);
 DRES_ACTION(signal_handler);
 
-static char   *ruleset;
 static dres_t *dres;
 
 typedef struct {
@@ -113,19 +113,19 @@ static handler_t handlers[] = {
 static void
 plugin_init(OhmPlugin *plugin)
 {
-    const char *console;
+    char *console = (char *)ohm_plugin_get_param(plugin, "console");
+    char *ruleset = (char *)ohm_plugin_get_param(plugin, "ruleset");
 
     if (!OHM_DEBUG_INIT(resolver))
         OHM_WARNING("resolver plugin failed to initialize debugging");
     
-    if ((console = ohm_plugin_get_param(plugin, "console")) == NULL)
+    if (console == NULL)
         console = DEFAULT_CONSOLE;
-
-    if ((ruleset = ohm_plugin_get_param(plugin, "ruleset")) == NULL)
+    if (ruleset == NULL)
         ruleset = DEFAULT_RULESET;
-
-    if (resolver_init() != 0 || rules_init() != 0 || factstore_init() != 0 ||
-        console_init(console ? console : DEFAULT_CONSOLE) != 0) {
+    
+    if (resolver_init(ruleset) != 0 || rules_init() != 0 ||
+        factstore_init() != 0 || console_init(console) != 0) {
         plugin_exit(plugin);
         exit(1);
     }
@@ -168,7 +168,7 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
  * resolver_init
  ********************/
 static int
-resolver_init(void)
+resolver_init(const char *ruleset)
 {
     handler_t *h;
 
@@ -176,7 +176,7 @@ resolver_init(void)
 
     /* initialize resolver with our ruleset */
     OHM_DEBUG(DBG_RESOLVE, "Initializing resolver...");
-    if ((dres = dres_open(ruleset)) == NULL) {
+    if ((dres = dres_open((char *)ruleset)) == NULL) {
         OHM_ERROR("failed to to open resolver file \"%s\"", ruleset);
         return EINVAL;
     }
@@ -518,9 +518,9 @@ rule_lookup(const char *name, int arity)
     gpointer value;
     
     /*
-     * XXX TODO: we could avoid the lookup here by allowing an arbitrary
-     *           void *data to be attached to DRES actions (or actually
-     *           dres action invocations) and store the rule ID there.
+     * Notes: We could avoid this hash table lookup if it was possible to
+     *     associate some 'user' data to DRES action invocations. We could
+     *     then associate the rule ID with each invocation.
      */
     
     snprintf(key, sizeof(key), "%s/%d", name, arity);
@@ -554,7 +554,7 @@ rule_lookup(const char *name, int arity)
 
 
 OHM_PLUGIN_DESCRIPTION("dres",
-                       "0.0.0",
+                       "0.0.1",
                        "krisztian.litkey@nokia.com",
                        OHM_LICENSE_NON_FREE,
                        plugin_init,
@@ -567,13 +567,14 @@ OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
     OHM_EXPORT(update_goal, "resolve")
 );
 
-OHM_PLUGIN_REQUIRES_METHODS(dres, 13,
-    OHM_IMPORT("rule_engine.find"  , rule_find),
-    OHM_IMPORT("rule_engine.eval"  , rule_eval),
-    OHM_IMPORT("rule_engine.free"  , rules_free_result),
-    OHM_IMPORT("rule_engine.dump"  , rules_dump_result),
-    OHM_IMPORT("rule_engine.prompt", rules_prompt),
-    OHM_IMPORT("rule_engine.trace" , rules_trace),
+OHM_PLUGIN_REQUIRES_METHODS(dres, 14,
+    OHM_IMPORT("rule_engine.find"      , rule_find),
+    OHM_IMPORT("rule_engine.eval"      , rule_eval),
+    OHM_IMPORT("rule_engine.free"      , rules_free_result),
+    OHM_IMPORT("rule_engine.dump"      , rules_dump_result),
+    OHM_IMPORT("rule_engine.prompt"    , rules_prompt),
+    OHM_IMPORT("rule_engine.trace"     , rules_trace),
+    OHM_IMPORT("rule_engine.statistics", rule_statistics),
 
     OHM_IMPORT("console.open"  , console_open),
     OHM_IMPORT("console.close" , console_close),
