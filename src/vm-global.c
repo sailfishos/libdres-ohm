@@ -7,6 +7,9 @@
 #include <dres/mm.h>
 #include <dres/vm.h>
 
+static inline int vm_field_matches(OhmFact *f, char *field, GValue *value);
+
+
 
 /********************
  * vm_global_lookup
@@ -215,6 +218,36 @@ vm_fact_copy(OhmFact *dst, OhmFact *src)
 
 
 /********************
+ * vm_fact_update
+ ********************/
+OhmFact *
+vm_fact_update(OhmFact *dst, OhmFact *src)
+{
+    GSList *l = (GSList *)ohm_fact_get_fields(src);
+    GQuark  q;
+    
+    for ( ; l != NULL; l = g_slist_next(l)) {
+        char   *field;
+        GValue *value;
+        
+        q     = GPOINTER_TO_INT(l->data);
+        field = (char *)g_quark_to_string(q);
+        value = ohm_fact_get(src, field);
+
+        if (vm_field_matches(dst, field, value))
+            continue;
+        
+        if ((value = ohm_copy_value(value)) == NULL)
+            return NULL;
+        
+        ohm_fact_set(dst, field, value);
+    }
+
+    return dst;
+}
+
+
+/********************
  * vm_fact_remove
  ********************/
 void
@@ -359,45 +392,56 @@ vm_fact_collect_fields(OhmFact *f, char **fields, int nfield, GValue **values)
 
 
 /********************
- * vm_fact_matches
+ * vm_field_matches
  ********************/
-int
-vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
+static inline int
+vm_field_matches(OhmFact *f, char *field, GValue *value)
 {
 #define GV(v, t) g_value_get_##t(v)
 #define CMP(s, d, t) (GV(s, t) == GV(d, t))
+    
+    GValue *v;
+    
+    if ((v = ohm_fact_get(f, field)) == NULL)
+        return 0;
+    
+    if (G_VALUE_TYPE(v) != G_VALUE_TYPE(value))
+        return 0;
 
-    int     i;
-    GValue *src, *dst;
-
-    for (i = 0; i < nfield; i++) {
-        src = values[i];
-        dst = ohm_fact_get(f, fields[i]);
-        if (dst == NULL)
-            return /*ENOENT*/0;
-
-        if (G_VALUE_TYPE(src) != G_VALUE_TYPE(dst))
-            return /*EINVAL*/0;
-
-        switch (G_VALUE_TYPE(src)) {
-        case G_TYPE_INT:     if (!CMP(src, dst, int))    return 0; break;
-        case G_TYPE_UINT:    if (!CMP(src, dst, uint))   return 0; break;
-        case G_TYPE_LONG:    if (!CMP(src, dst, long))   return 0; break;
-        case G_TYPE_ULONG:   if (!CMP(src, dst, ulong))  return 0; break;
-        case G_TYPE_DOUBLE:  if (!CMP(src, dst, double)) return 0; break;
-        case G_TYPE_FLOAT:   if (!CMP(src, dst, float))  return 0; break;
-        case G_TYPE_STRING: 
-            if (strcmp(GV(src, string), GV(dst, string)))
-                return 0;
-            break;
-        default:
-            return /*EINVAL*/0;
-        }
+    switch (G_VALUE_TYPE(v)) {
+    case G_TYPE_INT:     if (!CMP(v, value, int))    return 0; break;
+    case G_TYPE_UINT:    if (!CMP(v, value, uint))   return 0; break;
+    case G_TYPE_LONG:    if (!CMP(v, value, long))   return 0; break;
+    case G_TYPE_ULONG:   if (!CMP(v, value, ulong))  return 0; break;
+    case G_TYPE_DOUBLE:  if (!CMP(v, value, double)) return 0; break;
+    case G_TYPE_FLOAT:   if (!CMP(v, value, float))  return 0; break;
+    case G_TYPE_STRING: 
+        if (strcmp(GV(v, string), GV(value, string)))
+            return 0;
+        break;
+    default:
+        return 0;
     }
 
     return 1;
 #undef GV
 #undef CMP
+}
+
+
+/********************
+ * vm_fact_matches
+ ********************/
+int
+vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
+{
+    int i;
+    
+    for (i = 0; i < nfield; i++)
+        if (!vm_field_matches(f, fields[i], values[i]))
+            return 0;
+    
+    return 1;
 }
 
 

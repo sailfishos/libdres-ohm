@@ -96,6 +96,7 @@ static int  ringoffs = 0;
      TOKEN_COMMA,
      TOKEN_EQUAL,
      TOKEN_APPEND,
+     TOKEN_PARTIAL,
      TOKEN_TAB,
      TOKEN_EOF,
      TOKEN_UNKNOWN,
@@ -254,6 +255,7 @@ ESCAPE          \\
 ,               { TOKEN(COMMA);       }
 =		{ TOKEN(EQUAL);       }
 \+=             { TOKEN(APPEND);      }
+\|=             { TOKEN(PARTIAL);     }
 
 .               { SAVE(yytext); TOKEN(UNKNOWN);     }
 

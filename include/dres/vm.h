@@ -231,11 +231,14 @@ enum {
  * UPDATE instructions
  */
 
-#define VM_UPDATE_NFIELD(instr) VM_OP_ARGS(instr)
+#define VM_ASSIGN_PARTIAL 0x80
+#define VM_UPDATE_NFIELD(instr)  (VM_OP_ARGS(instr) & ~VM_ASSIGN_PARTIAL)
+#define VM_UPDATE_PARTIAL(instr) (VM_OP_ARGS(instr) & VM_ASSIGN_PARTIAL)
 
-#define VM_INSTR_UPDATE(c, errlbl, ec, n) do {                          \
+#define VM_INSTR_UPDATE(c, errlbl, ec, n, partial) do {                 \
         unsigned int instr;                                             \
-        instr = VM_INSTR(VM_OP_UPDATE, n);                              \
+        unsigned int mod = n | (partial ? VM_ASSIGN_PARTIAL : 0);       \
+        instr = VM_INSTR(VM_OP_UPDATE, mod);                            \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
             goto errlbl;                                                \
@@ -256,6 +259,7 @@ enum {
         if (ec)                                                         \
             goto errlbl;                                                \
     } while (0)
+
 
 /*
  * SET instructions
@@ -583,6 +587,8 @@ GSList      *vm_fact_lookup(char *name);
 void         vm_fact_reset (OhmFact *fact);
 OhmFact     *vm_fact_dup   (OhmFact *src, char *name);
 OhmFact     *vm_fact_copy  (OhmFact *dst, OhmFact *src);
+OhmFact     *vm_fact_update(OhmFact *dst, OhmFact *src);
+
 void         vm_fact_remove(char *name);
 
 int          vm_fact_set_field  (vm_state_t *vm, OhmFact *fact, char *field,
@@ -598,6 +604,8 @@ int          vm_fact_matches       (OhmFact *f, char **fields, GValue **values,
                                     int nfield);
 int          vm_global_find_first(vm_global_t *g,
                                   char **fields, GValue **values, int nfield);
+int          vm_global_find_next(vm_global_t *g, int idx,
+                                 char **fields, GValue **values, int nfield);
 
 
 

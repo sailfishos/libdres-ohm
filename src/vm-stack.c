@@ -122,7 +122,7 @@ void
 vm_stack_cleanup(vm_stack_t *s, int narg)
 {
     vm_value_t arg;
-    int        type, i, j;
+    int        type, i;
     
     for (i = 0; i < narg; i++)
         if ((type = vm_pop(s, &arg)) == VM_TYPE_GLOBAL)

@@ -464,15 +464,10 @@ dres_print_action(dres_t *dres, dres_action_t *action, char *buf, size_t size)
         p    += n;
         left -= n;
 
-        if (left > 3) {
-            p[0] = ' ';
-            p[1] = '=';
-            p[2] = ' ';
-            p[3] = '\0';
-
-            p    += 3;
-            left -= 3;
-        }
+        n     = snprintf(p, left, " %s ", a->op == DRES_ASSIGN_PARTIAL ?
+                         "|=" : "=");
+        p    += n;
+        left -= n;
     }
 
     switch (a->type) {

@@ -135,14 +135,20 @@ enum {
 };
 
 
+enum {
+    DRES_ASSIGN_DEFAULT = 0,               /* default (full) assignmnent */
+    DRES_ASSIGN_PARTIAL                    /* partial assignment */
+};
+
+
 #define DRES_BUILTIN_UNKNOWN "__unknown"
-#define DRES_BUILTIN_ASSIGN  "__assign"
 
 typedef struct dres_action_s dres_action_t;
 
 struct dres_action_s {
     dres_varref_t      lvalue;             /* result variable if any */
     int                type;               /* DRES_ACTION_* */
+    int                op;                 /* DRES_ASSIGN_* */
     union {
         dres_value_t   value;
         dres_varref_t  rvalue;

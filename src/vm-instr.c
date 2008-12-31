@@ -281,11 +281,12 @@ vm_instr_update(vm_state_t *vm)
     int          nsrc, ndst;
     vm_value_t   sval, dval;
     OhmFact     *sfact, *dfact;
-    int          nfield, i, j;
+    int          partial, nfield, i, j, success;
 
-    src    = NULL;
-    dst    = NULL;
-    nfield = VM_UPDATE_NFIELD(*vm->pc);
+    src     = NULL;
+    dst     = NULL;
+    nfield  = VM_UPDATE_NFIELD(*vm->pc);
+    partial = VM_UPDATE_PARTIAL(*vm->pc);
 
     if (vm_peek(vm->stack, nfield, &dval) != VM_TYPE_GLOBAL)
         FAIL(ENOENT, "UPDATE: no global destination found in stack");
@@ -365,8 +366,12 @@ vm_instr_update(vm_state_t *vm)
                 match = TRUE;
 
                 dfact = dst->facts[j];
-                if (vm_fact_copy(dfact, sfact) == NULL)
-                    FAIL(EINVAL, "UPDATE: failed to copy source fact #%d", i);
+                if (partial)
+                    success = (vm_fact_update(dfact, sfact) != NULL);
+                else
+                    success = (vm_fact_copy(dfact, sfact) != NULL);
+                if (!success)
+                    FAIL(EINVAL, "UPDATE: failed to update source fact #%d", i);
             }
             
             if (!match)

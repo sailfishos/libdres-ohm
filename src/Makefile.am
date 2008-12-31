@@ -1,6 +1,9 @@
 lib_LTLIBRARIES = libdres.la
 bin_PROGRAMS    = dresc
 
+# Enable this to get a verbose bison output file (parser.output).
+# AM_YFLAGS = -v
+
 # DRES library
 libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \

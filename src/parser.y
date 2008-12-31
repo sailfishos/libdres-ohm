@@ -75,7 +75,8 @@ static char *current_prefix;
 %token           TOKEN_BRACE_CLOSE "]"
 %token           TOKEN_COMMA ","
 %token           TOKEN_EQUAL   "="
-%token           TOKEN_APPEND "+="
+%token           TOKEN_APPEND  "+="
+%token           TOKEN_PARTIAL "|="
 %token           TOKEN_TAB "\t"
 %token           TOKEN_EOL
 %token           TOKEN_EOF
@@ -99,7 +100,6 @@ static char *current_prefix;
 %type <arg>         args
 %type <local>       local
 %type <local>       locals
-
 %%
 
 
@@ -275,6 +275,15 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
             $$->lvalue = $2;
             $$->call   = $4;
         }
+	| TOKEN_TAB varref "|=" call TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_CALL;
+            $$->op     = DRES_ASSIGN_PARTIAL;
+            $$->lvalue = $2;
+            $$->call   = $4;
+        }
         | TOKEN_TAB call TOKEN_EOL {
             if (($$ = ALLOC(dres_action_t)) == NULL)
                 YYABORT;
@@ -290,6 +299,15 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
                 YYABORT;
 
             $$->type   = DRES_ACTION_VARREF;
+            $$->lvalue = $2;
+            $$->rvalue = $4;
+        }
+        | TOKEN_TAB varref "|=" varref TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_VARREF;
+            $$->op     = DRES_ASSIGN_PARTIAL;
             $$->lvalue = $2;
             $$->rvalue = $4;
         }

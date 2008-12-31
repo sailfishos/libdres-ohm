@@ -20,7 +20,8 @@ double trunc(double);
 static int compile_value  (dres_t *dres, dres_value_t *value, vm_chunk_t *code);
 static int compile_varref (dres_t *dres, dres_varref_t *vr, vm_chunk_t *code);
 static int compile_call   (dres_t *dres, dres_call_t *call, vm_chunk_t *code);
-static int compile_assign (dres_t *dres, dres_varref_t *lval, vm_chunk_t *code);
+static int compile_assign (dres_t *dres, dres_varref_t *lval, vm_chunk_t *code,
+                           int op);
 static int compile_discard(dres_t *dres, vm_chunk_t *code);
 static int compile_debug  (const char *info, vm_chunk_t *code);
 
@@ -96,7 +97,7 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
     }
 
     if (action->lvalue.variable != DRES_ID_NONE)
-        status = compile_assign(dres, &action->lvalue, code);
+        status = compile_assign(dres, &action->lvalue, code, action->op);
     else
         status = compile_discard(dres, code);
 
@@ -250,7 +251,7 @@ compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
  * compile_assign
  ********************/
 int
-compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
+compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code, int op)
 {
 #define FAIL(ec) do { err = (ec); goto fail; } while (0)
     dres_select_t *s;
@@ -287,6 +288,13 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
                 VM_INSTR_FILTER(code, fail, err, n);
         }
 
+        if (op == DRES_ASSIGN_PARTIAL && !update) {
+            /* partial non-update assignments make no sense */
+            DRES_ERROR("%s: partial non-update assignments are not supported",
+                       __FUNCTION__);
+            FAIL(EINVAL);
+        }
+
         if (lvalue->field != NULL) {
             if (update)
                 FAIL(EINVAL);
@@ -302,7 +310,7 @@ compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code)
                     VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
                     n++;
                 }
-                VM_INSTR_UPDATE(code, fail, err, n);
+                VM_INSTR_UPDATE(code, fail, err, n, op == DRES_ASSIGN_PARTIAL);
             }
             else
                 VM_INSTR_SET(code, fail, err);
