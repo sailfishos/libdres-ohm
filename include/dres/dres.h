@@ -48,6 +48,9 @@ enum {
     static int b(void *data, char *name,                                \
                  vm_stack_entry_t *args, int narg, vm_stack_entry_t *rv)
 
+#define DRES_ACTION_SUCCEED    return TRUE
+#define DRES_ACTION_FAIL       return FALSE
+#define DRES_ACTION_ERROR(err) do { return (err) > 0 ? -(err):(err); } while (0)
 
 typedef vm_action_t dres_handler_t;
 

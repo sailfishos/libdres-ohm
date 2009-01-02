@@ -740,9 +740,11 @@ vm_instr_call(vm_state_t *vm)
 
     status = vm_method_call(vm, name, m, narg);
 
-    if (status)
-        VM_RAISE(vm, -status,
-                     "CALL: method '%s' failed (error %d)", name, status);
+    if (status < 0)
+        VM_RAISE(vm, status,
+                 "CALL: method '%s' failed (error %d)", name, status);
+    else if (status == 0)
+        VM_FAIL(vm, "CALL: method '%s' failed without an error", name);
     
     vm->ninstr--;
     vm->pc++;

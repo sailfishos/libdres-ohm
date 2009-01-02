@@ -134,10 +134,10 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
     status  = handler(m->data, name, args, narg, &retval);
     vm_stack_cleanup(vm->stack, narg);
     
-    if (!status)
+    if (status > 0)
         vm_push(vm->stack, retval.type, retval.v);
 
-    return -status;
+    return status;
 }
 
 

@@ -272,7 +272,7 @@ OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
  ********************/
 DRES_ACTION(rule_handler)
 {
-#define FAIL(ec) do { err = ec; goto fail; } while (0)
+#define FAIL(ec) do { status = ec; goto fail; } while (0)
 #define MAX_FACTS 63
 #define MAX_ARGS  (32*2)
 
@@ -281,7 +281,7 @@ DRES_ACTION(rule_handler)
     char          *argv[MAX_ARGS];
     char        ***retval;
     vm_global_t   *g = NULL;
-    int            i, err;
+    int            i, status;
 
     
     OHM_DEBUG(DBG_RESOLVE, "rule evaluation (prolog handler) entered...");
@@ -317,25 +317,30 @@ DRES_ACTION(rule_handler)
         }
     }
     
-    if (!rule_eval(rule, &retval, (void **)argv, narg)) {
-        rules_dump_result(retval);             /* dump any exceptions */
-        FAIL(EINVAL);
+    
+    status = rule_eval(rule, &retval, (void **)argv, narg);
+
+    if (status < 0) {
+        rules_dump_result(retval);                  /* dump exceptions */
+        FAIL(status);
     }
+    else if (!status)                               /* predicate failure */
+        FAIL(FALSE);
     
     OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
     rules_dump_result(retval);
 
     if ((g = vm_global_alloc(MAX_FACTS)) == NULL)
-        FAIL(ENOMEM);
+        FAIL(-ENOMEM);
     
     if ((g->nfact = retval_to_facts(retval, g->facts, MAX_FACTS)) < 0)
-        FAIL(EINVAL);
+        FAIL(-EINVAL);
 
     rules_free_result(retval);
 
     rv->type = DRES_TYPE_FACTVAR;
     rv->v.g  = g;
-    return 0;
+    DRES_ACTION_SUCCEED;
     
  fail:
     if (g)
@@ -344,7 +349,7 @@ DRES_ACTION(rule_handler)
     if (retval)
         rules_free_result(retval);
     
-    return err;
+    DRES_ACTION_ERROR(status);
 
     (void)data;
     (void)name;
@@ -362,7 +367,7 @@ DRES_ACTION(signal_handler)
         if (args[(n)].type != t)                 \
             (var) = args[(n)].v.f;               \
         else                                     \
-            return EINVAL;                       \
+            DRES_ACTION_ERROR(EINVAL);           \
     } while (0)
 #define GET_INTEGER(n, var) GET_ARG(var, (n), i, DRES_TYPE_INTEGER)
 #define GET_DOUBLE(n, var)  GET_ARG(var, (n), d, DRES_TYPE_DOUBLE)
@@ -374,7 +379,7 @@ DRES_ACTION(signal_handler)
             if (args[(n)].type == DRES_TYPE_NIL)                        \
                 (var) = (dflt);                                         \
             else                                                        \
-                return EINVAL;                                          \
+                DRES_ACTION_ERROR(EINVAL);                              \
         }                                                               \
     } while (0)
 
@@ -392,7 +397,7 @@ DRES_ACTION(signal_handler)
     int   success;
     
     if (narg < 3)
-        return EINVAL;
+        DRES_ACTION_ERROR(EINVAL);
     
     GET_STRING(0, signal_name, "");
     GET_STRING(1, cb_name, "");
@@ -418,8 +423,8 @@ DRES_ACTION(signal_handler)
     e = NULL;
     txid = strtol(txid_name, &e, 10);
     if (e != NULL && *e)
-        return EINVAL;
-
+        DRES_ACTION_ERROR(EINVAL);
+    
     OHM_DEBUG(DBG_SIGNAL, "signal='%s', cb='%s' txid='%s'",
               signal_name, cb_name, txid_name);
     
@@ -474,7 +479,10 @@ DRES_ACTION(signal_handler)
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
 
-    return success ? 0 : EINVAL;
+    if (success)
+        DRES_ACTION_SUCCEED;
+    else
+        DRES_ACTION_ERROR(EIO);
 
     (void)name;
     (void)data;

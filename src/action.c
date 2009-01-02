@@ -157,16 +157,16 @@ dres_lookup_handler(dres_t *dres, char *name)
 int
 dres_run_actions(dres_t *dres, dres_target_t *target)
 {
-    int err;
+    int status;
 
     DEBUG(DBG_RESOLVE, "executing actions for %s", target->name);
 
     if (target->code == NULL)
-        return 0;
+        status = TRUE;
+    else
+        status = vm_exec(&dres->vm, target->code);
     
-    err = vm_exec(&dres->vm, target->code);
-    
-    return err;
+    return status;
 }
 
 

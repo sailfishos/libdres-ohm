@@ -61,7 +61,7 @@ vm_exec(vm_state_t *vm, vm_chunk_t *code)
     
     status = VM_TRY(vm);
 
-    return status;         /* should be 0 because of our exceptions */
+    return status;
 }
 
 

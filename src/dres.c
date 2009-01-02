@@ -374,15 +374,15 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     if (!DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         if ((status = finalize_actions(dres)) != 0)
             if (dres->fallback == NULL)
-                return status;
+                DRES_ACTION_ERROR(status);
     
     if (!DRES_TST_FLAG(dres, TARGETS_FINALIZED))
         if ((status = finalize_targets(dres)) != 0)
-            return status;
+            DRES_ACTION_ERROR(status);
     
     if (goal != NULL) {
         if ((target = dres_lookup_target(dres, goal)) == NULL)
-            return EINVAL;
+            DRES_ACTION_ERROR(EINVAL);
     }
     else {
         target = dres->targets;
@@ -390,11 +390,11 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     }
     
     if (!DRES_IS_DEFINED(target->id))
-        return EINVAL;
+        DRES_ACTION_ERROR(EINVAL);
 
     if (!DRES_TST_FLAG(dres, TRANSACTION_ACTIVE)) {
         if (!dres_store_tx_new(dres))
-            return EINVAL;
+            DRES_ACTION_ERROR(EINVAL);
 
         dres->txid++;
         own_tx = 1;
@@ -419,7 +419,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
             if (DRES_ID_TYPE(id) != DRES_TYPE_TARGET)
                 continue;
         
-            if ((status = dres_check_target(dres, id)) != 0)
+            if ((status = dres_check_target(dres, id)) <= 0)
                 break;
         }
     }
@@ -427,7 +427,7 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
     if (locals != NULL)
         pop_locals(dres);
     
-    if (status == 0) {
+    if (status > 0) {
         dres_update_target_stamp(dres, target);
         if (own_tx)
             dres_store_tx_commit(dres);

@@ -370,15 +370,14 @@ typedef struct vm_method_s {
 /*
  * VM exceptions
  *
- * Notes: Although handling exceptions with setjmp/longjmp for such a primitive
- *        virtual machine as ours is arguably an overkill, it should keep some
- *        of the underlying code cleaner and easier to understand.
+ * Notes: Handling exceptions with setjmp/longjmp for our primitive language /
+ *        virtual machine is arguably an overkill. However it should keep some
+ *        of the underlying code cleaner and easier to extend.
  *
- * Notes: As a convention, internal VM errors raise exceptions internally
- *        with positive error codes while exceptions from method handlers
- *        are expected to be positive and are negated in vm_method_call.
- *        Then this convention is turned upside down in vm_exec, ie. outside
- *        the VM method errors are positive and internal VM errors are negative.
+ * Notes: As a convention, methods return a negative error code to signal
+ *        an error that should raise an exception. To fail silently without
+ *        any exception shown FALSE is returned. Any other return value is
+ *        interpreted as sucessful evaluation of the method.
  */
 
 typedef struct {
@@ -402,6 +401,21 @@ struct vm_catch_s {
 };
 
 
+
+/*
+ * Notes: This macro implements the calling conventions of the top-level
+ *        VM interface vm_exec. A negative status indicates a VM exception.
+ *        This will result in an error message and the rollback of the current
+ *        DRES transaction. A zero status indicates (silent) failure resulting
+ *        in the rollback of the current transaction. Any other status is
+ *        interpreted as TRUE, and results in the continued evaluation of the
+ *        current DRES goal.
+ *
+ *        This convention is directly visible at the VM/DRES method handler
+ *        level. The handler return value should be crafted according to the
+ *        rules above.
+ */
+
 #define VM_TRY(vm) ({                                                   \
         vm_catch_t __catch;                                             \
         int        __status;                                            \
@@ -414,12 +428,12 @@ struct vm_catch_s {
         if ((__status = setjmp(__catch.location)) != 0) {               \
             vm_exception_t *e = &__catch.exception;                     \
                                                                         \
-            VM_ERROR("VM exception %d", __status);                      \
             if (e->error != 0) {                                        \
                 int         i, type;                                    \
                 vm_value_t  v;                                          \
                 char       *name;                                       \
                                                                         \
+                VM_ERROR("VM exception %d", __status);                  \
                 if (e->message[0])                                      \
                     VM_ERROR("  %s", e->message);                       \
                 if (e->context)                                         \
@@ -458,14 +472,19 @@ struct vm_catch_s {
                                  vm->stack->nentry - __catch.depth);    \
             }                                                           \
             vm->catch = vm->catch->prev;                                \
+            __status = e->error;                                        \
+            if (__status > 0)                                           \
+                __status = -__status;                                   \
         }                                                               \
         else {                                                          \
             __status = vm_run(vm);             /* __status = 0 */       \
             vm->catch = vm->catch->prev;                                \
+            __status = TRUE;                                            \
         }                                                               \
         __status;                                                       \
     })
 
+/* macro for VM failure with an exception */
 #define VM_RAISE(vm, err, fmt, args...) do {                            \
         vm_exception_t *e = &vm->catch->exception;                      \
                                                                         \
@@ -476,7 +495,16 @@ struct vm_catch_s {
         longjmp(vm->catch->location, err);                              \
     } while (0)
 
-
+/* macro for silent VM failure without an exception (just rollback) */
+#define VM_FAIL(vm, fmt, args...) do {                                  \
+        vm_exception_t *e = &vm->catch->exception;                      \
+                                                                        \
+        e->error = 0;                                                   \
+        snprintf(e->message, sizeof(e->message), "%s: VM failure: "fmt, \
+                 __FUNCTION__, ## args);                                \
+        e->context = vm->info;                                          \
+        longjmp(vm->catch->location, 1);                                \
+    } while (0)
 
 
 /*

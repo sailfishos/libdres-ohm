@@ -233,11 +233,12 @@ dres_check_target(dres_t *dres, int tid)
         }
     }
     
-    status = 0;
-
-    if (update)
-        if ((status = dres_run_actions(dres, target)) == 0)
+    if (update) {
+        if ((status = dres_run_actions(dres, target)) > 0)
             dres_update_target_stamp(dres, target);
+    }
+    else
+        status = TRUE;
     
     return status;
 }

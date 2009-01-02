@@ -55,7 +55,7 @@ dres_fallback_call(void *data, char *name,
     else {
         DEBUG(DBG_RESOLVE, "unknown action %s", name);
         /* XXX TODO: dump arguments */
-        return EINVAL;
+        DRES_ACTION_ERROR(EINVAL);
     }
     
 }
@@ -109,7 +109,7 @@ BUILTIN_HANDLER(dres)
         goal = NULL;
     else {
         if (args[0].type != DRES_TYPE_STRING)
-            return EINVAL;
+            DRES_ACTION_ERROR(EINVAL);
         goal = args[0].v.s;
     }
     
@@ -180,7 +180,7 @@ BUILTIN_HANDLER(echo)
     
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
-    return 0;
+    DRES_ACTION_SUCCEED;
 
     (void)dres;
     (void)name;
@@ -200,12 +200,12 @@ BUILTIN_HANDLER(fact)
 
     if (narg < 1) {
         DRES_ERROR("builtin 'fact': called with no arguments");
-        return EINVAL;
+        DRES_ACTION_ERROR(EINVAL);
     }
     
     if ((g = vm_global_alloc(narg)) == NULL) {
         DRES_ERROR("builtin 'fact': failed to allocate new global");
-        return ENOMEM;
+        DRES_ACTION_ERROR(ENOMEM);
     }
     
     for (a = 0, i = 0; a < narg && i < narg; a++) {
@@ -258,13 +258,13 @@ BUILTIN_HANDLER(fact)
 
     rv->type = DRES_TYPE_FACTVAR;
     rv->v.g  = g;
-    return 0;
+    DRES_ACTION_SUCCEED;
 
  fail:
     if (g)
         vm_global_free(g);
     
-    return err;
+    DRES_ACTION_ERROR(err);
     
     (void)dres;
     (void)name;
@@ -293,7 +293,7 @@ BUILTIN_HANDLER(fail)
         err = EINVAL;
     
     rv->type = DRES_TYPE_UNKNOWN;
-    return err;
+    DRES_ACTION_ERROR(err);
 
     (void)data;
     (void)name;
