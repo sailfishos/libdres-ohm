@@ -1,3 +1,13 @@
+libdres (0.0.7) unstable; urgency=low
+
+  * Changed action handler conventions to support (silent) failure.
+  * Added support for partial updates of facts using the operator |=.
+  * Added console command 'statistics'.
+  * Dump local variables on VM exceptions.
+  * Get rid of all uses of ohm_get_value_from_unsigned.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Fri, 02 Jan 2009 19:13:22 +0200
+
 libdres (0.0.6) unstable; urgency=low
 
   * Rule tracing support on the console.
