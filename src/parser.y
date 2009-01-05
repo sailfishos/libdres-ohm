@@ -7,12 +7,10 @@
 #include <dres/dres.h>
 #include <glib-object.h>
 
-#if !defined(DEBUG)
-#  if defined(__TEST_PARSER__) || 0
-#    define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
-#  else
-#    define DEBUG(fmt, args...)
-#  endif
+#if !defined(DEBUG) || defined(__TEST_PARSER__) || 1
+#  define DEBUG(fmt, args...) printf("[parser] "fmt"\n", ## args)
+#else
+#  define DEBUG(fmt, args...)
 #endif
 
 #define FQFN(name) (factname(name))
@@ -311,7 +309,7 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
             $$->lvalue = $2;
             $$->rvalue = $4;
         }
-        | TOKEN_TAB varref "=" TOKEN_INTEGER {
+        | TOKEN_TAB varref "=" TOKEN_INTEGER TOKEN_EOL {
             if (($$ = ALLOC(dres_action_t)) == NULL)
                 YYABORT;
 
@@ -320,19 +318,28 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
             $$->value.type = DRES_TYPE_INTEGER;
             $$->value.v.i  = $4;
         }
-        | TOKEN_TAB varref "=" TOKEN_DOUBLE {
+        | TOKEN_TAB varref "=" TOKEN_DOUBLE TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
             $$->type   = DRES_ACTION_VALUE;
             $$->lvalue = $2;
             $$->value.type = DRES_TYPE_DOUBLE;
             $$->value.v.d  = $4;
         }
-        | TOKEN_TAB varref "=" TOKEN_STRING {
+        | TOKEN_TAB varref "=" TOKEN_STRING TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
             $$->type   = DRES_ACTION_VALUE;
             $$->lvalue = $2;
             $$->value.type = DRES_TYPE_STRING;
             $$->value.v.s  = STRDUP($4);
         }
-	| TOKEN_TAB varref "=" TOKEN_IDENT {
+	| TOKEN_TAB varref "=" TOKEN_IDENT TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
             $$->type   = DRES_ACTION_VALUE;
             $$->lvalue = $2;
             $$->value.type = DRES_TYPE_STRING;
@@ -348,7 +355,7 @@ varref: TOKEN_FACTVAR {
         | TOKEN_FACTVAR ":" TOKEN_IDENT {
             $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = NULL;
-            $$.field    = STRDUP($1);
+            $$.field    = STRDUP($3);
         }
         | TOKEN_FACTVAR "[" sfields "]" {
             $$.variable = dres_factvar_id(dres, FQFN($1));

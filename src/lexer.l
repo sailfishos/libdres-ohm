@@ -343,10 +343,12 @@ main(int argc, char *argv[])
 {
     int token;
   
-    if (argc > 1)
-        yyin = fopen(argv[1], "r");
-    else
-        yyin = stdin;
+    if (argc != 2) {
+        fprintf(stderr, "usage: %s input-file\n", argv[0]);
+        exit(1);
+    }
+
+    lexer_open(argv[1]);
   
     while ((token = yylex()) != TOKEN_EOF) {
       /*
@@ -354,8 +356,6 @@ main(int argc, char *argv[])
       token == TOKEN_EOL ? "<<EOL>>" : yytext)*/;
     }
 
-    if (yyin != stdin)
-        fclose(yyin);
     return 0;
 
     (void)ringbuff;
