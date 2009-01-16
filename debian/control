@@ -42,3 +42,12 @@ Description: Miscallaneous OHM dependency resolver library utilities.
  This package contains miscallaneous OHM dependency resolver utilities
  including dresc.
 
+Package: libdres-dbg
+Priority: extra
+Section: libs
+Architecture: any
+Depends: libdres0 (= ${binary:Version})
+XB-GIT-ID: ${Git-Id}
+Description: Debug symbols for libdres0.
+ Debug symbols for libdres0.
+
