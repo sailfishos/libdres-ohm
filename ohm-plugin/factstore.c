@@ -188,7 +188,7 @@ retval_to_facts(char ***objects, OhmFact **facts, int max)
  *****************************************************************************/
 
 /*
- * this is copy-paste code from variables.c in the DRES library
+ * this is copy-paste code from the old variables.c in the DRES library
  */
 
 typedef struct {

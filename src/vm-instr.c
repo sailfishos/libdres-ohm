@@ -269,11 +269,13 @@ vm_instr_update(vm_state_t *vm)
 #define FAIL(err, fmt, args...) do {          \
         if (src) vm_global_free(src); /* no need, done by vm_stack_cleanup */ \
         if (dst) vm_global_free(dst); /* no need, done by vm_stack_cleanup */ \
-        VM_RAISE(vm, err, fmt, ## args);      \
+        VM_RAISE(vm, err, fmt, ## args);                                \
     } while (0)
 #else
 #define FAIL(err, fmt, args...) do {          \
-        VM_RAISE(vm, err, fmt, ## args);      \
+        if (src) vm_global_free(src); /* no need, done by vm_stack_cleanup */ \
+        if (dst) vm_global_free(dst); /* no need, done by vm_stack_cleanup */ \
+        VM_RAISE(vm, err, fmt, ## args);                                      \
     } while (0)
 #endif
 
@@ -386,6 +388,11 @@ vm_instr_update(vm_state_t *vm)
             g_object_unref(dst->facts[j]);
     }
 #endif
+
+    if (src)
+        vm_global_free(src);
+    if (dst)
+        vm_global_free(dst);
 
     vm->ninstr--;
     vm->pc++;
