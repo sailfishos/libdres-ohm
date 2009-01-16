@@ -14,6 +14,10 @@ DEB_TAR_SRCDIR = ${DEB_SOURCE_PACKAGE}-${DEB_UPSTREAM_VERSION}
 DEB_CONFIGURE_USER_FLAGS = --disable-static --enable-extra-warnings
 DEB_DH_INSTALL_SOURCEDIR = debian/tmp
 
+# for dbg package
+CFLAGS += -g -O2
+DEB_DH_STRIP_ARGS += --dbg-package=libdres0
+
 include /usr/share/cdbs/1/rules/utils.mk
 include /usr/share/cdbs/1/rules/debhelper.mk
 include /usr/share/cdbs/1/class/autotools.mk
