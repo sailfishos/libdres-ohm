@@ -289,7 +289,8 @@ void dres_update_target_stamp(dres_t *dres, dres_target_t *target);
 
 int     dres_save(dres_t *dres, char *path);
 dres_t *dres_load(char *path);
-
+void    dres_free_value(dres_value_t *val);
+void    dres_free_field(dres_field_t *f);
 
 
 /* target.c */

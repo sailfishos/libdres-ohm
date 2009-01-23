@@ -307,6 +307,8 @@ lexer_pop_include(void)
     processed = old;
 
     DEBUG("POP: popped \"%s\"\n", old->path);
+    fclose(old->fp);
+    free(old->path);
 
     if (current != NULL) {
         yypop_buffer_state();

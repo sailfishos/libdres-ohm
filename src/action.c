@@ -100,6 +100,26 @@ free_locals(dres_local_t *locals)
 
 
 /********************
+ * free_varref
+ ********************/
+static void
+free_varref(dres_varref_t *vref)
+{
+    dres_select_t *p, *n;
+
+    if (vref->variable == DRES_ID_NONE)
+        return;
+    
+    for (p = vref->selector; p != NULL; p = n) {
+        n = p->next;
+        dres_free_field(&p->field);
+        FREE(p);
+    }
+    FREE(vref->field);
+}
+
+
+/********************
  * dres_free_actions
  ********************/
 void
@@ -113,9 +133,19 @@ dres_free_actions(dres_action_t *actions)
     for (a = actions; a != NULL; a = n) {
         n = a->next;
 
-        if (a->type == DRES_ACTION_CALL)
+        switch (a->type) {
+        case DRES_ACTION_VALUE:
+            dres_free_value(&a->value);
+            break;
+        case DRES_ACTION_VARREF:
+            free_varref(&a->rvalue);
+            break;
+        case DRES_ACTION_CALL:
             dres_free_call(a->call);
+            break;
+        }
         
+        free_varref(&a->lvalue);
         FREE(a);
     }
 }
@@ -189,20 +219,6 @@ dres_copy_value(dres_value_t *value)
         }
 
     return copy;
-}
-
-
-/********************
- * dres_free_value
- ********************/
-void
-dres_free_value(dres_value_t *value)
-{
-    if (value) {
-        if (value->type == DRES_TYPE_STRING)
-            FREE(value->v.s);
-        FREE(value);
-    }
 }
 
 

@@ -204,15 +204,54 @@ create_variable(dres_t *dres, char *name, dres_init_t *fields)
 
 
 /********************
+ * dres_free_value
+ ********************/
+void
+dres_free_value(dres_value_t *val)
+{
+    if (val && val->type == DRES_TYPE_STRING)
+        FREE(val->v.s);
+}
+
+
+/********************
+ * dres_free_field
+ ********************/
+void
+dres_free_field(dres_field_t *f)
+{
+    FREE(f->name);
+    dres_free_value(&f->value);
+}
+
+
+/********************
+ * free_inits
+ ********************/
+static void
+free_inits(dres_init_t *init)
+{
+    dres_init_t *p, *n;
+
+    for (p = init; p != NULL; p = n) {
+        n = p->next;
+        dres_free_field(&p->field);
+        FREE(p);
+    }
+}
+
+
+/********************
  * free_initializers
  ********************/
 void
 free_initializers(dres_t *dres)
 {
     dres_initializer_t *p, *n;
-    
+
     for (p = dres->initializers; p != NULL; p = n) {
         n = p->next;
+        free_inits(p->fields);
         FREE(p);
     }
 }
