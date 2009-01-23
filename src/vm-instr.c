@@ -265,97 +265,46 @@ vm_instr_filter(vm_state_t *vm)
 int
 vm_instr_update(vm_state_t *vm)
 {
-#if 0
-#define FAIL(err, fmt, args...) do {          \
-        if (src) vm_global_free(src); /* no need, done by vm_stack_cleanup */ \
-        if (dst) vm_global_free(dst); /* no need, done by vm_stack_cleanup */ \
+#define FAIL(err, fmt, args...) do {                                    \
+        if (src) vm_global_free(src);                                   \
+        if (dst) vm_global_free(dst);                                   \
         VM_RAISE(vm, err, fmt, ## args);                                \
     } while (0)
-#else
-#define FAIL(err, fmt, args...) do {          \
-        if (src) vm_global_free(src); /* no need, done by vm_stack_cleanup */ \
-        if (dst) vm_global_free(dst); /* no need, done by vm_stack_cleanup */ \
-        VM_RAISE(vm, err, fmt, ## args);                                      \
-    } while (0)
-#endif
 
     vm_global_t *src, *dst;
     int          nsrc, ndst;
     vm_value_t   sval, dval;
     OhmFact     *sfact, *dfact;
     int          partial, nfield, i, j, success;
-
+    int          match;
+    
     src     = NULL;
     dst     = NULL;
     nfield  = VM_UPDATE_NFIELD(*vm->pc);
     partial = VM_UPDATE_PARTIAL(*vm->pc);
 
-    if (vm_peek(vm->stack, nfield, &dval) != VM_TYPE_GLOBAL)
-        FAIL(ENOENT, "UPDATE: no global destination found in stack");
-    
-    dst  = dval.g;
-    ndst = dst->nfact;
-
-    if (vm_peek(vm->stack, nfield + 1, &sval) != VM_TYPE_GLOBAL)
-        FAIL(ENOENT, "UPDATE: no global source found in stack");
-    
-    src  = sval.g;
-    nsrc = src->nfact;
-
-
-#if 0 /* original semantics, no multiple fact occurence allowed */    
-    if (nsrc > ndst)
-        FAIL(EOVERFLOW, "UPDATE: source dimension > destination");
-    else {
-        char   *fields[nfield];
-        GValue *values[nfield];
-
-        for (i = 0; i < nfield; i++)
-            if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
-                FAIL(ENOENT, "UPDATE: expected #%d field name not in stack", i);
-        
-        vm_pop_global(vm->stack);                    /* pop destination */
-        vm_pop_global(vm->stack);                    /* pop source */
-
-        for (i = 0; i < nsrc; i++) {
-            sfact = src->facts[i];
-            if ((j = vm_fact_collect_fields(sfact, fields, nfield, values)) < 0)
-                FAIL(ENOENT, "UPDATE: source has no field %s", fields[-j]);
-            
-            if ((j = vm_global_find_first(dst, fields, values, nfield)) < 0)
-                FAIL(ENOENT,
-                     "UPDATE: source #%d with no matching destination", i);
-            
-            dfact = dst->facts[j];
-            if (vm_fact_copy(dfact, sfact) == NULL)
-                FAIL(EINVAL, "UPDATE: failed to copy source fact #%d", i);
-
-            g_object_unref(dfact);
-            if (j < dst->nfact - 1)
-                dst->facts[j] = dst->facts[dst->nfact - 1];
-            dst->nfact--;
-
-            if ((j = vm_global_find_first(dst, fields, values, nfield)) >= 0)
-                FAIL(EINVAL, "UPDATE: source #%d has multiple matches", i);
-
-            g_object_unref(sfact);
-            src->facts[i] = NULL;
-            src->nfact--;
-        }
-    }
-#else /* multiple fact occurence allowed */
     {
         char   *fields[nfield];
         GValue *values[nfield];
-        int     match;
-
+        
+        if (vm_peek(vm->stack, nfield, &dval) != VM_TYPE_GLOBAL)
+            FAIL(ENOENT, "UPDATE: no global destination found in stack");
+    
+        if (vm_peek(vm->stack, nfield + 1, &sval) != VM_TYPE_GLOBAL)
+            FAIL(ENOENT, "UPDATE: no global source found in stack");
+    
         for (i = 0; i < nfield; i++)
             if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
                 FAIL(ENOENT, "UPDATE: expected #%d field name not in stack", i);
+    
+        dst  = dval.g;
+        ndst = dst->nfact;
+        src  = sval.g;
+        nsrc = src->nfact;
         
         vm_pop_global(vm->stack);                    /* pop destination */
         vm_pop_global(vm->stack);                    /* pop source */
-
+        
         for (i = 0; i < nsrc; i++) {
             sfact = src->facts[i];
             if ((j = vm_fact_collect_fields(sfact, fields, nfield, values)) < 0)
@@ -366,7 +315,7 @@ vm_instr_update(vm_state_t *vm)
                  j >= 0;
                  j = vm_global_find_next(dst, j, fields, values, nfield)) {
                 match = TRUE;
-
+                
                 dfact = dst->facts[j];
                 if (partial)
                     success = (vm_fact_update(dfact, sfact) != NULL);
@@ -384,11 +333,13 @@ vm_instr_update(vm_state_t *vm)
             src->facts[i] = NULL;
             src->nfact--;
         }
-        for (j = 0; j < dst->nfact; j++)
+        for (j = 0; j < dst->nfact; j++) {
             g_object_unref(dst->facts[j]);
+            dst->facts[j] = NULL;
+            dst->nfact--;
+        }
     }
-#endif
-
+    
     if (src)
         vm_global_free(src);
     if (dst)
