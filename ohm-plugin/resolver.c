@@ -13,7 +13,7 @@
 #include <dbus/dbus.h>
 
 #include <dres/dres.h>
-#include <prolog/prolog.h>
+/*#include <prolog/prolog.h>*/
 
 #include <ohm/ohm-plugin.h>
 #include <ohm/ohm-plugin-debug.h>
