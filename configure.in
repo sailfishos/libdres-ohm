@@ -114,5 +114,6 @@ AC_OUTPUT([
 	include/Makefile
 	ohm-plugin/Makefile
 	test/Makefile
+	tests/Makefile
 	doc/Makefile
 ])
