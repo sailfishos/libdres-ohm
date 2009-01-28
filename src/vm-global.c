@@ -146,18 +146,50 @@ vm_fact_lookup(char *name)
 void
 vm_fact_reset(OhmFact *fact)
 {
-    GSList *l = (GSList *)ohm_fact_get_fields(fact);
+#if 1
+    GSList *l, *next;
     char   *field;
-    GQuark  quark;
-    
-    for ( ; l != NULL; l = g_slist_next(l)) {
-        quark = GPOINTER_TO_INT(l->data);
-        field = (char *)g_quark_to_string(quark);
+
+    for (l = ohm_fact_get_fields(fact); l != NULL; l = next) {
+        next  = l->next;
+        field = g_quark_to_string(GPOINTER_TO_INT(l->data));
         if (field != NULL)
-            ohm_fact_set(fact, field, NULL);
+            ohm_fact_set(fact, field, NULL);             /* invalidates l */
         else
-            fprintf(stderr, "*** field for quark 0x%x is NULL\n", quark);
+            fprintf(stderr, "*** NULL field name in fact\n");
     }
+
+#else
+
+    GSList *l = (GSList *)ohm_fact_get_fields(fact);
+    int     n = g_slist_length(l);
+    
+    
+    /*
+     * Notes: If we're brave enough, we can avoid looping through the fact
+     *        fields twice knowing the factstore implementation details.
+     *        What we have here is a classic case of 'looping through a list
+     *        and deleting its entries' in disguise. The right thing to do
+     *        is to prefetch the next element before deleting the current one.
+     *        IOW, we have to prefetch before the call to ohm_fact_set which
+     *        in turn deletes the current element. See above...
+     */
+
+    {
+        char *fields[n];
+        int   i;
+        
+        for (i = 0; l != NULL; l = g_slist_next(l), i++)
+            fields[i] = (char *)g_quark_to_string(GPOINTER_TO_INT(l->data));
+        
+        for (i = 0; i < n; i++)
+            if (fields[i] != NULL)
+                ohm_fact_set(fact, fields[i], NULL);
+            else
+                fprintf(stderr, "*** #%d. field is NULL\n", i);
+    }
+
+#endif
 }
 
 
