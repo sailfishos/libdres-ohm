@@ -1,3 +1,12 @@
+libdres (0.0.8) unstable; urgency=low
+
+  * Fix vm_fact_reset corruption problems.
+  * Release memory on the exit code paths for better valgrind SNR.
+  * Fix vm_instr_update memory leak.
+  * Parser fix for assignments to fact fields.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 29 Jan 2009 10:34:42 +0200
+
 libdres (0.0.7) unstable; urgency=low
 
   * Changed action handler conventions to support (silent) failure.
