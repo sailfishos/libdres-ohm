@@ -1,0 +1,58 @@
+
+$call  = { name: 'call1', peer: '', state: 'disconnected', id: 1 }
+$call += { name: 'call2', peer: '', state: 'disconnected', id: 2 }
+$call += { name: 'call3', peer: '', state: 'disconnected', id: 3 }
+
+
+full_update:
+	$call[name,id] = fact(name, 'call1',                               \
+		             peer, 'peer1', state, 'active', id, 1, '', \
+			   name, 'call2',                               \
+			     peer, 'peer2', state, 'onhold', id, 2, '', \
+			   name, 'call3',                               \
+			     peer, 'peer3', state, 'onhold', id, 3, '')
+
+partial_update:
+	$call[name,id] |= fact(name, 'call1',                                 \
+	                      peer, 'another', state, 'onhold', id, 1, '', \
+			    name, 'call2',                                 \
+			      peer, 'another2', state, 'active', id, 2, '')
+
+full_recursive:
+	resolve(full_update, '', 0)
+
+partial_recursive:
+	resolve(partial_update, '', 0)
+
+full_then_recurse_full:
+	$call[name,id] = fact(name, 'call1',                               \
+	                     peer, 'peer1', state, 'active', id, 1,'',  \
+			   name, 'call2',                               \
+			     peer, 'peer2', state, 'onhold', id, 2, '', \
+			   name, 'call3',                               \
+			     peer, 'peer3', state, 'onhold', id, 3, '')
+	resolve(full_update, '', 0)
+
+partial_then_recurse_full:
+	$call[name,id] |= fact(name, 'call1',                                 \
+	                      peer, 'another', state, 'onhold', id, 1, '', \
+			    name, 'call2',                                 \
+			      peer, 'another2', state, 'active', id, 2, '')
+	resolve(full_update, '', 0)
+
+partial_then_recurse_partial:
+	$call[name,id] |= fact(name, 'call1',                                 \
+	                      peer, 'another', state, 'onhold', id, 1, '', \
+			    name, 'call2',                                 \
+			      peer, 'another2', state, 'active', id, 2, '')
+
+	resolve(partial_update, '', 0)
+
+partial_then_recurse_full:
+	$call[name,id] |= fact(name, 'call1',                                 \
+	                      peer, 'another', state, 'onhold', id, 1, '', \
+			    name, 'call2',                                 \
+			      peer, 'another2', state, 'active', id, 2, '')
+
+	resolve(full_update, '', 0)
+
