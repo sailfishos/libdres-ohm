@@ -48,7 +48,7 @@ static command_t commands[] = {
 };
 
 static int console;
-
+static char prefix[128];
 
 
 /********************
@@ -203,6 +203,14 @@ command_dump(int id, char *input)
     OhmFact      *fact;
     GSList       *list;
     char          factname[128], *p, *q, *dump;
+
+    if (!strcmp(input, "prefix")) {
+        if (prefix[0])
+            console_printf(id, "current prefix: \"%s\"\n", prefix);
+        else
+            console_printf(id, "no prefix set\n");
+        return;
+    }
     
     p = input;
     if (!*p)
@@ -212,7 +220,10 @@ command_dump(int id, char *input)
             p++;
         if (*p == '$')
             p++;
-        for (q = factname; *p && *p != ','; *q++ = *p++)
+        q = factname;
+        if (strchr(input, '.') == NULL && prefix[0])
+            q += sprintf(factname, "%s.", prefix);
+        for ( ; *p && *p != ','; *q++ = *p++)
             ;
         *q = '\0';
         if (!strcmp(factname, "all")) {
@@ -224,6 +235,7 @@ command_dump(int id, char *input)
             dres_dump_targets(dres);
         }
         else {
+            console_printf(id, "current facts for \"%s\"\n", factname);
             for (list = ohm_fact_store_get_facts_by_name(fs, factname);
                  list != NULL;
                  list = g_slist_next(list)) {
@@ -243,7 +255,20 @@ command_dump(int id, char *input)
 static void
 command_set(int id, char *input)
 {
-    set_fact(id, input);    
+    int   max = sizeof(prefix) - 1;
+    int   len = sizeof("prefix ") - 1;
+    char *p;
+
+    if (!strncmp(input, "prefix ", len)) {
+        strncpy(prefix, input + len, max);
+        prefix[max] = '\0';
+        len = strlen(prefix);
+        for (p = prefix + len - 1; *p == '.' && p > prefix; *p-- = '\0')
+            ;
+        console_printf(id, "prefix set to \"%s\"\n", prefix);
+    }
+    else
+        set_fact(id, input);
 }
 
 
