@@ -589,8 +589,7 @@ factname(char *name)
      */
 
     if (name[0] != '.' && prefix && prefix[0]) {
-        snprintf(buf, sizeof(buf), "%s%s%s",
-                 prefix ? prefix : "", prefix ? "." : "", name);
+        snprintf(buf, sizeof(buf), "%s.%s", prefix, name);
         name = buf;
     }
     else if (name[0] == '.')
