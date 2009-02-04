@@ -313,6 +313,12 @@ vm_fact_set_field(vm_state_t *vm, OhmFact *fact, char *field,
                       "invalid type 0x%x for field %s", type, field);
     }
 
+    if (vm_field_matches(fact, field, gval)) {
+        g_value_unset(gval);
+        g_free(gval);
+        return 1;
+    }
+
     ohm_fact_set(fact, field, gval);
     return 1;
 
