@@ -93,14 +93,14 @@ console_exit(void)
 static void
 console_opened(int id, struct sockaddr *peer, int peerlen)
 {
+    (void)peer;
+    (void)peerlen;
+
     OHM_INFO("new console 0x%x opened", id);
 
     console_printf(id, "OHMng Dependency Resolver Console\n");
     console_printf(id, "Type help to get a list of available commands.\n\n");
     console_printf(id, CONSOLE_PROMPT);
-
-    (void)peer;
-    (void)peerlen;
 }
 
 
@@ -125,6 +125,8 @@ console_input(int id, char *input, void *data)
     command_t    *command;
     char          name[64], *args, *s, *d;
     unsigned int  n;
+
+    (void)data;
 
     if (!input[0]) {
         console_printf(id, CONSOLE_PROMPT);
@@ -158,8 +160,6 @@ console_input(int id, char *input, void *data)
     }
 
     console_printf(id, CONSOLE_PROMPT);
-
-    (void)data;
 }
 
 
@@ -175,9 +175,9 @@ console_input(int id, char *input, void *data)
 static void
 command_bye(int id, char *input)
 {
-    console_close(id);
-
     (void)input;
+
+    console_close(id);
 }
 
 
@@ -187,9 +187,9 @@ command_bye(int id, char *input)
 static void
 command_quit(int id, char *input)
 {
-    console_close(id);
-
     (void)input;
+
+    console_close(id);
 }
 
 
@@ -337,10 +337,10 @@ command_resolve(int id, char *input)
 static void
 command_prolog(int id, char *input)
 {
-    rules_prompt();
-
     (void)id;
     (void)input;
+
+    rules_prompt();
 }
 
 
@@ -350,11 +350,11 @@ command_prolog(int id, char *input)
 static void
 command_grab(int id, char *input)
 {
+    (void)input;
+
     console_grab(id, 0);
     console_grab(id, 1);
     console_grab(id, 2);
-
-    (void)input;
 }
 
 /********************
@@ -363,11 +363,11 @@ command_grab(int id, char *input)
 static void
 command_release(int id, char *input)
 {
+    (void)input;
+
     console_ungrab(id, 0);
     console_ungrab(id, 1);
     console_ungrab(id, 2);
-
-    (void)input;
 }
 
 
@@ -425,13 +425,13 @@ command_help(int id, char *input)
     command_t *c;
     char       syntax[128];
 
+    (void)input;
+
     console_printf(id, "Available commands:\n");
     for (c = commands; c->name != NULL; c++) {
         sprintf(syntax, "%s%s%s", c->name, c->args ? " ":"", c->args ?: ""); 
         console_printf(id, "    %-30.30s %s\n", syntax, c->description);
     }
-
-    (void)input;
 }
 
 

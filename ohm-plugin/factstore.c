@@ -67,13 +67,13 @@ factstore_exit(void)
 static gboolean
 update_all(gpointer data)
 {
+    (void)data;
+
     OHM_DEBUG(DBG_RESOLVE, "resolving goal \"all\"...\n");
     dres_update_goal(dres, "all", NULL);
     update = 0;
 
     return FALSE;
-
-    (void)data;
 }
 
 
@@ -83,13 +83,13 @@ update_all(gpointer data)
 static void
 schedule_resolve(gpointer object, gpointer user_data)
 {
+    (void)object;
+    (void)user_data;
+
     if (!update) {
         OHM_DEBUG(DBG_RESOLVE, "resolving of goal \"all\" scheduled...\n");
         update = g_idle_add(update_all, NULL);
     }
-
-    (void)object;
-    (void)user_data;
 }
 
 
@@ -100,10 +100,10 @@ static void
 schedule_updated(gpointer fact, gpointer name, gpointer value,
                  gpointer user_data)
 {
-    schedule_resolve(fact, user_data);
-
     (void)name;
     (void)value;
+
+    schedule_resolve(fact, user_data);
 }
 
 

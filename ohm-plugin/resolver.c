@@ -141,12 +141,12 @@ plugin_init(OhmPlugin *plugin)
 static void
 plugin_exit(OhmPlugin *plugin)
 {
+    (void)plugin;
+
     factstore_exit();
     resolver_exit();
     rules_exit();
     console_exit();
-
-    (void)plugin;
 }
 
 
@@ -157,10 +157,10 @@ plugin_exit(OhmPlugin *plugin)
 void
 dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
+    (void)dres;
+
     g_warning("error: %s, on line %d near input %s\n", msg, lineno, token);
     exit(1);
-
-    (void)dres;
 }
 
 
@@ -283,6 +283,8 @@ DRES_ACTION(rule_handler)
     vm_global_t   *g = NULL;
     int            i, status;
 
+    (void)data;
+    (void)name;
     
     OHM_DEBUG(DBG_RESOLVE, "rule evaluation (prolog handler) entered...");
     
@@ -351,9 +353,6 @@ DRES_ACTION(rule_handler)
     
     DRES_ACTION_ERROR(status);
 
-    (void)data;
-    (void)name;
-
 #undef MAX_FACTS
 }
 
@@ -395,6 +394,9 @@ DRES_ACTION(signal_handler)
     char *p, *e;
     char *signature;
     int   success;
+
+    (void)name;
+    (void)data;
     
     if (narg < 3)
         DRES_ACTION_ERROR(EINVAL);
@@ -483,9 +485,6 @@ DRES_ACTION(signal_handler)
         DRES_ACTION_SUCCEED;
     else
         DRES_ACTION_ERROR(EIO);
-
-    (void)name;
-    (void)data;
 
 #undef MAX_LENGTH
 #undef MAX_FACTS
