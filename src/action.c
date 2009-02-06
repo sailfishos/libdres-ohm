@@ -162,10 +162,10 @@ dres_free_actions(dres_action_t *actions)
 EXPORTED int
 dres_register_handler(dres_t *dres, char *name, dres_handler_t handler)
 {
-    if (DRES_TST_FLAG(dres, COMPILED))
-        return EINVAL;
-    else
+    if (!DRES_TST_FLAG(dres, COMPILED))
         return vm_method_add(&dres->vm, name, handler, dres);
+    else
+        return vm_method_set(&dres->vm, name, handler, dres);
 }
 
 

@@ -56,6 +56,26 @@ vm_method_add(vm_state_t *vm, char *name, vm_action_t handler, void *data)
 
 
 /********************
+ * vm_method_set
+ ********************/
+int
+vm_method_set(vm_state_t *vm, char *name, vm_action_t handler, void *data)
+{
+    vm_method_t *m;
+    
+    if ((m = vm_method_lookup(vm, name)) == &default_method)
+        return ENOENT;
+    
+    if (m->handler != NULL)
+        return EEXIST;
+    
+    m->handler = handler;
+    m->data    = data;
+    return 0;
+}
+
+
+/********************
  * vm_method_lookup
  ********************/
 vm_method_t *
