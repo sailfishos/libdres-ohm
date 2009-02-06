@@ -79,6 +79,9 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
     case DRES_ACTION_VALUE:
         if (action->lvalue.variable == DRES_ID_NONE)
             return EINVAL;
+        if (action->lvalue.field == NULL &&
+            action->value.type == DRES_TYPE_DRESVAR)
+            return EINVAL;
         if ((status = compile_value(dres, &action->value, code)) != 0)
             return status;
         break;
@@ -190,7 +193,9 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
         break;
         
     case DRES_TYPE_DRESVAR:
-        /* XXX TODO: implement me */
+        /* Notes: This should not happen, as dresvars are parsed to values
+         *     and not varrefs and hence they are taken care of in
+         *     compile_value. */
         FAIL(EOPNOTSUPP);
         
     default:

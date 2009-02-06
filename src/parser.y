@@ -309,6 +309,25 @@ action:   TOKEN_TAB varref "=" call TOKEN_EOL {
             $$->lvalue = $2;
             $$->rvalue = $4;
         }
+        | TOKEN_TAB varref "=" TOKEN_DRESVAR TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_VALUE;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_DRESVAR;
+            $$->value.v.id = dres_dresvar_id(dres, $4);
+        }
+        | TOKEN_TAB varref "|=" TOKEN_DRESVAR TOKEN_EOL {
+            if (($$ = ALLOC(dres_action_t)) == NULL)
+                YYABORT;
+
+            $$->type   = DRES_ACTION_VALUE;
+            $$->op     = DRES_ASSIGN_PARTIAL;
+            $$->lvalue = $2;
+            $$->value.type = DRES_TYPE_DRESVAR;
+            $$->value.v.id = dres_dresvar_id(dres, $4);
+        }
         | TOKEN_TAB varref "=" TOKEN_INTEGER TOKEN_EOL {
             if (($$ = ALLOC(dres_action_t)) == NULL)
                 YYABORT;
