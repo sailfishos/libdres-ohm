@@ -138,13 +138,6 @@ dres_dump_targets(dres_t *dres)
                 printf(" still unresolved...\n");
         }
         
-        if (t->actions == NULL) {
-            if (t->code == NULL)
-                printf("  no actions\n");
-            else
-                printf("  actions not saved, see bytecode\n");
-        }
-        
         printf("  actions:\n");
         if (t->actions == NULL) {
             if (t->code == NULL)
@@ -176,6 +169,7 @@ dres_dump_targets(dres_t *dres)
             printf("%s", buf);
         }
     }
+    fflush(stdout);
 }
 
 
