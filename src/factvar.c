@@ -147,6 +147,7 @@ dres_save_factvars(dres_t *dres, dres_buf_t *buf)
     for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
         dres_buf_ws32(buf, v->id);
         dres_buf_wstr(buf, v->name);
+        dres_buf_wu32(buf, v->flags);
     }
     
     return 0;
@@ -169,8 +170,9 @@ dres_load_factvars(dres_t *dres, dres_buf_t *buf)
         return ENOMEM;
     
     for (i = 0, v = dres->factvars; i < dres->nfactvar; i++, v++) {
-        v->id   = dres_buf_rs32(buf);
-        v->name = dres_buf_rstr(buf);
+        v->id    = dres_buf_rs32(buf);
+        v->name  = dres_buf_rstr(buf);
+        v->flags = dres_buf_ru32(buf);
     }
     
     return buf->error;
