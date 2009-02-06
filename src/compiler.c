@@ -546,7 +546,7 @@ dres_load(char *path)
     dres_buf_t     buf;
     dres_header_t *hdr = &buf.header;
     dres_t        *dres;
-    int            size, status;
+    int            size, status, i;
     
 
     dres = NULL;
@@ -597,6 +597,9 @@ dres_load(char *path)
     if ((dres = (dres_t *)ALLOC_ARR(char, size)) == NULL)
         goto fail;
 
+    if (vm_init(&dres->vm, 0) != 0)
+        goto fail;
+
     buf.strings = ((char *)dres) + sizeof(*dres);
     buf.data    = buf.strings + hdr->ssize;
      
@@ -637,6 +640,10 @@ dres_load(char *path)
         goto fail;
     }
 
+    dres->vm.nlocal = dres->ndresvar;
+    for (i = 0; i < dres->ndresvar; i++)
+        vm_set_varname(&dres->vm, i, dres->dresvars[i].name);
+    
     return dres;
 
 
