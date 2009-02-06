@@ -65,14 +65,11 @@ main(int argc, char *argv[])
     if ((store = ohm_fact_store_get_fact_store()) == NULL)
         fatal(1, "failed to initialize OHM fact store");
     
-    if ((dres = dres_init(TEST_PREFIX)) == NULL)
-        fatal(2, "failed to initialize DRES library");
+    if ((dres = dres_open(rulefile)) == NULL)
+        fatal(2, "failed to parse DRES rule file %s", rulefile);
 
     register_handlers(dres);
     
-    if (dres_parse_file(dres, rulefile))
-        fatal(4, "failed to parse DRES rule file %s", rulefile);
-
     if (dres_finalize(dres))
         fatal(5, "failed to finalize DRES rules");
 
