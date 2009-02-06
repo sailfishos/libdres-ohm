@@ -51,6 +51,9 @@ dres_open(char *path)
     dres_t *dres;
     int     status;
 
+    trace_init();
+    trace_add_component(NULL, &trcdres);
+
     if ((dres = dres_load(path)) != NULL)
         return dres;
 
@@ -75,9 +78,6 @@ dres_init(char *prefix)
 {
     dres_t *dres;
     int     status;
-    
-    trace_init();
-    trace_add_component(NULL, &trcdres);
     
     if (ALLOC_OBJ(dres) == NULL) {
         errno = ENOMEM;
@@ -327,6 +327,9 @@ finalize_actions(dres_t *dres)
     dres_call_t    *call;
     void           *unknown = dres_lookup_handler(dres, DRES_BUILTIN_UNKNOWN);
     int             i, status;
+
+    if (DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
+        return 0;
     
     status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
@@ -359,6 +362,9 @@ finalize_targets(dres_t *dres)
     dres_graph_t  *graph;
     char           goal[64];
     int            i;
+
+    if (DRES_TST_FLAG(dres, TARGETS_FINALIZED))
+        return 0;
 
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         DRES_INFO("Compiling dependency graph for target %s...", target->name);
