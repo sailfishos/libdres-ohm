@@ -1,3 +1,12 @@
+libdres (0.0.9) unstable; urgency=low
+
+  * Precompiled ruleset save/load fixes.
+  * Local var to fact field assignment fixes.
+  * Changes to make coverity happier.
+  * Debian dbg packaging fixes.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon, 09 Feb 2009 11:38:24 +0200
+
 libdres (0.0.8) unstable; urgency=low
 
   * Fix vm_fact_reset corruption problems.
