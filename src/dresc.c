@@ -62,10 +62,7 @@ main(int argc, char *argv[])
     if (ohm_fact_store_get_fact_store() == NULL)
         fatal(3, "failed to initalize OHM fact store");
 
-    if ((dres = dres_init(NULL)) == NULL)
-        fatal(2, "failed to initialize DRES library");
-    
-    if (dres_parse_file(dres, in))
+    if ((dres = dres_parse_file(in)) == NULL)
         fatal(4, "failed to parse input file %s", in);
 
     if (dres_finalize(dres))

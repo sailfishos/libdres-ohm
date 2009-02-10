@@ -42,31 +42,58 @@ static int  push_locals(dres_t *dres, char **locals);
 static int  pop_locals (dres_t *dres);
 
 
+
+
 /********************
  * dres_open
  ********************/
 EXPORTED dres_t *
-dres_open(char *path)
+dres_open(char *file)
 {
-    dres_t *dres;
-    int     status;
+    struct stat st;
+    char        path[PATH_MAX], *suffix;
+    dres_t     *dres;
+    size_t      len;
+    
 
     trace_init();
     trace_add_component(NULL, &trcdres);
 
-    if ((dres = dres_load(path)) != NULL)
-        return dres;
+    
+    /*
+     * try to load the given file if it is found and a regular file
+     */
 
-    if ((dres = dres_init(NULL)) == NULL)
+    if (stat(file, &st) == 0 && S_ISREG(st.st_mode)) {
+        if ((dres = dres_load(file)) != NULL ||
+            (dres = dres_parse_file(file)) != NULL)
+            return dres;
+
         return NULL;
-
-    if ((status = dres_parse_file(dres, path)) != 0) {
-        dres_exit(dres);
-        errno = status;
-        dres  = NULL;
     }
 
-    return dres;
+
+    /*
+     * otherwise try to load it with binary and plain suffices
+     */
+
+    if ((len = strlen(file)) >= sizeof(path) ||
+        len + sizeof(DRES_SUFFIX_BINARY) > sizeof(path) ||
+        len + sizeof(DRES_SUFFIX_PLAIN) > sizeof(path)) {
+        errno = EOVERFLOW;
+        return NULL;
+    }
+    
+    strcpy(path, file);
+    suffix = path + len;
+    *suffix++ = '.';
+    
+    strcpy(suffix, DRES_SUFFIX_BINARY);
+    if ((dres = dres_load(path)) != NULL)
+        return dres;
+    
+    strcpy(suffix, DRES_SUFFIX_PLAIN);
+    return dres_parse_file(path);
 }
 
 
@@ -134,31 +161,41 @@ dres_exit(dres_t *dres)
 /********************
  * dres_parse_file
  ********************/
-EXPORTED int
-dres_parse_file(dres_t *dres, char *path)
+EXPORTED dres_t *
+dres_parse_file(char *path)
 {
-    int status, i;
-    
+#define FAIL(err) do { status = err; goto fail; } while (0)
+    dres_t *dres = NULL;
+    int     status, i;
+
     if (path == NULL)
-        return EINVAL;
+        FAIL(EINVAL);
     
     if ((status = lexer_open(path)) != 0)
-        return status;
+        FAIL(status);
     
-    status = yyparse(dres);
+    if ((dres = dres_init(NULL)) == NULL)
+        FAIL(errno);
 
-    if (status == 0)
-        status = check_undefined(dres);
-    if (status == 0)
-        status = initialize_variables(dres);
-    if (status == 0)
-        status = finalize_variables(dres);
-
+    if ((status = yyparse(dres)) != 0 ||
+        (status = check_undefined(dres)) != 0 ||
+        (status = initialize_variables(dres)) != 0 ||
+        (status = finalize_variables(dres)) != 0)
+        FAIL(status);
+    
     dres->vm.nlocal = dres->ndresvar;
     for (i = 0; i < dres->ndresvar; i++)
         vm_set_varname(&dres->vm, i, dres->dresvars[i].name);
     
-    return status;
+    return dres;
+    
+ fail:
+    if (dres != NULL)
+        dres_exit(dres);
+    
+    errno = status;
+    return NULL;
+#undef FAIL
 }
 
 
