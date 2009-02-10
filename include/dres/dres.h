@@ -12,6 +12,10 @@
 #define DRES_MAGIC    ('D'<<24|('R'<<16)|('E'<<8)|'S')
 #define DRES_MAX_NAME 128
 
+#define DRES_SUFFIX_BINARY "dresc"
+#define DRES_SUFFIX_PLAIN  "dres"
+
+
 enum {
     DRES_TYPE_UNKNOWN   = VM_TYPE_UNKNOWN,
     DRES_TYPE_NIL       = VM_TYPE_NIL,
@@ -280,7 +284,7 @@ dres_t *dres_open(char *path);
 
 dres_t *dres_init(char *prefix);
 void    dres_exit(dres_t *dres);
-int     dres_parse_file(dres_t *dres, char *path);
+dres_t *dres_parse_file(char *path);
 int     dres_finalize(dres_t *dres);
 
 dres_variable_t *dres_lookup_variable(dres_t *dres, int id);

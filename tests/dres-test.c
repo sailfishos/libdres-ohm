@@ -120,6 +120,8 @@ handler_lookup(const char *command)
 static void
 help_handler(char *command, char *args)
 {
+    (void)command;
+    
     if (args == NULL || !*args) {
         printf("Possible commands are:\n");
         printf("  resolve goal  resolve \n");
@@ -136,6 +138,9 @@ help_handler(char *command, char *args)
 static void
 quit_handler(char *command, char *args)
 {
+    (void)command;
+    (void)args;
+    
     quit = 1;
 }
 
@@ -148,6 +153,8 @@ resolve_handler(char *command, char *args)
 {
     char *goal, *end;
     int   status;
+
+    (void)command;
         
     goal = args;
     end  = strchr(goal, ' ');
@@ -175,10 +182,11 @@ void
 show_handler(char *command, char *args)
 {
     char     name[128], *s, *e, *fstr;
-    int      len;
+    size_t   len;
     GSList  *l;
     OhmFact *fact;
 
+    (void)command;
     
     if (args == NULL || !*args) {
         fstr = ohm_fact_store_to_string(store);
