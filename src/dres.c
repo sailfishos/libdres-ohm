@@ -20,12 +20,12 @@
 /* trace flags */
 int DBG_GRAPH, DBG_VAR, DBG_RESOLVE, DBG_ACTION, DBG_VM;
 
-TRACE_DECLARE_COMPONENT(trcdres, "dres",
-    TRACE_FLAG_INIT("graph"  , "dependency graph"    , &DBG_GRAPH),
-    TRACE_FLAG_INIT("var"    , "variable handling"   , &DBG_VAR),
-    TRACE_FLAG_INIT("resolve", "dependency resolving", &DBG_RESOLVE),
-    TRACE_FLAG_INIT("action" , "action processing"   , &DBG_ACTION),
-    TRACE_FLAG_INIT("vm"     , "VM execution"        , &DBG_VM));
+TRACE_DECLARE_MODULE(trcdres, "dres",
+    TRACE_FLAG("graph"  , "dependency graph"    , &DBG_GRAPH),
+    TRACE_FLAG("var"    , "variable handling"   , &DBG_VAR),
+    TRACE_FLAG("resolve", "dependency resolving", &DBG_RESOLVE),
+    TRACE_FLAG("action" , "action processing"   , &DBG_ACTION),
+    TRACE_FLAG("vm"     , "VM execution"        , &DBG_VM));
     
 
 extern int   lexer_open(char *path);
@@ -54,10 +54,11 @@ dres_open(char *file)
     char        path[PATH_MAX], *suffix;
     dres_t     *dres;
     size_t      len;
-    
+    int         cid;
 
     trace_init();
-    trace_add_component(NULL, &trcdres);
+    cid = TRACE_DEFAULT_CONTEXT;
+    trace_add_module(cid, &trcdres);
 
     
     /*

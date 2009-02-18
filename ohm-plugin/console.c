@@ -380,20 +380,22 @@ command_debug(int id, char *input)
     char buf[8*1024];
 
     if (!strcmp(input, "list") || !strcmp(input, "help")) {
-        trace_list_flags(NULL, buf, sizeof(buf),
-                         "  %-25.25F %-30.30d [%-3.3s]", NULL);
+        trace_show(TRACE_DEFAULT_NAME, buf, sizeof(buf),
+                         "  %-25.25F %-30.30d [%-3.3s]");
+#if 0
         console_printf(id, "The available debug flags are:\n%s\n", buf);
+#endif
     }
     else if (!strcmp(input, "disable") || !strcmp(input, "off")) {
-        trace_disable(NULL);
+        trace_context_disable(TRACE_DEFAULT_CONTEXT);
         console_printf(id, "Debugging is now turned off.\n");
     }
     else if (!strcmp(input, "enable") || !strcmp(input, "on")) {
-        trace_enable(NULL);
+        trace_context_enable(TRACE_DEFAULT_CONTEXT);
         console_printf(id, "Debugging is now turned on.\n");
     }
     else if (!strncmp(input, "set ", 4)) {
-        if (trace_parse_flags(input + 4))
+        if (trace_configure(input + 4))
             console_printf(id, "failed to parse debugging flags.\n");
         else
             console_printf(id, "Debugging configuration updated.\n");
