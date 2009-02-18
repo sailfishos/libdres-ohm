@@ -1,3 +1,9 @@
+libdres (0.0.11) unstable; urgency=low
+
+  * Changed to use the rewritten trace library.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Wed, 18 Feb 2009 15:08:07 +0200
+
 libdres (0.0.10) unstable; urgency=low
 
   * Added precompiled/plain input autoselection logic.
