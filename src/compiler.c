@@ -187,8 +187,8 @@ compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
         }
 
         if (varref->field != NULL) {
-            DRES_ERROR("%s: implement VM GET FIELD...", __FUNCTION__);
-            FAIL(EOPNOTSUPP);
+            VM_INSTR_PUSH_STRING(code, fail, err, varref->field);
+            VM_INSTR_GET_FIELD(code, fail, err);
         }
         break;
         
