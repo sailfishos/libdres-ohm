@@ -1,3 +1,9 @@
+libdres (0.0.12) unstable; urgency=low
+
+  * Support for fact field rvalues in assignments.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Fri, 13 Mar 2009 11:43:10 +0200
+
 libdres (0.0.11) unstable; urgency=low
 
   * Changed to use the rewritten trace library.
