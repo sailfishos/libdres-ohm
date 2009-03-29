@@ -7,7 +7,7 @@
 #  include "parser.h"
 #endif
 
-#undef DEBUG
+#define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
 
 #if !defined(DEBUG)
 #  if defined(__TEST_LEXER__)
@@ -99,6 +99,19 @@ static int  ringoffs = 0;
      TOKEN_PARTIAL,
      TOKEN_TAB,
      TOKEN_EOF,
+
+     TOKEN_IF,
+     TOKEN_THEN,
+     TOKEN_ELSE,
+     TOKEN_END,
+     TOKEN_EQ,
+     TOKEN_NE,
+     TOKEN_LT,
+     TOKEN_LE,
+     TOKEN_GT,
+     TOKEN_GE,
+     TOKEN_NOT,
+
      TOKEN_UNKNOWN,
    };
    const char *tokenname[] = {
@@ -111,7 +124,14 @@ static int  ringoffs = 0;
        "CURLY_OPEN", "CURLY_CLOSE",
        "BREACE_OPEN", "BRACE_CLOSE",
        "COMMA", "EQUAL", "APPEND", "TAB",
-       "<<EOF>>"
+       "<<EOF>>",
+
+       "IF", "THEN", "ELSE", "END",
+       "==", "!=",
+       "<", "<=",
+       ">", ">=",
+       "!",
+
        "<<UNKNOWN>>"
    };
 #endif /* __TEST_LEXER__ */
@@ -232,6 +252,12 @@ ESCAPE          \\
                       yyterminate();
                 }
 
+
+if              { TOKEN(IF);   }
+then            { TOKEN(THEN); }
+else            { TOKEN(ELSE); }
+end             { TOKEN(END);  }
+
 {IDENT}		{ SAVE(yytext); TOKEN(IDENT);       }
 {PREFIX}        { TOKEN(PREFIX);                    }
 {TAB}           { TOKEN(TAB);                            }
@@ -253,6 +279,15 @@ ESCAPE          \\
 \)              { TOKEN(PAREN_CLOSE); }
 :               { TOKEN(COLON);       }
 ,               { TOKEN(COMMA);       }
+
+==              { TOKEN(EQ);          }
+!=              { TOKEN(NE);          }
+\<=             { TOKEN(LE);          }
+\<              { TOKEN(LT);          }
+>=              { TOKEN(GE);          }
+>               { TOKEN(GT);          }
+!               { TOKEN(NOT);         }
+
 =		{ TOKEN(EQUAL);       }
 \+=             { TOKEN(APPEND);      }
 \|=             { TOKEN(PARTIAL);     }
@@ -285,7 +320,7 @@ lexer_push_include(char *path)
         current = file;
         yypush_buffer_state(file->yybuf);
 
-        DEBUG("PUSH \"%s\"...\n", file->path);
+        DEBUG("PUSH \"%s\"...", file->path);
     }
 
     return 0;
@@ -306,17 +341,22 @@ lexer_pop_include(void)
     old->prev = processed;
     processed = old;
 
-    DEBUG("POP: popped \"%s\"\n", old->path);
+    DEBUG("POP: popped \"%s\"", old->path);
     fclose(old->fp);
     free(old->path);
 
     if (current != NULL) {
         yypop_buffer_state();
-        DEBUG("POP: current in \"%s\"\n", current->path);
+        DEBUG("POP: current in \"%s\"", current->path);
         return 0;
     }
-    else
+    else {
+#ifdef __TEST_LEXER__
+        exit(0);
+#else
         return ENOENT;
+#endif
+    }
 }
 
 

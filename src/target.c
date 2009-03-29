@@ -107,6 +107,7 @@ dres_dump_targets(dres_t *dres)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_action_t *a;
+    dres_stmt_t   *stmt;
     int            i, j, id, idx;
     char          *sep, name[64];
     char           buf[16384];
@@ -138,7 +139,8 @@ dres_dump_targets(dres_t *dres)
             else
                 printf(" still unresolved...\n");
         }
-        
+
+#if 0        
         printf("  actions:\n");
         if (t->actions == NULL) {
             if (t->code == NULL)
@@ -152,6 +154,7 @@ dres_dump_targets(dres_t *dres)
             dres_dump_action(dres, a);
             printf("\n");
         }
+#endif
         if (t->code == NULL) {
             if (t->actions != NULL)
                 printf("  byte code not generated\n");
@@ -169,6 +172,13 @@ dres_dump_targets(dres_t *dres)
             printf("  byte code:\n");
             printf("%s", buf);
         }
+
+        printf("  statements:\n");
+        if (t->statements)
+            for (stmt = t->statements; stmt; stmt = stmt->any.next)
+                dres_dump_statement(dres, stmt, 4);
+        else
+            printf("    none\n");
     }
     fflush(stdout);
 }

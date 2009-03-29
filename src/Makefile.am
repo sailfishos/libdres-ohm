@@ -8,7 +8,7 @@ bin_PROGRAMS    = dresc
 libdres_la_SOURCES = parser.y lexer.l \
                      action.c builtin.c target.c \
                      factvar.c dresvar.c variables.c \
-                     prereq.c graph.c dres.c \
+                     prereq.c graph.c dres.c ast.c \
                      vm-stack.c vm-instr.c vm-global.c vm-local.c \
                      vm-method.c vm-debug.c vm.c \
                      compiler.c
@@ -22,7 +22,7 @@ dresc_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
 dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
 # various test programs
-noinst_PROGRAMS = vm-test lexer-test
+noinst_PROGRAMS = vm-test lexer-test parser-test
 
 vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
                    vm-method.c vm-test.c
@@ -33,9 +33,9 @@ lexer_test_SOURCES = lexer.l
 lexer_test_CFLAGS  = -D__TEST_LEXER__=1
 lexer_test_LDADD   = -lfl
 
-#parser_test_SOURCES = lexer.l parser.y
-#parser_test_CFLAGS  = -D__TEST_PARSER__=1
-#parser_test_LDADD   = -lfl
+parser_test_SOURCES = parser-test.c
+parser_test_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
+parser_test_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
 INCLUDES = -I$(top_builddir)/include
 

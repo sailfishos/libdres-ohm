@@ -394,6 +394,9 @@ dres_print_varref(dres_t *dres, dres_varref_t *vr, char *buf, size_t size)
     if (vr->field != NULL)
         P(":%s", vr->field);
         
+    if (left > 0)
+        *p = '\0';
+
     return size - left - 1;
 #undef P    
 }

@@ -50,6 +50,9 @@ static char *current_prefix;
 
     dres_init_t        *init;
     dres_initializer_t *initializer;
+
+    dres_stmt_t        *statement;
+    dres_expr_t        *expression;
 }
 
 %defines
@@ -78,6 +81,19 @@ static char *current_prefix;
 %token           TOKEN_TAB "\t"
 %token           TOKEN_EOL
 %token           TOKEN_EOF
+
+%token           TOKEN_IF   "if"
+%token           TOKEN_THEN "then"
+%token           TOKEN_ELSE "else"
+%token           TOKEN_END  "end"
+%token           TOKEN_EQ   "=="
+%token           TOKEN_NE   "!="
+%token           TOKEN_LT   "<"
+%token           TOKEN_LE   "<="
+%token           TOKEN_GT   ">"
+%token           TOKEN_GE   ">="
+%token           TOKEN_NOT  "!"
+
 %token           TOKEN_UNKNOWN
 
 %type <target>  rule
@@ -90,14 +106,23 @@ static char *current_prefix;
 %type <select>    sfields
 %type <initializer> initializer
 %type <initializer> initializers
-%type <action>      optional_actions
-%type <action>      actions
-%type <action>      action
-%type <call>        call
-%type <arg>         arg
-%type <arg>         args
 %type <local>       local
 %type <local>       locals
+
+%type <statement>   optional_statements
+%type <statement>   statements
+%type <statement>   statement
+%type <statement>   stmt_ifthen
+%type <statement>   stmt_assign
+%type <statement>   stmt_call
+%type <expression>  expr
+%type <expression>  expr_const
+%type <expression>  expr_varref
+%type <expression>  expr_relop
+%type <expression>  expr_call
+%type <expression>  args_by_value
+
+
 %%
 
 
@@ -223,10 +248,12 @@ rules:    rule
 	;
 
 
-rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_actions {
+/* rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_actions */
+rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_statements {
             dres_target_t *t = dres_lookup_target(dres, $1);
             t->prereqs = $3;
-            t->actions = $5;
+	    t->actions = NULL;
+            t->statements = $5;
             t->id      = DRES_DEFINED(t->id);
             $$ = t;
         }
@@ -248,123 +275,6 @@ prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1);    }
                 v->flags |= DRES_VAR_PREREQ;
         }
 	;
-
-optional_actions: /* empty */ { $$ = NULL; }
-	| actions             { $$ = $1;   }
-	;
-
-actions:  action         { $$ = $1; }
-	| actions action {
-            dres_action_t *a;
-
-            for (a = $1; a->next; a = a->next)
-                ;
-
-            a->next = $2;
-            $$      = $1;
-        }
-	;
-
-action:   TOKEN_TAB varref "=" call TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_CALL;
-            $$->lvalue = $2;
-            $$->call   = $4;
-        }
-	| TOKEN_TAB varref "|=" call TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_CALL;
-            $$->op     = DRES_ASSIGN_PARTIAL;
-            $$->lvalue = $2;
-            $$->call   = $4;
-        }
-        | TOKEN_TAB call TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type            = DRES_ACTION_CALL;
-            $$->lvalue.variable = DRES_ID_NONE;
-	    $$->lvalue.selector = NULL;
-	    $$->lvalue.field    = NULL;
-            $$->call            = $2;
-        }
-        | TOKEN_TAB varref "=" varref TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VARREF;
-            $$->lvalue = $2;
-            $$->rvalue = $4;
-        }
-        | TOKEN_TAB varref "|=" varref TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VARREF;
-            $$->op     = DRES_ASSIGN_PARTIAL;
-            $$->lvalue = $2;
-            $$->rvalue = $4;
-        }
-        | TOKEN_TAB varref "=" TOKEN_DRESVAR TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_DRESVAR;
-            $$->value.v.id = dres_dresvar_id(dres, $4);
-        }
-        | TOKEN_TAB varref "|=" TOKEN_DRESVAR TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->op     = DRES_ASSIGN_PARTIAL;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_DRESVAR;
-            $$->value.v.id = dres_dresvar_id(dres, $4);
-        }
-        | TOKEN_TAB varref "=" TOKEN_INTEGER TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_INTEGER;
-            $$->value.v.i  = $4;
-        }
-        | TOKEN_TAB varref "=" TOKEN_DOUBLE TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_DOUBLE;
-            $$->value.v.d  = $4;
-        }
-        | TOKEN_TAB varref "=" TOKEN_STRING TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_STRING;
-            $$->value.v.s  = STRDUP($4);
-        }
-	| TOKEN_TAB varref "=" TOKEN_IDENT TOKEN_EOL {
-            if (($$ = ALLOC(dres_action_t)) == NULL)
-                YYABORT;
-
-            $$->type   = DRES_ACTION_VALUE;
-            $$->lvalue = $2;
-            $$->value.type = DRES_TYPE_STRING;
-            $$->value.v.s  = STRDUP($4);
-        }
-        ;
 
 varref: TOKEN_FACTVAR {
             $$.variable = dres_factvar_id(dres, FQFN($1));
@@ -388,113 +298,6 @@ varref: TOKEN_FACTVAR {
         }
         ;
 
-
-call: TOKEN_IDENT "(" args "," locals ")" {
-            $$ = dres_new_call(dres, $1, $3, $5);
-        }
-	| TOKEN_IDENT "(" args ")" {
-	    $$ = dres_new_call(dres, $1, $3, NULL);
-        }
-	| TOKEN_IDENT "(" locals ")" {
-	    $$ = dres_new_call(dres, $1, NULL, $3);
-        }
-	| TOKEN_IDENT "(" ")" {
-            $$ = dres_new_call(dres, $1, NULL, NULL);
-        }
-	;
-
-args: arg { $$ = $1; }
-        | args "," arg {
-            dres_arg_t *a;
-            for (a = $1; a->next != NULL; a = a->next)
-                ;
-            a->next = $3;
-            $$      = $1;
-        }
-        ;
-
-arg:      TOKEN_INTEGER {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_INTEGER;
-            $$->value.v.i  = $1;
-            $$->next = NULL;
-        }
-        | TOKEN_DOUBLE {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_DOUBLE;
-            $$->value.v.d  = $1;
-            $$->next = NULL;
-        }
-        | TOKEN_STRING {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_STRING;
-            $$->value.v.s  = STRDUP($1);
-            $$->next = NULL;
-
-            if ($$->value.v.s == NULL)
-                YYABORT;
-        }
-        | TOKEN_IDENT {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_STRING;
-            $$->value.v.s  = STRDUP($1);
-            $$->next = NULL;
-
-            if ($$->value.v.s == NULL)
-                YYABORT;
-        }
-        | TOKEN_FACTNAME {
-	    /* XXX TODO
-	     * Notes: This does not make much sense like this. Fact names
-	     *     without any dots come in as TOKEN_IDENT above. We could
-	     *     treat TOKEN_IDENT as a fact name and and auto-prepend
-	     *     the current prefix to it. That would require passing in
-	     *     prolog predicate names as strings though so anyway we
-	     *     lose full backward compatibility this or that way.
-	     *
-	     *     The basic problem is that we do not have enough
-	     *     information to tell when an identifier should be treated
-	     *     as a fact name. One reasonable aproach might be to change
-	     *     the current fact name prefixing conventions upside down,
-	     *     ie. prefix fact names that start with a dot and not vice
-	     *     versa. Although we'd lose backward-compatibility more
-	     *     obviously and visibly it would allow us to treat fact names
-	     *     uniformly regardless whether they are passed by value ($) or
-	     *	   passed by name.
-	     */
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_STRING;
-            $$->value.v.s  = FQFN($1);
-            $$->next = NULL;
-
-            if ($$->value.v.s == NULL)
-                YYABORT;
-        }
-        | TOKEN_FACTVAR {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_FACTVAR;
-            $$->value.v.id = dres_factvar_id(dres, FQFN($1));
-            $$->next = NULL;
-
-            if ($$->value.v.id == DRES_ID_NONE)
-                YYABORT;
-        }
-        | TOKEN_DRESVAR {
-            if (($$ = ALLOC(dres_arg_t)) == NULL)
-                YYABORT;
-            $$->value.type = DRES_TYPE_DRESVAR;
-            $$->value.v.id = dres_dresvar_id(dres, $1);
-            $$->next = NULL;
-
-            if ($$->value.v.id == DRES_ID_NONE)
-                YYABORT;
-        }
 
 
 locals:   local { $$ = $1; }
@@ -562,6 +365,387 @@ local:    TOKEN_DRESVAR "=" TOKEN_INTEGER {
                 YYABORT;
         }
         ;
+
+
+
+optional_statements: /* empty */ { $$ = NULL; }
+	| statements             { $$ = $1;   }
+	;
+
+statements: statement            { $$ = $1; }
+	|   statements statement {
+            dres_stmt_t *s;
+
+            for (s = $1; s->any.next; s = s->any.next)
+                ;
+
+            s->any.next = $2;
+            $$          = $1;
+        }
+	;
+
+statement: TOKEN_TAB stmt_ifthen TOKEN_EOL { $$ = $2; }
+        |  TOKEN_TAB stmt_assign TOKEN_EOL { $$ = $2; }
+        |  TOKEN_TAB stmt_call   TOKEN_EOL { $$ = $2; }
+        ;
+
+
+stmt_ifthen: TOKEN_IF expr TOKEN_THEN TOKEN_EOL 
+                      statements TOKEN_TAB TOKEN_END {
+             dres_stmt_if_t *stmt = ALLOC(typeof(*stmt));
+             if (stmt == NULL)
+                 YYABORT;
+
+             stmt->type        = DRES_STMT_IFTHEN;
+             stmt->condition   = $2;
+             stmt->if_branch   = $5;
+             stmt->else_branch = NULL;
+
+             $$ = (dres_stmt_t *)stmt;
+        }
+        | TOKEN_IF expr TOKEN_THEN TOKEN_EOL 
+                   statements TOKEN_TAB TOKEN_ELSE TOKEN_EOL 
+                   statements TOKEN_TAB TOKEN_END {
+             dres_stmt_if_t *stmt = ALLOC(typeof(*stmt));
+             if (stmt == NULL)
+                 YYABORT;
+
+             stmt->type        = DRES_STMT_IFTHEN;
+             stmt->condition   = $2;
+             stmt->if_branch   = $5;
+             stmt->else_branch = $9;
+
+             $$ = (dres_stmt_t *)stmt;
+        }
+        ;
+
+stmt_assign: varref "=" expr {
+            dres_stmt_assign_t *a  = ALLOC(typeof(*a));
+            dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+
+            if (a == NULL || vr == NULL)
+                YYABORT;
+
+	    vr->type = DRES_EXPR_VARREF;
+            vr->ref  = $1;
+
+            a->type   = DRES_STMT_FULL_ASSIGN;
+	    a->lvalue = vr;
+            a->rvalue = $3;
+
+            $$ = (dres_stmt_t *)a;
+        }
+        |   varref "|=" expr {
+            dres_stmt_assign_t *a  = ALLOC(typeof(*a));
+            dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+
+            if (a == NULL || vr == NULL)
+                YYABORT;
+
+	    vr->type = DRES_EXPR_VARREF;
+            vr->ref  = $1;
+
+            a->type   = DRES_STMT_PARTIAL_ASSIGN;
+	    a->lvalue = vr;
+            a->rvalue = $3;
+
+            $$ = (dres_stmt_t *)a;
+        }
+        ;
+
+stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
+            dres_stmt_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type   = DRES_STMT_CALL;
+            call->name   = STRDUP($1);
+            call->args   = $3;
+	    call->locals = $5;
+
+            $$ = (dres_stmt_t *)call;
+        }
+        | TOKEN_IDENT "(" args_by_value ")" {
+            dres_stmt_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type   = DRES_STMT_CALL;
+            call->name   = STRDUP($1);
+            call->args   = $3;
+	    call->locals = NULL;
+
+            $$ = (dres_stmt_t *)call;
+        }
+        | TOKEN_IDENT "(" locals ")" {
+            dres_stmt_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type   = DRES_STMT_CALL;
+            call->name   = STRDUP($1);
+            call->args   = NULL;
+	    call->locals = $3;
+
+            $$ = (dres_stmt_t *)call;
+        }
+	| TOKEN_IDENT "(" ")" {
+            dres_stmt_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type   = DRES_STMT_CALL;
+            call->name   = STRDUP($1);
+            call->args   = NULL;
+	    call->locals = NULL;
+
+            $$ = (dres_stmt_t *)call;
+        }
+
+args_by_value: expr { $$ = $1; }
+     | args_by_value "," expr {
+         dres_expr_t *arg;
+
+         for (arg = $1; arg->any.next; arg = arg->any.next)
+             ;
+
+         arg->any.next = $3;
+         $$ = $1;
+     }
+     ;
+
+
+expr:  expr_const  { $$ = $1; }
+     | expr_varref { $$ = $1; }
+     | expr_relop  { $$ = $1; }
+     | expr_call   { $$ = $1; }
+     ;
+
+expr_const: TOKEN_INTEGER {
+                dres_expr_const_t *c = ALLOC(typeof(*c));
+
+                if (c == NULL)
+                    YYABORT;
+
+                c->type  = DRES_EXPR_CONST;
+		c->vtype = DRES_TYPE_INTEGER;
+                c->v.i   = $1;
+
+                $$ = (dres_expr_t *)c;
+            }
+            | TOKEN_DOUBLE {
+                dres_expr_const_t *c = ALLOC(typeof(*c));
+
+                if (c == NULL)
+                    YYABORT;
+
+                c->type  = DRES_EXPR_CONST;
+		c->vtype = DRES_TYPE_DOUBLE;
+                c->v.d   = $1;
+
+                $$ = (dres_expr_t *)c;
+            }
+            | TOKEN_STRING {
+                dres_expr_const_t *c = ALLOC(typeof(*c));
+
+                if (c == NULL)
+                    YYABORT;
+
+                c->type  = DRES_EXPR_CONST;
+		c->vtype = DRES_TYPE_STRING;
+                c->v.s   = STRDUP($1);
+
+                $$ = (dres_expr_t *)c;
+            }
+            | TOKEN_IDENT {
+                dres_expr_const_t *c = ALLOC(typeof(*c));
+
+                if (c == NULL)
+                    YYABORT;
+
+                c->type  = DRES_EXPR_CONST;
+		c->vtype = DRES_TYPE_STRING;
+                c->v.s   = STRDUP($1);
+
+                $$ = (dres_expr_t *)c;
+            }
+            ;
+
+expr_varref: varref {
+                dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+
+                if (vr == NULL)
+                    YYABORT;
+
+                vr->type = DRES_EXPR_VARREF;
+                vr->ref  = $1;
+
+                $$ = (dres_expr_t *)vr;
+            }
+            | TOKEN_DRESVAR {
+                dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+
+                if (vr == NULL)
+                    YYABORT;
+
+                vr->type         = DRES_EXPR_VARREF;
+		vr->ref.variable = dres_dresvar_id(dres, $1);
+
+                $$ = (dres_expr_t *)vr;
+            }
+            ;
+
+expr_relop: expr "<" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_LT;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr "<=" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_LE;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr ">" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_GT;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr ">=" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_GE;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr "==" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_EQ;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr "!=" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_NE;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | "!" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_NOT;
+                op->arg1 = $2;
+                op->arg2 = NULL;
+
+                $$ = (dres_expr_t *)op;
+            }
+            ;
+
+
+expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
+            dres_expr_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type    = DRES_EXPR_CALL;
+            call->name    = STRDUP($1);
+            call->args    = $3;
+	    call->locals  = $5;
+
+            $$ = (dres_expr_t *)call;
+        }
+        | TOKEN_IDENT "(" args_by_value ")" {
+            dres_expr_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type    = DRES_EXPR_CALL;
+            call->name    = STRDUP($1);
+            call->args    = $3;
+	    call->locals  = NULL;
+
+            $$ = (dres_expr_t *)call;
+        }
+        | TOKEN_IDENT "(" locals ")" {
+            dres_expr_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type    = DRES_EXPR_CALL;
+            call->name    = STRDUP($1);
+            call->args    = NULL;
+	    call->locals  = $3;
+
+            $$ = (dres_expr_t *)call;
+        }
+	| TOKEN_IDENT "(" ")" {
+            dres_expr_call_t *call = ALLOC(typeof(*call));
+
+            if (call == NULL)
+                YYABORT;
+
+            call->type    = DRES_EXPR_CALL;
+            call->name    = STRDUP($1);
+            call->args    = NULL;
+	    call->locals  = NULL;
+
+            $$ = (dres_expr_t *)call;
+        }
+	;
 
 
 %%

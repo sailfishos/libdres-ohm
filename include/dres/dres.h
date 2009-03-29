@@ -135,6 +135,127 @@ typedef struct {
     dres_local_t   *locals;                /* arguments passed by name */
 } dres_call_t;
 
+
+typedef union dres_expr_u dres_expr_t;
+typedef enum {
+    DRES_RELOP_UNKNOWN = 0,
+    DRES_RELOP_EQ,
+    DRES_RELOP_NE,
+    DRES_RELOP_LT,
+    DRES_RELOP_LE,
+    DRES_RELOP_GT,
+    DRES_RELOP_GE,
+    DRES_RELOP_NOT,
+} dres_relop_t;
+
+typedef enum {
+    DRES_EXPR_UNKNOWN = 0,
+    DRES_EXPR_CONST,
+    DRES_EXPR_VARREF,
+    DRES_EXPR_RELOP,
+    DRES_EXPR_CALL
+} dres_expr_type_t;
+
+
+#define DRES_EXPR_COMMON                        \
+    dres_expr_type_t  type;                     \
+    dres_expr_t      *next
+
+typedef struct {
+    DRES_EXPR_COMMON;
+    dres_relop_t  op;
+    dres_expr_t  *arg1;
+    dres_expr_t  *arg2;
+} dres_expr_relop_t;
+
+typedef struct {
+    DRES_EXPR_COMMON;
+    dres_varref_t ref;
+} dres_expr_varref_t;
+
+typedef struct {
+    DRES_EXPR_COMMON;
+    int vtype;
+    union {
+        int     i;
+        char   *s;
+        double  d;
+    } v;
+} dres_expr_const_t;
+
+typedef struct {
+    DRES_EXPR_COMMON;
+    char             *name;
+    dres_handler_t    handler;
+    dres_expr_t      *args;
+    dres_local_t     *locals;
+} dres_expr_call_t;
+
+typedef struct {
+    DRES_EXPR_COMMON;
+} dres_expr_any_t;
+
+union dres_expr_u {
+    dres_expr_type_t   type;
+    dres_expr_any_t    any;
+    dres_expr_const_t  constant;
+    dres_expr_varref_t varref;
+    dres_expr_relop_t  relop;
+    dres_expr_call_t   call;
+};
+
+
+union dres_stmt_u;
+typedef union dres_stmt_u dres_stmt_t;
+
+typedef enum {
+    DRES_STMT_UNKNOWN = 0,
+    DRES_STMT_FULL_ASSIGN,
+    DRES_STMT_PARTIAL_ASSIGN,
+    DRES_STMT_CALL,
+    DRES_STMT_IFTHEN,
+} dres_stmt_type_t;
+
+
+
+#define DRES_STMT_COMMON                        \
+    dres_stmt_type_t  type;                     \
+    dres_stmt_t      *next
+
+typedef struct {
+    DRES_STMT_COMMON;
+    dres_expr_t      *condition;
+    dres_stmt_t      *if_branch;
+    dres_stmt_t      *else_branch;
+} dres_stmt_if_t;
+
+typedef struct {
+    DRES_STMT_COMMON;
+    dres_expr_varref_t *lvalue;
+    dres_expr_t        *rvalue;
+} dres_stmt_assign_t;
+
+typedef struct {
+    DRES_STMT_COMMON;
+    char             *name;
+    dres_handler_t    handler;
+    dres_expr_t      *args;
+    dres_local_t     *locals;
+} dres_stmt_call_t;
+
+typedef struct {
+    DRES_STMT_COMMON;
+} dres_stmt_any_t;
+
+union dres_stmt_u {
+    dres_stmt_type_t   type;
+    dres_stmt_any_t    any;
+    dres_stmt_if_t     ifthen;
+    dres_stmt_assign_t assign;
+    dres_stmt_call_t   call;
+};
+
+
 enum {
     DRES_ACTION_VALUE = 0,                 /* assignment of basic type */
     DRES_ACTION_VARREF,                    /* assignment of variable */
@@ -143,7 +264,8 @@ enum {
 
 
 enum {
-    DRES_ASSIGN_DEFAULT = 0,               /* default (full) assignmnent */
+    DRES_ASSIGN_FULL   = 0,               /* default (full) assignmnent */
+    DRES_ASIGN_DEFAULT = DRES_ASSIGN_FULL,
     DRES_ASSIGN_PARTIAL                    /* partial assignment */
 };
 
@@ -185,6 +307,7 @@ typedef struct {
     char          *name;                    /* target name */
     dres_prereq_t *prereqs;                 /* prerequisites */
     dres_action_t *actions;                 /* associated actions */
+    dres_stmt_t   *statements;
     vm_chunk_t    *code;                    /* VM code */
     int            stamp;                   /* last update stamp */
     int            txid;                    /* of stamp */
@@ -355,9 +478,19 @@ dres_value_t *dres_copy_value (dres_value_t *value);
 void          dres_free_value (dres_value_t *value);
 int           dres_print_value(dres_t *dres,
                                dres_value_t *value, char *buf, size_t size);
+int           dres_print_locals(dres_t *dres, dres_local_t *locals,
+                                char *buf, size_t size);
+int           dres_print_varref(dres_t *dres, dres_varref_t *vr,
+                                char *buf, size_t size);
+
 
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
+
+
+/* ast.c */
+void dres_dump_statement(dres_t *dres, dres_stmt_t *stmt, int level);
+
 
 /* compiler.c */
 int dres_compile_target(dres_t *dres, dres_target_t *target);
