@@ -473,6 +473,8 @@ int            dres_print_action(dres_t *dres, dres_action_t *action,
 dres_call_t   *dres_new_call (dres_t *dres,
                               char *name, dres_arg_t *args, dres_local_t *vars);
 void           dres_free_call(dres_call_t *call);
+void           dres_free_locals(dres_local_t *locals);
+void           dres_free_varref(dres_varref_t *vref);
 
 dres_value_t *dres_copy_value (dres_value_t *value);
 void          dres_free_value (dres_value_t *value);
@@ -490,6 +492,7 @@ int dres_register_builtins(dres_t *dres);
 
 /* ast.c */
 void dres_dump_statement(dres_t *dres, dres_stmt_t *stmt, int level);
+void dres_free_statement(dres_stmt_t *stmt);
 
 
 /* compiler.c */

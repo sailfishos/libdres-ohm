@@ -9,10 +9,7 @@
 #include <dres/compiler.h>
 #include "dres-debug.h"
 
-static void free_args  (dres_arg_t *args);
-static void free_locals(dres_local_t *locals);
-
-
+static void free_args(dres_arg_t *args);
 
 /*****************************************************************************
  *                             *** method calls ***                          *
@@ -55,7 +52,7 @@ dres_free_call(dres_call_t *call)
     if (call) {
         FREE(call->name);
         free_args(call->args);
-        free_locals(call->locals);
+        dres_free_locals(call->locals);
         FREE(call);
     }
 }
@@ -83,10 +80,10 @@ free_args(dres_arg_t *args)
 
 
 /********************
- * free_locals
+ * dres_free_locals
  ********************/
-static void
-free_locals(dres_local_t *locals)
+void
+dres_free_locals(dres_local_t *locals)
 {
     dres_local_t *l, *n;
 
@@ -100,10 +97,10 @@ free_locals(dres_local_t *locals)
 
 
 /********************
- * free_varref
+ * dres_free_varref
  ********************/
-static void
-free_varref(dres_varref_t *vref)
+void
+dres_free_varref(dres_varref_t *vref)
 {
     dres_select_t *p, *n;
 
@@ -138,14 +135,14 @@ dres_free_actions(dres_action_t *actions)
             dres_free_value(&a->value);
             break;
         case DRES_ACTION_VARREF:
-            free_varref(&a->rvalue);
+            dres_free_varref(&a->rvalue);
             break;
         case DRES_ACTION_CALL:
             dres_free_call(a->call);
             break;
         }
         
-        free_varref(&a->lvalue);
+        dres_free_varref(&a->lvalue);
         FREE(a);
     }
 }

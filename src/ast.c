@@ -10,6 +10,7 @@
 
 
 static void dump_expr(dres_t *dres, dres_expr_t *expr);
+static void free_expr(dres_expr_t *expr);
 
 
 static void
@@ -144,6 +145,126 @@ dump_ifthen(dres_t *dres, dres_stmt_if_t *stmt, int level)
     }
     
     printf("%*send\n", level, "");
+}
+
+
+static void
+free_expr_const(dres_expr_const_t *expr)
+{
+    if (expr->vtype == DRES_TYPE_STRING)
+        FREE(expr->v.s);
+    
+    FREE(expr);
+}
+
+
+static void
+free_expr_varref(dres_expr_varref_t *expr)
+{
+    dres_free_varref(&expr->ref);
+    FREE(expr);
+}
+
+
+static void
+free_expr_relop(dres_expr_relop_t *expr)
+{
+    free_expr(expr->arg1);
+    free_expr(expr->arg2);
+    FREE(expr);
+}
+
+
+static void
+free_expr_call(dres_expr_call_t *expr)
+{
+    FREE(expr->name);
+    free_expr(expr->args);
+    dres_free_locals(expr->locals);
+    FREE(expr);
+}
+
+
+EXPORTED void
+free_expr(dres_expr_t *expr)
+{
+    dres_expr_t *next;
+
+    while (expr != NULL) {
+        next = expr->any.next;
+
+        switch (expr->type) {
+        case DRES_EXPR_CONST:  free_expr_const(&expr->constant); break;
+        case DRES_EXPR_VARREF: free_expr_varref(&expr->varref);  break;
+        case DRES_EXPR_RELOP:  free_expr_relop(&expr->relop);    break;
+        case DRES_EXPR_CALL:   free_expr_call(&expr->call);      break;
+        default:
+            printf("%s: error: <unknown expression type 0x%x>", __FUNCTION__,
+                   expr->type);
+            return;
+        }
+
+        expr = next;
+    }
+}
+
+
+static void
+free_call(dres_stmt_call_t *stmt)
+{
+    FREE(stmt->name);
+    free_expr(stmt->args);
+    dres_free_locals(stmt->locals);
+    FREE(stmt);
+}
+
+
+static void
+free_ifthen(dres_stmt_if_t *stmt)
+{
+    free_expr(stmt->condition);
+    dres_free_statement(stmt->if_branch);
+    dres_free_statement(stmt->else_branch);
+    FREE(stmt);
+}
+
+
+static void
+free_assign(dres_stmt_assign_t *stmt)
+{
+    free_expr_varref(stmt->lvalue);
+    free_expr(stmt->rvalue);
+    FREE(stmt);
+}
+
+
+EXPORTED void
+dres_free_statement(dres_stmt_t *stmt)
+{
+    dres_stmt_t *next;
+    
+    while (stmt != NULL) {
+        next = stmt->any.next;
+        
+        switch (stmt->type) {
+        case DRES_STMT_FULL_ASSIGN:
+        case DRES_STMT_PARTIAL_ASSIGN:
+            free_assign(&stmt->assign);
+            break;
+        case DRES_STMT_CALL:
+            free_call(&stmt->call);
+            break;
+        case DRES_STMT_IFTHEN:
+            free_ifthen(&stmt->ifthen);
+            break;
+        default:
+            printf("%s: error: unknown statement of type 0x%x.", __FUNCTION__,
+                   stmt->type);
+            return;
+        }
+
+        stmt = next;
+    }
 }
 
 
