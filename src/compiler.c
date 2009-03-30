@@ -17,14 +17,28 @@
 double trunc(double);
 #endif
 
-static int compile_value  (dres_t *dres, dres_value_t *value, vm_chunk_t *code);
-static int compile_varref (dres_t *dres, dres_varref_t *vr, vm_chunk_t *code);
-static int compile_call   (dres_t *dres, dres_call_t *call, vm_chunk_t *code);
-static int compile_assign (dres_t *dres, dres_varref_t *lval, vm_chunk_t *code,
-                           int op);
-static int compile_discard(dres_t *dres, vm_chunk_t *code);
-static int compile_debug  (const char *info, vm_chunk_t *code);
-
+static int compile_statement(dres_t *dres, dres_stmt_t *stmt, vm_chunk_t *code);
+static int compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op,
+                               vm_chunk_t *code);
+static int compile_stmt_assign(dres_t *dres, dres_stmt_assign_t *stmt,
+                               vm_chunk_t *code);
+static int compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt,
+                             vm_chunk_t *code);
+static int compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt,
+                               vm_chunk_t *code);
+static int compile_stmt_discard(dres_t *dres, vm_chunk_t *code);
+static int compile_stmt_debug  (const char *info, vm_chunk_t *code);
+static int compile_call(dres_t *dres, const char *method, dres_expr_t *args,
+                        dres_local_t *locals, vm_chunk_t *code);
+static int compile_expr(dres_t *dres, dres_expr_t *expr, vm_chunk_t *code);
+static int compile_expr_const(dres_t *dres, dres_expr_const_t *expr,
+                              vm_chunk_t *code);
+static int compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr,
+                               vm_chunk_t *code);
+static int compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr,
+                              vm_chunk_t *code);
+static int compile_expr_call(dres_t *dres, dres_expr_call_t *expr,
+                             vm_chunk_t *code);
 
 static int save_initializers(dres_t *dres, dres_buf_t *buf);
 static int load_initializers(dres_t *dres, dres_buf_t *buf);
@@ -42,70 +56,38 @@ extern int finalize_variables  (dres_t *dres); /* XXX TODO: kludge */
 int
 dres_compile_target(dres_t *dres, dres_target_t *target)
 {
+#if 0
     dres_action_t *a;
-    int            status;
+#endif
+    dres_stmt_t   *stmt;
 
-    if (target->actions == NULL)
+    if (target->actions == NULL && target->statements == NULL)
         return 0;
 
     if (target->code == NULL)
         if ((target->code = vm_chunk_new(16)) == NULL)
             return ENOMEM;
     
+#if 0
     for (a = target->actions; a != NULL; a = a->next)
-        if ((status = dres_compile_action(dres, a, target->code)) != 0) {
+        if (dres_compile_action(dres, a, target->code) != 0) {
             DRES_ERROR("failed to compile action for target %s:", target->name);
             dres_dump_action(dres, a);
-            return status;
+            return EINVAL;
         }
+#endif
+
+    for (stmt = target->statements; stmt != NULL; stmt = stmt->any.next) {
+        if (!compile_statement(dres, stmt, target->code)) {
+            DRES_ERROR("failed to compile code for target %s:\n", target->name);
+            dres_dump_statement(dres, stmt, 4);
+            return EINVAL;
+        }
+    }
 
     return 0;
 }
 
-
-/********************
- * dres_compile_action
- ********************/
-int
-dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
-{
-    int  status;
-    char dbg[256];
-
-    if (dres_print_action(dres, action, dbg, sizeof(dbg)) > 0)
-        compile_debug(dbg, code);
-    
-    switch (action->type) {
-    case DRES_ACTION_VALUE:
-        if (action->lvalue.variable == DRES_ID_NONE)
-            return EINVAL;
-        if (action->lvalue.field == NULL &&
-            action->value.type == DRES_TYPE_DRESVAR)
-            return EINVAL;
-        if ((status = compile_value(dres, &action->value, code)) != 0)
-            return status;
-        break;
-    case DRES_ACTION_VARREF:
-        if (action->lvalue.variable == DRES_ID_NONE)
-            return EINVAL;
-        if ((status = compile_varref(dres, &action->rvalue, code)) != 0)
-            return status;
-        break;
-    case DRES_ACTION_CALL:
-        if ((status = compile_call(dres, action->call, code)) != 0)
-            return status;
-        break;
-    default:
-        return EINVAL;
-    }
-
-    if (action->lvalue.variable != DRES_ID_NONE)
-        status = compile_assign(dres, &action->lvalue, code, action->op);
-    else
-        status = compile_discard(dres, code);
-
-    return status;
-}
 
 
 #define PUSH_VALUE(code, fail, err, value) do {                         \
@@ -119,7 +101,7 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
         case DRES_TYPE_STRING:                                          \
             VM_INSTR_PUSH_STRING((code), fail, err, (value)->v.s);      \
             break;                                                      \
-        case DRES_TYPE_FACTVAR: { /* XXX TODO $foo[...] ??? */          \
+        case DRES_TYPE_FACTVAR: {                                       \
             const char *__f = dres_factvar_name(dres, (value)->v.id);   \
             if (__f == NULL) {                                          \
                 err = EINVAL;                                           \
@@ -138,246 +120,355 @@ dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code)
     } while (0)
 
 
+
 /********************
- * compile_value
+ * compile_statement
  ********************/
 static int
-compile_value(dres_t *dres, dres_value_t *value, vm_chunk_t *code)
+compile_statement(dres_t *dres, dres_stmt_t *stmt, vm_chunk_t *code)
 {
-    int err;
-
-    PUSH_VALUE(code, fail, err, value);
-    return 0;
-
- fail:
-    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
-               err, strerror(err));
-    return err;
+    switch (stmt->type) {
+    case DRES_STMT_FULL_ASSIGN:
+    case DRES_STMT_PARTIAL_ASSIGN:
+        return compile_stmt_assign(dres, &stmt->assign, code);
+    case DRES_STMT_CALL:
+        return compile_stmt_call(dres, &stmt->call, code);
+    case DRES_STMT_IFTHEN:
+        return compile_stmt_ifthen(dres, &stmt->ifthen, code);
+    default: DRES_ERROR("statement of unknown type 0x%x", stmt->type);
+    }
+    
+    return FALSE;
 }
 
 
-/********************
- * compile_varref
- ********************/
 static int
-compile_varref(dres_t *dres, dres_varref_t *varref, vm_chunk_t *code)
+compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
 {
-#define FAIL(ec) do { err = (ec); goto fail; } while (0)
-    dres_select_t *s;
-    dres_value_t  *value;
-    const char    *name;
-    int            n, err;
+#define FAIL(expl) do { reason = expl; goto fail; } while (0)
+
+    const char    *name, *reason;
+    dres_select_t *sel;
+    int            update, nfield, partial, err;
+
+
+    reason  = NULL;
+    partial = (op == DRES_STMT_PARTIAL_ASSIGN);
+
+    name = dres_factvar_name(dres, lval->variable);
     
-    if (varref->variable == DRES_ID_NONE)
-        return EINVAL;
-
-    switch (DRES_ID_TYPE(varref->variable)) {
-    case DRES_TYPE_FACTVAR:
-        if ((name = dres_factvar_name(dres, varref->variable)) == NULL)
-            FAIL(ENOENT);
-        VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
-
-        if (varref->selector != NULL) {
-            for (n = 0, s = varref->selector; s != NULL; n++, s = s->next) {
-                value = &s->field.value;
-                PUSH_VALUE(code, fail, err, value);            
-                VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
-            }
-            VM_INSTR_FILTER(code, fail, err, n);
-        }
-
-        if (varref->field != NULL) {
-            VM_INSTR_PUSH_STRING(code, fail, err, varref->field);
-            VM_INSTR_GET_FIELD(code, fail, err);
-        }
-        break;
-        
-    case DRES_TYPE_DRESVAR:
-        /* Notes: This should not happen, as dresvars are parsed to values
-         *     and not varrefs and hence they are taken care of in
-         *     compile_value. */
-        FAIL(EOPNOTSUPP);
-        
-    default:
-        FAIL(EINVAL);
-    }
-
-    return 0;
-
- fail:
-    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
-               err, strerror(err));
-    return err;
-#undef FAIL
-}
-
-
-/********************
- * compile_call
- ********************/
-static int
-compile_call(dres_t *dres, dres_call_t *call, vm_chunk_t *code)
-{
-#define FAIL(ec) do { err = (ec); goto fail; } while (0)
-    dres_arg_t   *arg;
-    dres_local_t *var;
-    int           narg, nvar, err, id;
+    if (name == NULL)
+        FAIL("failed to look up global");
     
-    if ((id = vm_method_id(&dres->vm, call->name)) < 0)
-        FAIL(ENOENT);
-    
-    for (arg = call->args, narg = 0; arg != NULL; arg = arg->next, narg++) {
-        PUSH_VALUE(code, fail, err, &arg->value);
-    }
-    
-    for (var = call->locals, nvar = 0; var != NULL; var = var->next, nvar++) {
-        PUSH_VALUE(code, fail, err, &var->value);
-        VM_INSTR_PUSH_INT(code, fail, err, DRES_INDEX(var->id));
-    }
-    if (nvar > 0)
-        VM_INSTR_PUSH_LOCALS(code, fail, err, nvar);
-    
-    VM_INSTR_PUSH_INT(code, fail, err, id);
-    VM_INSTR_CALL(code, fail, err, narg);
-    
-    if (nvar > 0)
-        VM_INSTR_POP_LOCALS(code, fail, err);
-    
-    return 0;
+    VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
 
- fail:
-    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
-               err, strerror(err));
-    return err;
-}
-
-
-/********************
- * compile_assign
- ********************/
-int
-compile_assign(dres_t *dres, dres_varref_t *lvalue, vm_chunk_t *code, int op)
-{
-#define FAIL(ec) do { err = (ec); goto fail; } while (0)
-    dres_select_t *s;
-    dres_value_t  *value;
-    const char    *name;
-    int            n, err;
-    int            update, filter;
-    
-    if (lvalue->variable == DRES_ID_NONE)
-        FAIL(EINVAL);
-
-    switch (DRES_ID_TYPE(lvalue->variable)) {
-    case DRES_TYPE_FACTVAR:
-        if ((name = dres_factvar_name(dres, lvalue->variable)) == NULL)
-            FAIL(ENOENT);
-        VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
-        
-        update = filter = FALSE;
-        if (lvalue->selector != NULL) {
-            for (n = 0, s = lvalue->selector; s != NULL; s = s->next) {
-                if (s->field.value.type == DRES_TYPE_UNKNOWN) {
-                    update = TRUE;
-                    continue;
-                }
-                else {
-                    filter = TRUE;
-                    value = &s->field.value;
-                    PUSH_VALUE(code, fail, err, value);            
-                    VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
-                    n++;
-                }
-            }
-            if (filter)
-                VM_INSTR_FILTER(code, fail, err, n);
-        }
-
-        if (op == DRES_ASSIGN_PARTIAL && !update) {
-            /* partial non-update assignments make no sense */
-            DRES_ERROR("%s: partial non-update assignments are not supported",
-                       __FUNCTION__);
-            FAIL(EINVAL);
-        }
-
-        if (lvalue->field != NULL) {
-            if (update)
-                FAIL(EINVAL);
-            
-            VM_INSTR_PUSH_STRING(code, fail, err, lvalue->field);
-            VM_INSTR_SET_FIELD(code, fail, err);
+    update = FALSE;
+    for (nfield = 0, sel = lval->selector; sel != NULL; sel = sel->next) {
+        if (sel->field.value.type == DRES_TYPE_UNKNOWN) {  /* an update */
+            update = TRUE;
+            continue;
         }
         else {
-            if (update) {
-                for (n = 0, s = lvalue->selector; s != NULL; s = s->next) {
-                    if (s->field.value.type != DRES_TYPE_UNKNOWN)
-                        continue;
-                    VM_INSTR_PUSH_STRING(code, fail, err, s->field.name);
-                    n++;
-                }
-                VM_INSTR_UPDATE(code, fail, err, n, op == DRES_ASSIGN_PARTIAL);
-            }
-            else
-                VM_INSTR_SET(code, fail, err);
+            PUSH_VALUE(code, fail, err, &sel->field.value);
+            VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
+            nfield++;
         }
-        break;
-        
-    case DRES_TYPE_DRESVAR:
-        /* XXX TODO: implement me */
-        FAIL(EOPNOTSUPP);
-        
-    default:
-        FAIL(EINVAL);
+    }
+    if (nfield)
+        VM_INSTR_FILTER(code, fail, err, nfield);
+    
+    if (partial && !update) {
+        /* partial assignments without update make no sense */
+        FAIL("partial assignments must be also updates");
     }
 
-    return 0;
 
+    if (update) {
+        if (lval->field != NULL)
+            FAIL("lvalue with a field in an update assignment");
+
+        for (nfield = 0, sel = lval->selector; sel != NULL; sel = sel->next) {
+            if (sel->field.value.type != DRES_TYPE_UNKNOWN) /* a filter */
+                continue;
+            VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
+            nfield++;
+        }
+        VM_INSTR_UPDATE(code, fail, err, nfield, partial);
+    }
+    else {
+        if (lval->field != NULL) {
+            VM_INSTR_PUSH_STRING(code, fail, err, lval->field);
+            VM_INSTR_SET_FIELD(code, fail, err);
+        }
+        else
+            VM_INSTR_SET(code, fail, err);
+    }
+        
+    return TRUE;
+    
  fail:
-    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
-               err, strerror(err));
-    return err;
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    if (reason != NULL)
+        DRES_ERROR("%s: %s", __FUNCTION__, reason);
+
+    return FALSE;
 #undef FAIL
 }
 
 
-/********************
- * compile_discard
- ********************/
-int
-compile_discard(dres_t *dres, vm_chunk_t *code)
+static int
+compile_stmt_assign(dres_t *dres, dres_stmt_assign_t *stmt, vm_chunk_t *code)
+{
+    compile_expr(dres, stmt->rvalue, code);
+    
+    switch (DRES_ID_TYPE(stmt->lvalue->ref.variable)) {
+    case DRES_TYPE_FACTVAR:
+        return compile_stmt_lvalue(dres, &stmt->lvalue->ref, stmt->type, code);
+    case DRES_TYPE_DRESVAR:
+        DRES_ERROR("assignments to local variables are not supported");
+        return FALSE;
+    default:
+        DRES_ERROR("assignment with lvalue of invalid type");
+        return FALSE;
+    }
+}
+
+
+static int
+compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt, vm_chunk_t *code)
+{
+    if (!compile_call(dres, stmt->name, stmt->args, stmt->locals, code) ||
+        !compile_stmt_discard(dres, code))
+        return FALSE;
+    else
+        return TRUE;
+}
+
+
+static int
+compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt, vm_chunk_t *code)
+{
+    (void)dres;
+    (void)stmt;
+    (void)code;
+    
+    printf("*** %s: implement if-then (and VM branch) ***\n", __FUNCTION__);
+    
+    return FALSE;
+}
+
+
+static int
+compile_stmt_discard(dres_t *dres, vm_chunk_t *code)
 {
     int err;
+
+    (void)dres;
     
     VM_INSTR_POP_DISCARD(code, fail, err);
-    
-    return 0;
+    return TRUE;
 
  fail:
     DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
                err, strerror(err));
-    return err;
-
-    (void)dres;
+    return FALSE;
 }
 
 
-/********************
- * compile_debug
- ********************/
 static int
-compile_debug(const char *info, vm_chunk_t *code)
+compile_stmt_debug(const char *info, vm_chunk_t *code)
 {
     int err;
-    
+
     VM_INSTR_DEBUG(code, fail, err, info);
-    
-    return 0;
+    return TRUE;
     
  fail:
     DRES_ERROR("%s: code generation failed for debug info \"%s\" (%d: %s)",
                __FUNCTION__, info, err, strerror(err));
-    return err;
+    return FALSE;
 }
+
+
+static int
+compile_call(dres_t *dres,
+             const char *method, dres_expr_t *args, dres_local_t *locals,
+             vm_chunk_t *code)
+{
+#define FAIL(fmt, args...) do {                           \
+        DRES_ERROR("%s: "fmt , __FUNCTION__ , ## args);   \
+        goto fail;                                        \
+    } while (0)
+
+    dres_expr_t  *arg;
+    dres_local_t *local;
+    int           id, narg, nlocal, err;
+
+
+    id = vm_method_id(&dres->vm, method);
+
+    if (id < 0)
+        FAIL("unknown method \"%s\"", method);
+
+    narg = 0;
+    for (arg = args; arg != NULL; arg = arg->any.next) {
+        compile_expr(dres, arg, code);
+        narg++;
+    }
+    
+    nlocal = 0;
+    for (local = locals; local != NULL; local = local->next) {
+        PUSH_VALUE(code, fail, err, &local->value);
+        VM_INSTR_PUSH_INT(code, fail, err, DRES_INDEX(local->id));
+        nlocal++;
+    }
+    if (nlocal > 0)
+        VM_INSTR_PUSH_LOCALS(code, fail, err, nlocal);
+ 
+    VM_INSTR_PUSH_INT(code, fail, err, id);
+    VM_INSTR_CALL(code, fail, err, narg);
+
+    if (nlocal > 0)
+        VM_INSTR_POP_LOCALS(code, fail, err);
+    
+    return TRUE;
+
+ fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    return FALSE;
+#undef FAIL
+}
+
+
+static int
+compile_expr(dres_t *dres, dres_expr_t *expr, vm_chunk_t *code)
+{
+    switch (expr->type) {
+    case DRES_EXPR_CONST:
+        return compile_expr_const(dres, &expr->constant, code);
+    case DRES_EXPR_VARREF:
+        return compile_expr_varref(dres, &expr->varref, code);
+    case DRES_EXPR_RELOP:
+        return compile_expr_relop(dres, &expr->relop, code);
+    case DRES_EXPR_CALL:
+        return compile_expr_call(dres, &expr->call, code);
+    default:
+        DRES_ERROR("expression with invalid type 0x%x", expr->type);
+        return FALSE;
+    }
+}
+
+
+static int
+compile_expr_const(dres_t *dres, dres_expr_const_t *expr, vm_chunk_t *code)
+{
+    int err;
+    
+    (void)dres;
+    
+    switch (expr->vtype) {
+    case DRES_TYPE_INTEGER:
+        VM_INSTR_PUSH_INT(code, fail, err, expr->v.i);
+        break;
+    case DRES_TYPE_DOUBLE:
+        VM_INSTR_PUSH_DOUBLE(code, fail, err, expr->v.d);
+        break;
+    case DRES_TYPE_STRING:
+        VM_INSTR_PUSH_STRING(code, fail, err, expr->v.s);
+        break;
+    default:
+        DRES_ERROR("%s: value of invalid type 0x%x", __FUNCTION__, expr->vtype);
+        goto fail;
+    }
+
+    return TRUE;
+
+ fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    return FALSE;
+}
+
+
+static int
+compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
+{
+#define FAIL(fmt, args...) do {                           \
+        DRES_ERROR("%s: "fmt , __FUNCTION__ , ## args);   \
+        goto fail;                                        \
+    } while (0)
+
+    const char    *name;
+    dres_varref_t *vref;
+    dres_select_t *sel;
+    int            nfield, err;
+
+
+    vref = &expr->ref;
+
+    if (DRES_ID_TYPE(vref->variable) == DRES_TYPE_DRESVAR) {
+        if (vref->selector != NULL || vref->field != NULL)
+            FAIL("local variables cannot have selectors or a field");
+        
+        VM_INSTR_GET_LOCAL(code, fail, err, vref->variable);
+    }
+    else {
+        name = dres_factvar_name(dres, vref->variable);
+    
+        if (name == NULL)
+            FAIL("failed to look up global 0x%x", vref->variable);
+    
+        VM_INSTR_PUSH_GLOBAL(code, fail, err, name);
+
+        for (nfield = 0, sel = vref->selector; sel != NULL; sel = sel->next) {
+            if (sel->field.value.type == DRES_TYPE_UNKNOWN)
+                FAIL("update-stype field in a non-lvalue variable reference");
+
+            PUSH_VALUE(code, fail, err, &sel->field.value);
+            VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
+            nfield++;
+        }
+        if (nfield)
+            VM_INSTR_FILTER(code, fail, err, nfield);
+    }
+
+    return TRUE;
+    
+ fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    
+    return FALSE;
+#undef FAIL
+}
+
+
+static int
+compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
+{
+    int err;
+    
+    compile_expr(dres, expr->arg1, code);
+    if (expr->arg2)
+        compile_expr(dres, expr->arg2, code);
+#if 0
+    VM_INSTR_RELOP(code, fail, err, expr->op);
+    return TRUE;
+#endif
+    
+    printf("*** %s: implement VM relop... ***\n", __FUNCTION__);
+    /* fall through */
+
+ fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    return FALSE;
+}
+
+
+static int
+compile_expr_call(dres_t *dres, dres_expr_call_t *expr, vm_chunk_t *code)
+{
+    return compile_call(dres, expr->name, expr->args, expr->locals, code);
+}
+
 
 /*****************************************************************************
  *                   *** precompiled/binary rule support ***                 *

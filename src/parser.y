@@ -455,6 +455,7 @@ stmt_assign: varref "=" expr {
 
 stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             dres_stmt_call_t *call = ALLOC(typeof(*call));
+            int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -464,10 +465,15 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args   = $3;
 	    call->locals = $5;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_stmt_t *)call;
         }
         | TOKEN_IDENT "(" args_by_value ")" {
             dres_stmt_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -477,10 +483,15 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args   = $3;
 	    call->locals = NULL;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_stmt_t *)call;
         }
         | TOKEN_IDENT "(" locals ")" {
             dres_stmt_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -490,10 +501,15 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args   = NULL;
 	    call->locals = $3;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_stmt_t *)call;
         }
 	| TOKEN_IDENT "(" ")" {
             dres_stmt_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -502,6 +518,10 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->name   = STRDUP($1);
             call->args   = NULL;
 	    call->locals = NULL;
+
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
 
             $$ = (dres_stmt_t *)call;
         }
@@ -695,6 +715,7 @@ expr_relop: expr "<" expr {
 
 expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             dres_expr_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -704,10 +725,15 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args    = $3;
 	    call->locals  = $5;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_expr_t *)call;
         }
         | TOKEN_IDENT "(" args_by_value ")" {
             dres_expr_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -717,10 +743,15 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args    = $3;
 	    call->locals  = NULL;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_expr_t *)call;
         }
         | TOKEN_IDENT "(" locals ")" {
             dres_expr_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -730,10 +761,15 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->args    = NULL;
 	    call->locals  = $3;
 
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
+
             $$ = (dres_expr_t *)call;
         }
 	| TOKEN_IDENT "(" ")" {
             dres_expr_call_t *call = ALLOC(typeof(*call));
+	    int               status;
 
             if (call == NULL)
                 YYABORT;
@@ -742,6 +778,10 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
             call->name    = STRDUP($1);
             call->args    = NULL;
 	    call->locals  = NULL;
+
+	    status = dres_register_handler(dres, call->name, NULL);
+	    if (status != 0 && status != EEXIST)
+	        YYABORT;
 
             $$ = (dres_expr_t *)call;
         }
