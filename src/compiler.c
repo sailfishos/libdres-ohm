@@ -453,6 +453,11 @@ compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
         }
         if (nfield)
             VM_INSTR_FILTER(code, fail, err, nfield);
+
+        if (vref->field != NULL) {
+            VM_INSTR_PUSH_STRING(code, fail, err, vref->field);
+            VM_INSTR_GET_FIELD(code, fail, err);
+        }
     }
 
     return TRUE;
