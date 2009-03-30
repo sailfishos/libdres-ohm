@@ -24,7 +24,9 @@ int vm_dump_get   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_create(vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_call  (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_cmp   (vm_state_t *vm, char *buf, size_t size, int indent);
+int vm_dump_branch(vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_debug (vm_state_t *vm, char *buf, size_t size, int indent);
+int vm_dump_halt  (vm_state_t *vm, char *buf, size_t size, int indent);
 
 
 /********************
@@ -47,8 +49,13 @@ vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent)
         case VM_OP_CREATE: n = vm_dump_create(vm, buf, size, indent); break;
         case VM_OP_CALL:   n = vm_dump_call(vm, buf, size, indent);   break;
         case VM_OP_CMP:    n = vm_dump_cmp(vm, buf, size, indent);    break;
+        case VM_OP_BRANCH: n = vm_dump_branch(vm, buf, size, indent); break;
         case VM_OP_DEBUG:  n = vm_dump_debug(vm, buf, size, indent);  break;
-        default: VM_RAISE(vm, EINVAL, "invalid instruction 0x%x", *vm->pc);
+        case VM_OP_HALT:   n = vm_dump_halt(vm, buf, size, indent);   break;
+        default:
+            n = snprintf(buf, size, "invalid instruction 0x%x", *vm->pc);
+            total += n;
+            return total;
         }
         
         if (n > 0) {
@@ -313,6 +320,37 @@ vm_dump_cmp(vm_state_t *vm, char *buf, size_t size, int indent)
 
 
 /********************
+ * vm_dump_branch
+ ********************/
+int
+vm_dump_branch(vm_state_t *vm, char *buf, size_t size, int indent)
+{
+    int   brtype, brdiff;
+    int   n;
+    char *type;
+    
+    brtype = VM_BRANCH_TYPE(*vm->pc);
+    brdiff = VM_BRANCH_DIFF(*vm->pc);
+
+    switch ((vm_branch_t)brtype) {
+    case VM_BRANCH:    type = "";   break;
+    case VM_BRANCH_EQ: type = " eq"; break;
+    case VM_BRANCH_NE: type = " ne"; break;
+    default:           type = " ??"; break;
+    }
+    
+    INDENT(indent);
+    n += snprintf(buf, size, "branch%s %d\n", type, brdiff);
+
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
+    return n;
+}
+
+
+/********************
  * vm_dump_debug
  ********************/
 int
@@ -330,6 +368,26 @@ vm_dump_debug(vm_state_t *vm, char *buf, size_t size, int indent)
     vm->pc    += nsize;
     vm->nsize -= nsize * sizeof(int);
     
+    return n;
+}
+
+
+/********************
+ * vm_dump_halt
+ ********************/
+int
+vm_dump_halt(vm_state_t *vm, char *buf, size_t size, int indent)
+{
+    int n;
+    
+    INDENT(indent);
+    
+    n += snprintf(buf, size, "halt\n");
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
     return n;
 }
 

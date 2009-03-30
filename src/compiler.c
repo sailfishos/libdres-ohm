@@ -60,6 +60,7 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
     dres_action_t *a;
 #endif
     dres_stmt_t   *stmt;
+    int            err;
 
     if (target->actions == NULL && target->statements == NULL)
         return 0;
@@ -85,7 +86,13 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
         }
     }
 
+    VM_INSTR_HALT(target->code, fail, err);
+
     return 0;
+
+ fail:
+    DRES_ERROR("code generation for target %s failed", target->name);
+    return EINVAL;
 }
 
 
@@ -243,8 +250,10 @@ static int
 compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt, vm_chunk_t *code)
 {
     if (!compile_call(dres, stmt->name, stmt->args, stmt->locals, code) ||
-        !compile_stmt_discard(dres, code))
+        !compile_stmt_discard(dres, code)) {
+        DRES_ERROR("%s: code generation failed", __FUNCTION__);
         return FALSE;
+    }
     else
         return TRUE;
 }
@@ -253,12 +262,33 @@ compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt, vm_chunk_t *code)
 static int
 compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt, vm_chunk_t *code)
 {
+    dres_stmt_t *brst;
+    int          brif, brelse, brend, err;
+    
     if (!compile_expr(dres, stmt->condition, code))
         FAIL("failed to generate code for if-then branching condition");
-        
-    printf("*** %s: implement if-then (and VM branch) ***\n", __FUNCTION__);
     
+    brif = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH_NE, 0);
+    
+    for (brst = stmt->if_branch; brst != NULL; brst = brst->any.next)
+        if (!compile_statement(dres, brst, code))
+            FAIL("failed to compile if-branch");
+
+    brelse = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH, 0);
+
+    for (brst = stmt->else_branch; brst != NULL; brst = brst->any.next)
+        if (!compile_statement(dres, brst, code))
+            FAIL("failed to compile else-branch");
+    
+    brend = VM_CHUNK_OFFSET(code);
+    
+    VM_BRANCH_PATCH(code, brif  , fail, err, VM_BRANCH_NE, brelse - brif + 1);
+    VM_BRANCH_PATCH(code, brelse, fail, err, VM_BRANCH   , brend - brelse);
+    
+    return TRUE;
+
  fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
     return FALSE;
 }
 
@@ -438,12 +468,12 @@ compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
 {
     int err;
     
-    if (!compile_expr(dres, expr->arg1, code))
-        FAIL("failed to generate code for relop argument");
-
     if (expr->arg2)
         if (!compile_expr(dres, expr->arg2, code))
             FAIL("failed to generate code for relop argument");
+
+    if (!compile_expr(dres, expr->arg1, code))
+        FAIL("failed to generate code for relop argument");
     
     VM_INSTR_CMP(code, fail, err, expr->op);
     return TRUE;

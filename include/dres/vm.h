@@ -108,8 +108,10 @@ typedef enum {
     VM_OP_CREATE,                             /* global creation */
     VM_OP_CALL,                               /* function call */
     VM_OP_CMP,                                /* relation operators, not */
+    VM_OP_BRANCH,                             /* branch */
     VM_OP_DEBUG,                              /* VM debugging */
-    
+    VM_OP_HALT,                               /* stop VM execution */
+
     VM_OP_MAXCODE = 0xff
 } vm_opcode_t;
 
@@ -285,6 +287,8 @@ enum {
         unsigned int instr;                                             \
         instr = VM_INSTR(VM_OP_SET, VM_SET_FIELD);                      \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
     } while (0)
 
 
@@ -302,12 +306,16 @@ enum {
         unsigned int instr;                                             \
         instr = VM_INSTR(VM_OP_GET, VM_GET_FIELD);                      \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
     } while (0)
 
 #define VM_INSTR_GET_LOCAL(c, errlbl, ec, idx) do {                     \
         unsigned int instr;                                             \
         instr = VM_INSTR(VM_OP_GET, VM_GET_LOCAL | idx);                \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
+        if (ec)                                                         \
+            goto errlbl;                                                \
     } while (0)
 
 
@@ -319,6 +327,8 @@ enum {
         unsigned int instr;                                             \
         instr = VM_INSTR(VM_OP_CALL, narg);                             \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
+        if (ec)                                                         \
+            goto errlbl;                                                \
     } while (0)
 
 
@@ -343,8 +353,61 @@ typedef enum {
         unsigned int instr;                                     \
         instr = VM_INSTR(VM_OP_CMP, (vm_relop_t)op);            \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
+        if (ec)                                                 \
+            goto errlbl;                                        \
     } while (0)
 
+
+/*
+ * BRANCH instruction
+ */
+
+typedef enum {
+    VM_BRANCH = 0x0,                /* unconditional branch */
+    VM_BRANCH_EQ,                   /* branch if top of stack non-zero */
+    VM_BRANCH_NE,                   /* branch if top of stack zero */
+} vm_branch_t;
+
+#define VM_BRANCH_TYPE(instr) (VM_OP_ARGS(instr) >> 22)
+#define VM_BRANCH_DIFF(instr) ({                                \
+    int __sign, __diff;                                         \
+    __sign = VM_OP_ARGS(instr) & (0x1 << 21);                   \
+    __diff = VM_OP_ARGS(instr) & (0xffffff >> 2);               \
+    if (__sign)                                                 \
+        __diff = -__diff;                                       \
+    __diff; })
+
+#define VM_INSTR_BRANCH(c, errlbl, ec, type, diff) ({           \
+        unsigned int instr;                                     \
+        unsigned int __d, __t;                                  \
+        int          __offs;                                    \
+        __d = (diff);                                           \
+        if (__d < 0)                                            \
+            __d = (0x1 << 21) | (-__d & (0xffffff >> 3));       \
+        else                                                    \
+            __d &= 0xffffff >> 3;                               \
+        __t = (type) << 22;                                     \
+        instr = VM_INSTR(VM_OP_BRANCH, __t | __d);              \
+        ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
+        if (ec)                                                 \
+            goto errlbl;                                        \
+        __offs = (c)->nsize / sizeof(int) - 1;                  \
+        __offs;                                                 \
+        })
+
+#define VM_BRANCH_PATCH(c, offs, errlbl, ec, type, diff) do {   \
+        unsigned int *instr = (c)->instrs + (offs);             \
+        unsigned int __d, __t;                                  \
+        __d = (diff);                                           \
+        if (__d < 0)                                            \
+            __d = (0x1 << 21) | (-__d & (0xffffff >> 3));       \
+        else                                                    \
+            __d &= 0xffffff >> 3;                               \
+        __t = (type) << 22;                                     \
+        *instr = VM_INSTR(VM_OP_BRANCH, __t | __d);             \
+    } while (0)
+
+#define VM_CHUNK_OFFSET(c) ((c)->nsize / sizeof(int))
 
 /*
  * DEBUG instructions
@@ -364,6 +427,21 @@ typedef enum {
         if (ec)                                                         \
             goto errlbl;                                                \
     } while (0)
+
+
+
+/*
+ * HALT instruction
+ */
+
+#define VM_INSTR_HALT(c, errlbl, ec) do {                       \
+        unsigned int instr;                                     \
+        instr = VM_INSTR(VM_OP_HALT, 0);                        \
+        ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
+        if (ec)                                                 \
+            goto errlbl;                                        \
+    } while (0)
+
 
 
 /*

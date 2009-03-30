@@ -19,6 +19,7 @@ int vm_instr_get    (vm_state_t *vm);
 int vm_instr_create (vm_state_t *vm);
 int vm_instr_call   (vm_state_t *vm);
 int vm_instr_cmp    (vm_state_t *vm);
+int vm_instr_branch (vm_state_t *vm);
 int vm_instr_debug  (vm_state_t *vm);
 
 
@@ -46,7 +47,10 @@ vm_run(vm_state_t *vm)
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
         case VM_OP_CALL:   status = vm_instr_call(vm);   break;
         case VM_OP_CMP:    status = vm_instr_cmp(vm);    break;
+        case VM_OP_BRANCH: status = vm_instr_branch(vm); break;
         case VM_OP_DEBUG:  status = vm_instr_debug(vm);  break;
+        case VM_OP_HALT:   return status;
+        
         default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
     }
@@ -785,6 +789,97 @@ vm_instr_cmp(vm_state_t *vm)
     return 0;
 }
 
+
+/*
+ * BRANCH
+ */
+
+/********************
+ * vm_instr_branch
+ ********************/
+int
+vm_instr_branch (vm_state_t *vm)
+{
+    int        brtype, brdiff, branch;
+    int        type;
+    vm_value_t value;
+
+    brtype = VM_BRANCH_TYPE(*vm->pc);
+    brdiff = VM_BRANCH_DIFF(*vm->pc);
+
+    switch ((vm_branch_t)brtype) {
+    case VM_BRANCH:
+        branch = TRUE;
+        break;
+    case VM_BRANCH_EQ:
+    case VM_BRANCH_NE:
+        type = vm_pop(vm->stack, &value);
+        if (type == VM_TYPE_UNKNOWN)
+            VM_RAISE(vm, ENOENT, "BRANCH: could not pop expected argument");
+        
+        switch ((vm_type_t)type) {
+        case VM_TYPE_INTEGER: branch = (value.i != 0       ); break;
+        case VM_TYPE_DOUBLE:  branch = (value.d != 0.0     ); break;
+        case VM_TYPE_STRING:  branch = (value.s && *value.s); break;
+        case VM_TYPE_GLOBAL:  branch = (value.g->nfact > 0 ); break;
+        default:
+            VM_RAISE(vm, EINVAL, "BRANCH: argument of invalid type 0x%x", type);
+        }
+        
+        if (brtype == VM_BRANCH_NE)
+            branch = !branch;
+        break;
+        
+    default:
+        VM_RAISE(vm, EINVAL, "BRANCH: invalid branch type 0x%x", brtype);
+    }
+
+
+    /*
+     * Notes:
+     *   In hindsight, bookeeping of ninstr and nize and using ninstr > 0 as
+     *   the terminating condition for running the VM was arguably a bad idea.
+     *   It was originally designed for an assignment-only language with
+     *   strictly linear execution.
+     *
+     *   With the introduction of branching it all falls nicely apart as there
+     *   is no reasonable (= O(1)) way of determining the new values for
+     *   ninstr and nsize when we do branch. Of course we could go into the
+     *   trouble of calculating both ninstr and nsize diffs during compilation
+     *   encode then into the instruction itself but it would be rather
+     *   pointless.
+     *
+     *   The halt instruction was introduced to solve this problem: simply run
+     *   the VM until executing a halt instruction. However, the rest of the
+     *   VM execution still updates ninstr and nsize. The main driving loop
+     *   still uses ninstr (incorrectly; consider branches backwards with
+     *   negative diffs) in addition to the halt instruction. It needs to be
+     *   corrected to only use halt.
+     */
+    
+#if 0
+    vm->ninstr--;
+    vm->nsize -= sizeof(int);
+    vm->pc++;
+#endif
+    
+    if (branch) {
+        if (brdiff > 0) {
+            if (vm->nsize < brdiff * sizeof(int))
+                VM_RAISE(vm, EOVERFLOW, "branch beyond end of code");
+        }
+        else {
+            if (brdiff * sizeof(int) > vm->nsize)
+                VM_RAISE(vm, EOVERFLOW, "branch beyond beginning of code");
+        }
+        
+        vm->pc += brdiff;
+    }
+    else
+        vm->pc++;
+    
+    return 0;
+}
 
 
 /*
