@@ -118,6 +118,7 @@ vm_global_print(vm_global_t *g)
             if (g->facts[i]) {
                 printf("#%d: ", i);
                 vm_fact_print(g->facts[i]);
+                printf("\n");
             }
             else
                 printf("#%d: <NULL>\n", i);

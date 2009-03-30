@@ -120,6 +120,11 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
     } while (0)
 
 
+#define FAIL(fmt, args...) do {                           \
+        DRES_ERROR("%s: "fmt , __FUNCTION__ , ## args);   \
+        goto fail;                                        \
+    } while (0)
+
 
 /********************
  * compile_statement
@@ -131,11 +136,15 @@ compile_statement(dres_t *dres, dres_stmt_t *stmt, vm_chunk_t *code)
     case DRES_STMT_FULL_ASSIGN:
     case DRES_STMT_PARTIAL_ASSIGN:
         return compile_stmt_assign(dres, &stmt->assign, code);
+
     case DRES_STMT_CALL:
         return compile_stmt_call(dres, &stmt->call, code);
+
     case DRES_STMT_IFTHEN:
         return compile_stmt_ifthen(dres, &stmt->ifthen, code);
-    default: DRES_ERROR("statement of unknown type 0x%x", stmt->type);
+
+    default:
+        DRES_ERROR("statement of unknown type 0x%x", stmt->type);
     }
     
     return FALSE;
@@ -145,14 +154,11 @@ compile_statement(dres_t *dres, dres_stmt_t *stmt, vm_chunk_t *code)
 static int
 compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
 {
-#define FAIL(expl) do { reason = expl; goto fail; } while (0)
-
-    const char    *name, *reason;
+    const char    *name;
     dres_select_t *sel;
     int            update, nfield, partial, err;
 
 
-    reason  = NULL;
     partial = (op == DRES_STMT_PARTIAL_ASSIGN);
 
     name = dres_factvar_name(dres, lval->variable);
@@ -205,28 +211,27 @@ compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
     }
         
     return TRUE;
-    
+
  fail:
     DRES_ERROR("%s: code generation failed", __FUNCTION__);
-    if (reason != NULL)
-        DRES_ERROR("%s: %s", __FUNCTION__, reason);
-
     return FALSE;
-#undef FAIL
 }
 
 
 static int
 compile_stmt_assign(dres_t *dres, dres_stmt_assign_t *stmt, vm_chunk_t *code)
 {
-    compile_expr(dres, stmt->rvalue, code);
+    if (!compile_expr(dres, stmt->rvalue, code))
+        return FALSE;
     
     switch (DRES_ID_TYPE(stmt->lvalue->ref.variable)) {
     case DRES_TYPE_FACTVAR:
         return compile_stmt_lvalue(dres, &stmt->lvalue->ref, stmt->type, code);
+
     case DRES_TYPE_DRESVAR:
         DRES_ERROR("assignments to local variables are not supported");
         return FALSE;
+
     default:
         DRES_ERROR("assignment with lvalue of invalid type");
         return FALSE;
@@ -248,12 +253,12 @@ compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt, vm_chunk_t *code)
 static int
 compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt, vm_chunk_t *code)
 {
-    (void)dres;
-    (void)stmt;
-    (void)code;
-    
+    if (!compile_expr(dres, stmt->condition, code))
+        FAIL("failed to generate code for if-then branching condition");
+        
     printf("*** %s: implement if-then (and VM branch) ***\n", __FUNCTION__);
     
+ fail:
     return FALSE;
 }
 
@@ -269,8 +274,7 @@ compile_stmt_discard(dres_t *dres, vm_chunk_t *code)
     return TRUE;
 
  fail:
-    DRES_ERROR("%s: code generation failed (%d: %s)", __FUNCTION__,
-               err, strerror(err));
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
     return FALSE;
 }
 
@@ -284,8 +288,8 @@ compile_stmt_debug(const char *info, vm_chunk_t *code)
     return TRUE;
     
  fail:
-    DRES_ERROR("%s: code generation failed for debug info \"%s\" (%d: %s)",
-               __FUNCTION__, info, err, strerror(err));
+    DRES_ERROR("%s: code generation failed for debug info \"%s\"",
+               __FUNCTION__, info);
     return FALSE;
 }
 
@@ -295,24 +299,20 @@ compile_call(dres_t *dres,
              const char *method, dres_expr_t *args, dres_local_t *locals,
              vm_chunk_t *code)
 {
-#define FAIL(fmt, args...) do {                           \
-        DRES_ERROR("%s: "fmt , __FUNCTION__ , ## args);   \
-        goto fail;                                        \
-    } while (0)
-
     dres_expr_t  *arg;
     dres_local_t *local;
     int           id, narg, nlocal, err;
 
 
-    id = vm_method_id(&dres->vm, method);
+    id = vm_method_id(&dres->vm, (char *)method);
 
     if (id < 0)
         FAIL("unknown method \"%s\"", method);
 
     narg = 0;
     for (arg = args; arg != NULL; arg = arg->any.next) {
-        compile_expr(dres, arg, code);
+        if (!compile_expr(dres, arg, code))
+            FAIL("failed to generate code for call argument #%d", narg);
         narg++;
     }
     
@@ -336,7 +336,6 @@ compile_call(dres_t *dres,
  fail:
     DRES_ERROR("%s: code generation failed", __FUNCTION__);
     return FALSE;
-#undef FAIL
 }
 
 
@@ -392,11 +391,6 @@ compile_expr_const(dres_t *dres, dres_expr_const_t *expr, vm_chunk_t *code)
 static int
 compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
 {
-#define FAIL(fmt, args...) do {                           \
-        DRES_ERROR("%s: "fmt , __FUNCTION__ , ## args);   \
-        goto fail;                                        \
-    } while (0)
-
     const char    *name;
     dres_varref_t *vref;
     dres_select_t *sel;
@@ -434,10 +428,8 @@ compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
     return TRUE;
     
  fail:
-    DRES_ERROR("%s: code generation failed", __FUNCTION__);
-    
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);    
     return FALSE;
-#undef FAIL
 }
 
 
@@ -446,17 +438,16 @@ compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
 {
     int err;
     
-    compile_expr(dres, expr->arg1, code);
-    if (expr->arg2)
-        compile_expr(dres, expr->arg2, code);
-#if 0
-    VM_INSTR_RELOP(code, fail, err, expr->op);
-    return TRUE;
-#endif
-    
-    printf("*** %s: implement VM relop... ***\n", __FUNCTION__);
-    /* fall through */
+    if (!compile_expr(dres, expr->arg1, code))
+        FAIL("failed to generate code for relop argument");
 
+    if (expr->arg2)
+        if (!compile_expr(dres, expr->arg2, code))
+            FAIL("failed to generate code for relop argument");
+    
+    VM_INSTR_CMP(code, fail, err, expr->op);
+    return TRUE;
+    
  fail:
     DRES_ERROR("%s: code generation failed", __FUNCTION__);
     return FALSE;

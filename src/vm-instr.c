@@ -18,6 +18,7 @@ int vm_instr_set    (vm_state_t *vm);
 int vm_instr_get    (vm_state_t *vm);
 int vm_instr_create (vm_state_t *vm);
 int vm_instr_call   (vm_state_t *vm);
+int vm_instr_cmp    (vm_state_t *vm);
 int vm_instr_debug  (vm_state_t *vm);
 
 
@@ -35,7 +36,7 @@ vm_run(vm_state_t *vm)
     int status = EOPNOTSUPP;
 
     while (vm->ninstr > 0) {
-        switch (VM_OP_CODE(*vm->pc)) {
+        switch ((vm_opcode_t)VM_OP_CODE(*vm->pc)) {
         case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
         case VM_OP_POP:    status = vm_instr_pop(vm);    break;
         case VM_OP_FILTER: status = vm_instr_filter(vm); break;
@@ -44,6 +45,7 @@ vm_run(vm_state_t *vm)
         case VM_OP_GET:    status = vm_instr_get(vm);    break;
         case VM_OP_CREATE: status = vm_instr_create(vm); break;
         case VM_OP_CALL:   status = vm_instr_call(vm);   break;
+        case VM_OP_CMP:    status = vm_instr_cmp(vm);    break;
         case VM_OP_DEBUG:  status = vm_instr_debug(vm);  break;
         default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
@@ -710,6 +712,79 @@ vm_instr_call(vm_state_t *vm)
     
     return 0;
 }
+
+
+/*
+ * CMP
+ */
+
+/********************
+ * vm_instr_cmp
+ ********************/
+int
+vm_instr_cmp(vm_state_t *vm)
+{
+    vm_relop_t op;
+    vm_value_t arg1, arg2;
+    int        type1, type2, result;
+    
+    op = VM_CMP_RELOP(*vm->pc);
+
+    type1 = vm_pop(vm->stack, &arg1);
+    if (type1 == VM_TYPE_UNKNOWN)
+        VM_RAISE(vm, ENOENT, "CMP: could not POP expected argument #1");
+    
+    if (op != VM_RELOP_NOT) {
+        type2 = vm_pop(vm->stack, &arg2);
+        if (type2 == VM_TYPE_UNKNOWN)
+            VM_RAISE(vm, ENOENT, "CMP: could not POP expected argument #2");
+
+        if (type1 != type2)
+            VM_RAISE(vm, EINVAL, "CMP: arguments with different types");
+    }
+    
+    
+#define COMPARE(v1, cmp_op, v2) do {                                       \
+        switch ((vm_type_t)type1) {                                        \
+        case VM_TYPE_INTEGER: result = (v1.i cmp_op v2.i);          break; \
+        case VM_TYPE_DOUBLE:  result = (v1.d cmp_op v2.d);          break; \
+        case VM_TYPE_STRING:  result = strcmp(v1.s, v2.s) cmp_op 0; break; \
+        default: VM_RAISE(vm, EINVAL, "CMP: invalid type 0x%x", type1);    \
+        }                                                                  \
+    } while (0)
+    
+
+    if (op != VM_RELOP_NOT) {
+        switch (op) {
+        case VM_RELOP_EQ: COMPARE(arg1, ==, arg2); break;
+        case VM_RELOP_NE: COMPARE(arg1, !=, arg2); break;
+        case VM_RELOP_LT: COMPARE(arg1, < , arg2); break;
+        case VM_RELOP_LE: COMPARE(arg1, <=, arg2); break;
+        case VM_RELOP_GT: COMPARE(arg1, > , arg2); break;
+        case VM_RELOP_GE: COMPARE(arg1, >=, arg2); break;
+        default: VM_RAISE(vm, EINVAL, "CMP: invalid type 0x%x", type1);
+        }
+    }
+    else {
+        switch ((vm_type_t)type1) {
+        case VM_TYPE_INTEGER: result = (arg1.i != 0   ); break;
+        case VM_TYPE_DOUBLE:  result = (arg1.d == 0.0 ); break;
+        case VM_TYPE_STRING:  result = (arg1.s != NULL); break;
+        default: VM_RAISE(vm, EINVAL, "CMP: invalid type 0x%x", type1);
+        }
+    }
+    
+#undef COMPARE
+    
+    vm_push_int(vm->stack, result);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
+    return 0;
+}
+
 
 
 /*

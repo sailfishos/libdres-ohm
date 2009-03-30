@@ -33,7 +33,7 @@
  * VM stack
  */
 
-enum {
+typedef enum {
     VM_TYPE_UNKNOWN = 0,
     VM_TYPE_NIL,                              /* unset */
     VM_TYPE_INTEGER,                          /* signed 32-bit integer */
@@ -43,7 +43,7 @@ enum {
     VM_TYPE_LOCAL,                            /* local variables */
     VM_TYPE_FACTS,                            /* an array of facts */
     VM_TYPE_GLOBAL = VM_TYPE_FACTS,           /* globals are facts */
-};
+} vm_type_t;
 
 
 #define VM_UNNAMED_GLOBAL "__vm_global"       /* an unnamed global */
@@ -97,7 +97,7 @@ struct vm_scope_s {
  * VM instructions
  */
 
-enum {
+typedef enum {
     VM_OP_UNKNOWN = 0,
     VM_OP_PUSH,                               /* push a value or scope */
     VM_OP_POP,                                /* pop a value or scope */
@@ -107,8 +107,11 @@ enum {
     VM_OP_GET,                                /* global/local evaluation */ 
     VM_OP_CREATE,                             /* global creation */
     VM_OP_CALL,                               /* function call */
+    VM_OP_CMP,                                /* relation operators, not */
     VM_OP_DEBUG,                              /* VM debugging */
-};
+    
+    VM_OP_MAXCODE = 0xff
+} vm_opcode_t;
 
 
 #define VM_OP_CODE(instr)      ((instr) & 0xff)
@@ -316,6 +319,30 @@ enum {
         unsigned int instr;                                             \
         instr = VM_INSTR(VM_OP_CALL, narg);                             \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
+    } while (0)
+
+
+/*
+ * CMP instruction
+ */
+
+typedef enum {
+    VM_RELOP_UNKNOWN = 0,
+    VM_RELOP_EQ,
+    VM_RELOP_NE,
+    VM_RELOP_LT,
+    VM_RELOP_LE,
+    VM_RELOP_GT,
+    VM_RELOP_GE,
+    VM_RELOP_NOT,
+} vm_relop_t;
+
+#define VM_CMP_RELOP(instr) ((vm_relop_t)VM_OP_ARGS(instr))
+
+#define VM_INSTR_CMP(c, errlbl, ec, op) do {                    \
+        unsigned int instr;                                     \
+        instr = VM_INSTR(VM_OP_CMP, (vm_relop_t)op);            \
+        ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
     } while (0)
 
 

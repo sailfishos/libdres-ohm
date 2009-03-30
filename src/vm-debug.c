@@ -23,6 +23,7 @@ int vm_dump_set   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_get   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_create(vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_call  (vm_state_t *vm, char *buf, size_t size, int indent);
+int vm_dump_cmp   (vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_debug (vm_state_t *vm, char *buf, size_t size, int indent);
 
 
@@ -36,7 +37,7 @@ vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent)
     
     total = n = 0;
     while (vm->ninstr > 0) {
-        switch (VM_OP_CODE(*vm->pc)) {
+        switch ((vm_opcode_t)VM_OP_CODE(*vm->pc)) {
         case VM_OP_PUSH:   n = vm_dump_push(vm, buf, size, indent);   break;
         case VM_OP_POP:    n = vm_dump_pop(vm, buf, size, indent);    break;
         case VM_OP_FILTER: n = vm_dump_filter(vm, buf, size, indent); break;
@@ -45,6 +46,7 @@ vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent)
         case VM_OP_GET:    n = vm_dump_get(vm, buf, size, indent);    break;
         case VM_OP_CREATE: n = vm_dump_create(vm, buf, size, indent); break;
         case VM_OP_CALL:   n = vm_dump_call(vm, buf, size, indent);   break;
+        case VM_OP_CMP:    n = vm_dump_cmp(vm, buf, size, indent);    break;
         case VM_OP_DEBUG:  n = vm_dump_debug(vm, buf, size, indent);  break;
         default: VM_RAISE(vm, EINVAL, "invalid instruction 0x%x", *vm->pc);
         }
@@ -269,6 +271,38 @@ vm_dump_call(vm_state_t *vm, char *buf, size_t size, int indent)
 
     INDENT(indent);
     n += snprintf(buf, size, "call %d\n", narg);
+    
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+    
+    return n;
+}
+
+
+/********************
+ * vm_dump_cmp
+ ********************/
+int
+vm_dump_cmp(vm_state_t *vm, char *buf, size_t size, int indent)
+{
+    vm_relop_t  op = VM_OP_ARGS(*vm->pc);
+    char       *opstr;
+    int         n;
+
+    switch (op) {
+    case VM_RELOP_EQ:  opstr = "=="; break;
+    case VM_RELOP_NE:  opstr = "!="; break;
+    case VM_RELOP_LT:  opstr = "<";  break;
+    case VM_RELOP_LE:  opstr = "<="; break;
+    case VM_RELOP_GT:  opstr = ">";  break;
+    case VM_RELOP_GE:  opstr = ">="; break;
+    case VM_RELOP_NOT: opstr = "!";  break;
+    default:           opstr = "??"; break;
+    }
+    
+    INDENT(indent);
+    n += snprintf(buf, size, "cmp %s\n", opstr);
     
     vm->ninstr--;
     vm->pc++;

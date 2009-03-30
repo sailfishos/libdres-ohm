@@ -138,14 +138,14 @@ typedef struct {
 
 typedef union dres_expr_u dres_expr_t;
 typedef enum {
-    DRES_RELOP_UNKNOWN = 0,
-    DRES_RELOP_EQ,
-    DRES_RELOP_NE,
-    DRES_RELOP_LT,
-    DRES_RELOP_LE,
-    DRES_RELOP_GT,
-    DRES_RELOP_GE,
-    DRES_RELOP_NOT,
+    DRES_RELOP_UNKNOWN = VM_RELOP_UNKNOWN,
+    DRES_RELOP_EQ      = VM_RELOP_EQ,
+    DRES_RELOP_NE      = VM_RELOP_NE,
+    DRES_RELOP_LT      = VM_RELOP_LT,
+    DRES_RELOP_LE      = VM_RELOP_LE,
+    DRES_RELOP_GT      = VM_RELOP_GT,
+    DRES_RELOP_GE      = VM_RELOP_GE,
+    DRES_RELOP_NOT     = VM_RELOP_NOT,
 } dres_relop_t;
 
 typedef enum {
