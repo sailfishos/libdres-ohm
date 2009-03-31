@@ -182,7 +182,7 @@ INCLUDE		^INCLUDE
 COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
 EOL		\n+
-STRING		'[^\n']*'
+STRING		('[^\n']*')|(\"[^\n\"]*\")
 INTEGER		[+-]?[0-9]+
 HEXINT		[+-]?0x[0-9a-fA-F]+
 DOUBLE		[+-]?[0-9]+\.[0-9]+
