@@ -7,7 +7,9 @@
 #  include "parser.h"
 #endif
 
+#if 0
 #define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
+#endif
 
 #if !defined(DEBUG)
 #  if defined(__TEST_LEXER__)
