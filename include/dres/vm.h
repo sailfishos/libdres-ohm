@@ -379,7 +379,7 @@ typedef enum {
 
 #define VM_INSTR_BRANCH(c, errlbl, ec, type, diff) ({           \
         unsigned int instr;                                     \
-        unsigned int __d, __t;                                  \
+        int __d, __t;                                           \
         int          __offs;                                    \
         __d = (diff);                                           \
         if (__d < 0)                                            \
@@ -397,7 +397,7 @@ typedef enum {
 
 #define VM_BRANCH_PATCH(c, offs, errlbl, ec, type, diff) do {   \
         unsigned int *instr = (c)->instrs + (offs);             \
-        unsigned int __d, __t;                                  \
+        int __d, __t;                                           \
         __d = (diff);                                           \
         if (__d < 0)                                            \
             __d = (0x1 << 21) | (-__d & (0xffffff >> 3));       \
@@ -759,8 +759,8 @@ void vm_free_varnames(vm_state_t *vm);
 
 
 /* vm-debug.c */
-
 int vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent);
+int vm_dump_instr(unsigned int **pc, char *buf, size_t size, int indent);
 
 
 #endif /* __DRES_VM_H__ */

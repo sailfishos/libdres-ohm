@@ -25,7 +25,7 @@ dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 noinst_PROGRAMS = vm-test lexer-test parser-test
 
 vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
-                   vm-method.c vm-test.c
+                   vm-method.c vm-debug.c vm-test.c
 vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@ @LIBTRACE_CFLAGS@
 vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LIBTRACE_LIBS@
 

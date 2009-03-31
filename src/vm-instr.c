@@ -37,6 +37,18 @@ vm_run(vm_state_t *vm)
     int status = EOPNOTSUPP;
 
     while (vm->ninstr > 0) {
+        if (DEBUG_ON(DBG_VM)) {
+            unsigned int *pc = vm->pc;
+            char          instr[128];
+            int           n;
+            
+            if ((n = vm_dump_instr(&pc, instr, sizeof(instr), 0)) > 0) {
+                if (instr[n-1] == '\n')
+                    instr[n-1] = '\0';
+                DEBUG(DBG_VM, "executing %s", instr);
+            }
+        }
+        
         switch ((vm_opcode_t)VM_OP_CODE(*vm->pc)) {
         case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
         case VM_OP_POP:    status = vm_instr_pop(vm);    break;
@@ -50,7 +62,6 @@ vm_run(vm_state_t *vm)
         case VM_OP_BRANCH: status = vm_instr_branch(vm); break;
         case VM_OP_DEBUG:  status = vm_instr_debug(vm);  break;
         case VM_OP_HALT:   return status;
-        
         default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
     }
