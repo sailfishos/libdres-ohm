@@ -876,11 +876,11 @@ vm_instr_branch (vm_state_t *vm)
     
     if (branch) {
         if (brdiff > 0) {
-            if (vm->nsize < brdiff * sizeof(int))
+            if (vm->nsize < (int)(brdiff * sizeof(int)))
                 VM_RAISE(vm, EOVERFLOW, "branch beyond end of code");
         }
         else {
-            if (brdiff * sizeof(int) > vm->nsize)
+            if ((int)(brdiff * sizeof(int)) > vm->nsize)
                 VM_RAISE(vm, EOVERFLOW, "branch beyond beginning of code");
         }
         
