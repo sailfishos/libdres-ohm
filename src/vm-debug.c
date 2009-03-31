@@ -378,7 +378,6 @@ vm_dump_halt(unsigned int **pc, char *buf, size_t size, int indent)
     int n;
     
     INDENT(indent);
-    
     n += snprintf(buf, size, "halt\n");
     
     *pc = 0x0;
@@ -393,7 +392,12 @@ vm_dump_halt(unsigned int **pc, char *buf, size_t size, int indent)
 int
 vm_dump_invalid(unsigned int **pc, char *buf, size_t size, int indent)
 {
-    return snprintf(buf, size, "invalid instruction 0x%x", **pc);
+    int n;
+    
+    INDENT(indent);
+    n += snprintf(buf, size, "invalid instruction 0x%x", **pc);
+
+    return n;
 }
 
 
