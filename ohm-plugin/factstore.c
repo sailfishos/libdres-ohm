@@ -29,7 +29,7 @@ factstore_init(void)
 {
     gpointer fs;
     
-    if ((store = ohm_fact_store_get_fact_store()) == NULL)
+    if ((store = ohm_get_fact_store()) == NULL)
         return EINVAL;
     
     fs = G_OBJECT(store);
