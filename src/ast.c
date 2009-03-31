@@ -16,6 +16,8 @@ static void free_expr(dres_expr_t *expr);
 static void
 dump_expr_const(dres_t *dres, dres_expr_const_t *expr)
 {
+    (void)dres;
+    
     switch (expr->vtype) {
     case DRES_TYPE_INTEGER: printf("%d", expr->v.i); break;
     case DRES_TYPE_DOUBLE:  printf("%f", expr->v.d); break;
