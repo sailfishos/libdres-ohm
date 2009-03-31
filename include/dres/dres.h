@@ -128,14 +128,6 @@ struct dres_varref_s {
 };
 
 
-typedef struct {
-    char           *name;                  /* method name */
-    dres_handler_t  handler;               /* method handler */
-    dres_arg_t     *args;                  /* arguments passed by value */
-    dres_local_t   *locals;                /* arguments passed by name */
-} dres_call_t;
-
-
 typedef union dres_expr_u dres_expr_t;
 typedef enum {
     DRES_RELOP_UNKNOWN = VM_RELOP_UNKNOWN,
@@ -272,21 +264,6 @@ enum {
 
 #define DRES_BUILTIN_UNKNOWN "__unknown"
 
-typedef struct dres_action_s dres_action_t;
-
-struct dres_action_s {
-    dres_varref_t      lvalue;             /* result variable if any */
-    int                type;               /* DRES_ACTION_* */
-    int                op;                 /* DRES_ASSIGN_* */
-    union {
-        dres_value_t   value;
-        dres_varref_t  rvalue;
-        dres_call_t   *call;
-    };
-    dres_action_t     *next;
-};
-
-
 typedef struct {
     int   id;                               /* variable ID */
     int   stamp;                            /* last update stamp */
@@ -306,8 +283,7 @@ typedef struct {
     int            id;                      /* target ID */
     char          *name;                    /* target name */
     dres_prereq_t *prereqs;                 /* prerequisites */
-    dres_action_t *actions;                 /* associated actions */
-    dres_stmt_t   *statements;
+    dres_stmt_t   *statements;              /* associated actions */
     vm_chunk_t    *code;                    /* VM code */
     int            stamp;                   /* last update stamp */
     int            txid;                    /* of stamp */
@@ -463,20 +439,9 @@ int            dres_add_prereq (dres_prereq_t *dep, int id);
 void           dres_free_prereq(dres_prereq_t *dep);
 
 /* action.c */
-dres_action_t *dres_new_action  (int argument);
-void           dres_free_actions(dres_action_t *action);
-int            dres_add_argument(dres_action_t *action, int argument);
-void           dres_dump_action (dres_t *dres, dres_action_t *action);
-int            dres_print_action(dres_t *dres, dres_action_t *action,
-                                 char *buf, size_t size);
-#define        dres_free_action dres_free_actions
-dres_call_t   *dres_new_call (dres_t *dres,
-                              char *name, dres_arg_t *args, dres_local_t *vars);
-void           dres_free_call(dres_call_t *call);
 void           dres_free_locals(dres_local_t *locals);
 void           dres_free_varref(dres_varref_t *vref);
 
-dres_value_t *dres_copy_value (dres_value_t *value);
 void          dres_free_value (dres_value_t *value);
 int           dres_print_value(dres_t *dres,
                                dres_value_t *value, char *buf, size_t size);
@@ -497,7 +462,6 @@ void dres_free_statement(dres_stmt_t *stmt);
 
 /* compiler.c */
 int dres_compile_target(dres_t *dres, dres_target_t *target);
-int dres_compile_action(dres_t *dres, dres_action_t *action, vm_chunk_t *code);
 
 dres_buf_t *dres_buf_create (int dsize, int ssize);
 void        dres_buf_destroy(dres_buf_t *buf);

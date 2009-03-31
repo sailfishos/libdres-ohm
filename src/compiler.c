@@ -62,22 +62,13 @@ dres_compile_target(dres_t *dres, dres_target_t *target)
     dres_stmt_t   *stmt;
     int            err;
 
-    if (target->actions == NULL && target->statements == NULL)
+    if (target->statements == NULL)
         return 0;
 
     if (target->code == NULL)
         if ((target->code = vm_chunk_new(16)) == NULL)
             return ENOMEM;
     
-#if 0
-    for (a = target->actions; a != NULL; a = a->next)
-        if (dres_compile_action(dres, a, target->code) != 0) {
-            DRES_ERROR("failed to compile action for target %s:", target->name);
-            dres_dump_action(dres, a);
-            return EINVAL;
-        }
-#endif
-
     for (stmt = target->statements; stmt != NULL; stmt = stmt->any.next) {
         if (!compile_statement(dres, stmt, target->code)) {
             DRES_ERROR("failed to compile code for target %s:\n", target->name);

@@ -360,11 +360,8 @@ finalize_variables(dres_t *dres)
 static int
 finalize_actions(dres_t *dres)
 {
-    dres_target_t  *target;
-    dres_action_t  *action;
-    dres_call_t    *call;
-    void           *unknown = dres_lookup_handler(dres, DRES_BUILTIN_UNKNOWN);
-    int             i, status;
+    dres_target_t *target;
+    int            i, status;
 
     if (DRES_TST_FLAG(dres, ACTIONS_FINALIZED))
         return 0;
@@ -372,15 +369,6 @@ finalize_actions(dres_t *dres)
     status = 0;
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         DRES_INFO("Compiling actions for target %s...", target->name);
-        for (action = target->actions; action; action = action->next) {
-            if (action->type != DRES_ACTION_CALL)
-                continue;
-            call = action->call;
-            if (!(call->handler = dres_lookup_handler(dres, call->name))) {
-                call->handler = unknown;
-                status = ENOENT;
-            }
-        }
         if ((status = dres_compile_target(dres, target)) != 0)
             return status;
     }

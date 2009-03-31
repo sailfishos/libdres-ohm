@@ -15,69 +15,10 @@ static void free_args(dres_arg_t *args);
  *                             *** method calls ***                          *
  *****************************************************************************/
 
-/********************
- * dres_new_call
- ********************/
-dres_call_t *
-dres_new_call(dres_t *dres, char *name, dres_arg_t *args, dres_local_t *locals)
-{
-    dres_call_t *call;
-    int          err;
-    
-    if ((err = dres_register_handler(dres, name, NULL)) != 0 && err != EEXIST)
-        return NULL;
-    
-    if (ALLOC_OBJ(call) == NULL)
-        return NULL;
-
-    if ((call->name = STRDUP(name)) == NULL) {
-        FREE(call);
-        return NULL;
-    }
-    
-    call->args   = args;
-    call->locals = locals;
-
-
-    return call;
-}
-
-
-/********************
- * dres_free_call
- ********************/
-void
-dres_free_call(dres_call_t *call)
-{
-    if (call) {
-        FREE(call->name);
-        free_args(call->args);
-        dres_free_locals(call->locals);
-        FREE(call);
-    }
-}
-
 
 /*****************************************************************************
  *                        *** target action handling ***                     *
  *****************************************************************************/
-
-/********************
- * free_args
- ********************/
-static void
-free_args(dres_arg_t *args)
-{
-    dres_arg_t *a, *n;
-
-    for (a = args; a != NULL; a = n) {
-        n = a->next;
-        if (a->value.type == DRES_TYPE_STRING)
-            FREE(a->value.v.s);
-        FREE(a);
-    }
-}
-
 
 /********************
  * dres_free_locals
@@ -114,39 +55,6 @@ dres_free_varref(dres_varref_t *vref)
     }
     FREE(vref->field);
 }
-
-
-/********************
- * dres_free_actions
- ********************/
-void
-dres_free_actions(dres_action_t *actions)
-{
-    dres_action_t *a, *n;
-
-    if (actions == NULL)
-        return;
-    
-    for (a = actions; a != NULL; a = n) {
-        n = a->next;
-
-        switch (a->type) {
-        case DRES_ACTION_VALUE:
-            dres_free_value(&a->value);
-            break;
-        case DRES_ACTION_VARREF:
-            dres_free_varref(&a->rvalue);
-            break;
-        case DRES_ACTION_CALL:
-            dres_free_call(a->call);
-            break;
-        }
-        
-        dres_free_varref(&a->lvalue);
-        FREE(a);
-    }
-}
-
 
 
 /*****************************************************************************
@@ -198,28 +106,6 @@ dres_run_actions(dres_t *dres, dres_target_t *target)
 
 
 /********************
- * dres_copy_value
- ********************/
-dres_value_t *
-dres_copy_value(dres_value_t *value)
-{
-    dres_value_t *copy;
-
-    if (ALLOC_OBJ(copy) == NULL)
-        return NULL;
-
-    *copy = *value;
-    if (copy->type == DRES_TYPE_STRING)
-        if ((copy->v.s = STRDUP(copy->v.s)) == NULL) {
-            FREE(copy);
-            return NULL;
-        }
-
-    return copy;
-}
-
-
-/********************
  * dres_print_value
  ********************/
 int
@@ -244,45 +130,6 @@ dres_print_value(dres_t *dres, dres_value_t *value, char *buf, size_t size)
     }
     
     return size - n;
-}
-
-
-/********************
- * dres_dump_args
- ********************/
-void
-dres_dump_args(dres_t *dres, dres_arg_t *args)
-{
-    dres_arg_t *a;
-    char       *t, value[128];
-
-    for (a = args, t = ""; a != NULL; a = a->next, t = ", ") {
-        dres_print_value(dres, &a->value, value, sizeof(value));
-        printf("%s%s", t, value);
-    }
-}
-
-
-/********************
- * dres_print_args
- ********************/
-int
-dres_print_args(dres_t *dres, dres_arg_t *args, char *buf, size_t size)
-{
-    dres_arg_t *a;
-    char       *p, *t, value[128];
-    int         left, n;
-    
-    p    = buf;
-    left = size - 1;
-    for (a = args, n = 0, t = ""; a != NULL; a = a->next, t = ", ") {
-        dres_print_value(dres, &a->value, value, sizeof(value));
-        n = snprintf(p, left, "%s%s", t, value);
-        p    += n;
-        left -= n;
-    }
-
-    return size - left - 1;
 }
 
 
@@ -397,120 +244,6 @@ dres_print_varref(dres_t *dres, dres_varref_t *vr, char *buf, size_t size)
     return size - left - 1;
 #undef P    
 }
-
-
-/********************
- * dres_print_call
- ********************/
-int
-dres_print_call(dres_t *dres, dres_call_t *call, char *buf, size_t size)
-{
-    char *p, *t;
-    int   left, n;
-
-    p    = buf;
-    left = size - 1;
-    t    = "";
-    
-    n     = snprintf(p, left, "%s(", call->name);
-    p    += n;
-    left -= n;
-    if (call->args) {
-        n     = dres_print_args(dres, call->args, p, left);
-        p    += n;
-        left -= n;
-        t     = ", ";
-    }
-    if (call->locals) {
-        n     = snprintf(p, left, ", ");
-        p    += n;
-        left -= n;
-        n     = dres_print_locals(dres, call->locals, p, left);
-        p    += n;
-        left -= n;
-    }
-    n    = snprintf(p, left, ")");
-    p    += n;
-    left -= n;
-    
-    return size - left - 1;
-}
-
-
-/********************
- * dres_dump_action
- ********************/
-void
-dres_dump_action(dres_t *dres, dres_action_t *action)
-{
-    char buf[1024];
-
-    dres_print_action(dres, action, buf, sizeof(buf) - 1);
-    buf[sizeof(buf)-1] = '\0';
-    
-    printf("%s", buf);
-}
-
-
-
-/********************
- * dres_print_action
- ********************/
-int
-dres_print_action(dres_t *dres, dres_action_t *action, char *buf, size_t size)
-{
-#define P(fmt, args...) do {                        \
-        n     = snprintf(p, left, fmt, ## args);    \
-        p    += n;                                  \
-        left -= n;                                  \
-    } while (0)
-    
-    dres_action_t *a = action;
-    char          *p;
-    int            left, n;
-
-    if (a == NULL)
-        return 0;
-
-    p    = buf;
-    left = size - 1;
-    
-    if (a->lvalue.variable != DRES_ID_NONE) {
-        n = dres_print_varref(dres, &a->lvalue, p, left);
-        p    += n;
-        left -= n;
-
-        n     = snprintf(p, left, " %s ", a->op == DRES_ASSIGN_PARTIAL ?
-                         "|=" : "=");
-        p    += n;
-        left -= n;
-    }
-
-    switch (a->type) {
-    case DRES_ACTION_VALUE:
-        n     = dres_print_value(dres, &a->value, p, left);
-        p    += n;
-        left -= n;
-        break;
-    case DRES_ACTION_VARREF:
-        n     = dres_print_varref(dres, &a->rvalue, p, left);
-        p    += n;
-        left -= n;
-        break;
-    case DRES_ACTION_CALL:
-        n     = dres_print_call(dres, a->call, p, left);
-        p    += n;
-        left -= n;
-        break;
-    default:
-        n     = snprintf(p, left, "<invalid action>");
-        p    += n;
-        left -= n;
-    }
-
-    return size - left - 1;
-}
-
 
 
 

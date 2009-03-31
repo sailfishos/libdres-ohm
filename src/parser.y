@@ -42,11 +42,8 @@ static char *current_prefix;
     dres_varref_t   varref;
     dres_arg_t     *arg;
     dres_local_t   *local;
-    dres_action_t   variables;
     dres_field_t    field;
     dres_select_t  *select;
-    dres_call_t    *call;
-    dres_action_t  *action;
 
     dres_init_t        *init;
     dres_initializer_t *initializer;
@@ -248,11 +245,9 @@ rules:    rule
 	;
 
 
-/* rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_actions */
 rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_statements {
             dres_target_t *t = dres_lookup_target(dres, $1);
             t->prereqs = $3;
-	    t->actions = NULL;
             t->statements = $5;
             t->id      = DRES_DEFINED(t->id);
             $$ = t;

@@ -87,7 +87,6 @@ dres_free_targets(dres_t *dres)
     for (i = 0, target = dres->targets; i < dres->ntarget; i++, target++) {
         FREE(target->name);
         dres_free_prereq(target->prereqs);
-        dres_free_actions(target->actions);
         dres_free_statement(target->statements);
         FREE(target->dependencies);
         vm_chunk_del(target->code);
@@ -107,7 +106,6 @@ dres_dump_targets(dres_t *dres)
 {
     dres_target_t *t;
     dres_prereq_t *d;
-    dres_action_t *a;
     dres_stmt_t   *stmt;
     int            i, j, id, idx;
     char          *sep, name[64];
@@ -141,23 +139,15 @@ dres_dump_targets(dres_t *dres)
                 printf(" still unresolved...\n");
         }
 
-#if 0        
-        printf("  actions:\n");
-        if (t->actions == NULL) {
-            if (t->code == NULL)
-                printf("  none\n");
-            else
-                printf("  not saved, see bytecode\n");
-        }
-
-        for (a = t->actions; a; a = a->next) {
-            printf("    ");
-            dres_dump_action(dres, a);
-            printf("\n");
-        }
-#endif
+        printf("  statements:\n");
+        if (t->statements)
+            for (stmt = t->statements; stmt; stmt = stmt->any.next)
+                dres_dump_statement(dres, stmt, 4);
+        else
+            printf("    none\n");
+        
         if (t->code == NULL) {
-            if (t->actions != NULL)
+            if (t->statements != NULL)
                 printf("  byte code not generated\n");
         }
         else {
@@ -174,12 +164,6 @@ dres_dump_targets(dres_t *dres)
             printf("%s", buf);
         }
 
-        printf("  statements:\n");
-        if (t->statements)
-            for (stmt = t->statements; stmt; stmt = stmt->any.next)
-                dres_dump_statement(dres, stmt, 4);
-        else
-            printf("    none\n");
     }
     fflush(stdout);
 }
@@ -276,7 +260,7 @@ dres_save_targets(dres_t *dres, dres_buf_t *buf)
             }
         }
 
-        /* actions skipped */
+        /* statements skipped */
         
         if (t->code == NULL) {
             dres_buf_ws32(buf, 0);
@@ -352,7 +336,7 @@ dres_load_targets(dres_t *dres, dres_buf_t *buf)
                 t->prereqs->ids[j] = dres_buf_rs32(buf);
         }
 
-        /* actions skipped */
+        /* statements skipped */
         
         n = dres_buf_rs32(buf);
         
