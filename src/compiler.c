@@ -274,16 +274,22 @@ compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt, vm_chunk_t *code)
         if (!compile_statement(dres, brst, code))
             FAIL("failed to compile if-branch");
 
-    brelse = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH, 0);
+    if (stmt->else_branch != NULL) {
+        brelse = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH, 0);
 
-    for (brst = stmt->else_branch; brst != NULL; brst = brst->any.next)
-        if (!compile_statement(dres, brst, code))
-            FAIL("failed to compile else-branch");
+        for (brst = stmt->else_branch; brst != NULL; brst = brst->any.next)
+            if (!compile_statement(dres, brst, code))
+                FAIL("failed to compile else-branch");
+    }
     
     brend = VM_CHUNK_OFFSET(code);
     
-    VM_BRANCH_PATCH(code, brif  , fail, err, VM_BRANCH_NE, brelse - brif + 1);
-    VM_BRANCH_PATCH(code, brelse, fail, err, VM_BRANCH   , brend - brelse);
+    if (stmt->else_branch != NULL) {
+        VM_BRANCH_PATCH(code, brif  , fail, err, VM_BRANCH_NE, brelse-brif+1);
+        VM_BRANCH_PATCH(code, brelse, fail, err, VM_BRANCH   , brend-brelse);
+    }
+    else
+        VM_BRANCH_PATCH(code, brif  , fail, err, VM_BRANCH_NE, brend-brif);
     
     return TRUE;
 
