@@ -158,8 +158,9 @@ void
 dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 {
     (void)dres;
-
-    g_warning("error: %s, on line %d near input %s\n", msg, lineno, token);
+    (void)token;
+    
+    g_warning("compilation error: %s, on line %d\n", msg, lineno);
     exit(1);
 }
 
