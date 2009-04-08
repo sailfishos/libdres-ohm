@@ -330,8 +330,8 @@ DRES_ACTION(rule_handler)
     else if (!status)                               /* predicate failure */
         FAIL(FALSE);
     
-    OHM_DEBUG(DBG_RESOLVE, "rule engine gave the following results:");
-    rules_dump_result(retval);
+    if (OHM_LOGGED(INFO))
+        rules_dump_result(retval);
 
     if ((g = vm_global_alloc(MAX_FACTS)) == NULL)
         FAIL(-ENOMEM);

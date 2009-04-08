@@ -139,7 +139,7 @@ object_to_fact(char *name, char **object)
     GValue  *value;
     char    *field, *v;
     int      i, type;
-
+    
     if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
         return NULL;
     
