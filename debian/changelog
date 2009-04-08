@@ -1,3 +1,9 @@
+libdres (0.1.1) unstable; urgency=low
+
+  * Don't dump decisions if verbosity does not include info level.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Wed, 08 Apr 2009 20:26:56 +0300
+
 libdres (0.1.0) unstable; urgency=low
 
   * Language support for if-then-else-end constructs.
