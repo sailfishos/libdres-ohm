@@ -22,6 +22,7 @@ static void command_quit   (int id, char *input);
 static void command_grab   (int id, char *input);
 static void command_release(int id, char *input);
 static void command_debug  (int id, char *input);
+static void command_log    (int id, char *input);
 static void command_statistics(int id, char *input);
 
 #define COMMAND(c, a, d) {                                      \
@@ -43,6 +44,7 @@ static command_t commands[] = {
     COMMAND(grab   , NULL       , "Grab stdout and stderr to this terminal."),
     COMMAND(release, NULL       , "Release any previous grabs."             ),
     COMMAND(debug  , "list|set|rule...", "Configure runtime debugging/tracing."  ),
+    COMMAND(log    , "[+|-]{error,info,warning}", "Configure logging level."  ),
     COMMAND(statistics, NULL, "Print rule evaluation statistics."),
     END
 };
@@ -403,6 +405,62 @@ command_debug(int id, char *input)
     else if (!strncmp(input, "rule ", 5)) {
         rules_trace(input + 5);
     }
+}
+
+
+/********************
+ * command_log
+ ********************/
+static void
+command_log(int id, char *input)
+{
+    const char  *level, *next;
+    int          length, e, w, i, d, off;
+    OhmLogLevel  l;
+    
+    
+    e = ohm_log_disable(OHM_LOG_ERROR);
+    w = ohm_log_disable(OHM_LOG_WARNING);
+    i = ohm_log_disable(OHM_LOG_INFO);
+    d = ohm_log_disable(OHM_LOG_DEBUG);
+    
+    for (level = input; level && *level; level = next) {
+        while (*level == ',' || *level == ' ')
+            level++;
+
+        if ((next = strchr(level, ',')) != NULL)
+            length = (int)(next - level);
+        else
+            length = strlen(level);
+
+        while (level[length - 1] == ' ' && length > 0)
+            length--;
+        
+        if (length) {
+            off = FALSE;
+            if (*level == '-' || *level == '+') {
+                length--;
+                off = (*level == '-');
+                level++;
+            }
+            
+            if      (!strncmp(level, "error"  , length)) l = OHM_LOG_ERROR;
+            else if (!strncmp(level, "warning", length)) l = OHM_LOG_WARNING;
+            else if (!strncmp(level, "info"   , length)) l = OHM_LOG_INFO;
+            else if (!strncmp(level, "debug"  , length)) l = OHM_LOG_DEBUG;
+            else                                         goto restore;
+            
+            (off ? ohm_log_disable : ohm_log_enable)(l);
+        }
+    }
+    
+    return;
+    
+ restore:
+    (e ? ohm_log_enable : ohm_log_disable)(OHM_LOG_ERROR);
+    (w ? ohm_log_enable : ohm_log_disable)(OHM_LOG_WARNING);
+    (i ? ohm_log_enable : ohm_log_disable)(OHM_LOG_INFO);
+    (d ? ohm_log_enable : ohm_log_disable)(OHM_LOG_DEBUG);
 }
 
 
