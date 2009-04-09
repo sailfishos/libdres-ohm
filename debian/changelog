@@ -1,3 +1,9 @@
+libdres (0.1.2) unstable; urgency=low
+
+  * Added console log command.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 09 Apr 2009 19:02:10 +0300
+
 libdres (0.1.1) unstable; urgency=low
 
   * Don't dump decisions if verbosity does not include info level.
