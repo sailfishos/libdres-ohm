@@ -187,7 +187,7 @@ free_expr_call(dres_expr_call_t *expr)
 }
 
 
-EXPORTED void
+void
 free_expr(dres_expr_t *expr)
 {
     dres_expr_t *next;

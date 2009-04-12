@@ -13,20 +13,23 @@
 
 #define VM_ALIGN_TO(n, a) (((n) + ((a)-1)) & ~((a)-1))
 
-#define VM_ERROR(fmt, args...) do {                   \
-        fprintf(stderr, "[ERROR] "fmt"\n", ## args);  \
-        fflush(stderr);                               \
-    } while (0)
 
-#define VM_WARNING(fmt, args...) do {                   \
-        fprintf(stderr, "[WARNING] "fmt"\n", ## args);  \
-        fflush(stderr);                                 \
-    } while (0)
+/*
+ * VM logging
+ */
 
-#define VM_INFO(fmt, args...) do {                      \
-        fprintf(stdout, "[INFO] "fmt"\n", ## args);     \
-        fflush(stdout);                                 \
-    } while (0)
+typedef enum {
+    VM_LOG_FATAL   = 0,
+    VM_LOG_ERROR   = 1,
+    VM_LOG_WARNING = 2,
+    VM_LOG_NOTICE  = 3,
+    VM_LOG_INFO    = 4,
+} vm_log_level_t;
+
+
+#define VM_ERROR(fmt, args...)   vm_log(VM_LOG_ERROR, fmt"\n" , ## args)
+#define VM_WARNING(fmt, args...) vm_log(VM_LOG_WARNING, fmt"\n" , ## args)
+#define VM_INFO(fmt, args...)    vm_log(VM_LOG_INFO, fmt"\n" , ## args)
 
 
 /*
@@ -761,6 +764,10 @@ void vm_free_varnames(vm_state_t *vm);
 /* vm-debug.c */
 int vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent);
 int vm_dump_instr(unsigned int **pc, char *buf, size_t size, int indent);
+
+/* vm-log.c */
+void vm_set_logger(void (*logger)(vm_log_level_t, const char *, va_list));
+void vm_log(vm_log_level_t level, const char *format, ...);
 
 
 #endif /* __DRES_VM_H__ */

@@ -9,6 +9,13 @@
 #define DRES_WARNING VM_WARNING
 #define DRES_INFO    VM_INFO
 
+#define DRES_LOG_FATAL   VM_LOG_FATAL
+#define DRES_LOG_ERROR   VM_LOG_ERROR
+#define DRES_LOG_WARNING VM_LOG_WARNING
+#define DRES_LOG_NOTICE  VM_LOG_NOTICE
+#define DRES_LOG_INFO    VM_LOG_INFO
+
+
 #define DRES_MAGIC    ('D'<<24|('R'<<16)|('E'<<8)|'S')
 #define DRES_MAX_NAME 128
 
@@ -395,6 +402,8 @@ dres_t *dres_load(char *path);
 void    dres_free_value(dres_value_t *val);
 void    dres_free_field(dres_field_t *f);
 
+typedef vm_log_level_t dres_log_level_t;
+void dres_set_logger(void (*logger)(dres_log_level_t, const char *, ...));
 
 /* target.c */
 int            dres_add_target   (dres_t *dres, char *name);
@@ -512,6 +521,7 @@ int  dres_store_check(dres_t *dres);
 int  dres_store_tx_new     (dres_t *dres);
 int  dres_store_tx_commit  (dres_t *dres);
 int  dres_store_tx_rollback(dres_t *dres);
+
 
 
 /* 

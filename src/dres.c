@@ -43,6 +43,15 @@ static int  pop_locals (dres_t *dres);
 
 
 
+/********************
+ * dres_set_logger
+ ********************/
+EXPORTED void
+dres_set_logger(void (*logger)(dres_log_level_t, const char *, ...))
+{
+    vm_set_logger((void (*)(vm_log_level_t, const char *, ...))logger);
+}
+
 
 /********************
  * dres_open

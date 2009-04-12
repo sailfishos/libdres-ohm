@@ -166,6 +166,27 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 
 
 /********************
+ * logger
+ ********************/
+static void
+logger(dres_log_level_t level, const char *format, va_list ap)
+{
+    OhmLogLevel l;
+
+    switch (level) {
+    case DRES_LOG_FATAL:    
+    case DRES_LOG_ERROR:   l = OHM_LOG_ERROR;   break;
+    case DRES_LOG_WARNING: l = OHM_LOG_WARNING; break;
+    case DRES_LOG_NOTICE:
+    case DRES_LOG_INFO:    l = OHM_LOG_INFO;    break;
+    default:                                    return;
+    }
+
+    ohm_logv(l, format, ap);
+}
+
+
+/********************
  * resolver_init
  ********************/
 static int
@@ -174,6 +195,8 @@ resolver_init(const char *ruleset)
     handler_t *h;
 
     OHM_INFO("resolver: using ruleset %s", ruleset);
+
+    dres_set_logger(logger);
 
     /* initialize resolver with our ruleset */
     OHM_DEBUG(DBG_RESOLVE, "Initializing resolver...");
