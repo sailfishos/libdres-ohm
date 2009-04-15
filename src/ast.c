@@ -211,6 +211,13 @@ free_expr(dres_expr_t *expr)
 }
 
 
+void
+dres_free_expr(dres_expr_t *expr)
+{
+    free_expr(expr);
+}
+
+
 static void
 free_call(dres_stmt_call_t *stmt)
 {

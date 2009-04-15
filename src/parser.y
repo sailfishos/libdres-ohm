@@ -418,8 +418,12 @@ stmt_assign: varref "=" expr {
             dres_stmt_assign_t *a  = ALLOC(typeof(*a));
             dres_expr_varref_t *vr = ALLOC(typeof(*vr));
 
-            if (a == NULL || vr == NULL)
+            if (a == NULL)
                 YYABORT;
+            if (vr == NULL) {
+	        dres_free_statement((dres_stmt_t *)a);
+		YYABORT;
+            }
 
 	    vr->type = DRES_EXPR_VARREF;
             vr->ref  = $1;
@@ -434,8 +438,12 @@ stmt_assign: varref "=" expr {
             dres_stmt_assign_t *a  = ALLOC(typeof(*a));
             dres_expr_varref_t *vr = ALLOC(typeof(*vr));
 
-            if (a == NULL || vr == NULL)
+            if (a == NULL)
                 YYABORT;
+	    if (vr == NULL) {
+	        dres_free_statement((dres_stmt_t *)a);
+		YYABORT;
+            }
 
 	    vr->type = DRES_EXPR_VARREF;
             vr->ref  = $1;
@@ -461,8 +469,10 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals = $5;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_statement((dres_stmt_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_stmt_t *)call;
         }
@@ -479,8 +489,10 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals = NULL;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_statement((dres_stmt_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_stmt_t *)call;
         }
@@ -497,8 +509,10 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals = $3;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_statement((dres_stmt_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_stmt_t *)call;
         }
@@ -515,8 +529,10 @@ stmt_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals = NULL;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_statement((dres_stmt_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_stmt_t *)call;
         }
@@ -721,8 +737,10 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals  = $5;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_expr((dres_expr_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_expr_t *)call;
         }
@@ -739,8 +757,10 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals  = NULL;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_expr((dres_expr_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_expr_t *)call;
         }
@@ -757,8 +777,10 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals  = $3;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_expr((dres_expr_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_expr_t *)call;
         }
@@ -775,8 +797,10 @@ expr_call: TOKEN_IDENT "(" args_by_value "," locals ")" {
 	    call->locals  = NULL;
 
 	    status = dres_register_handler(dres, call->name, NULL);
-	    if (status != 0 && status != EEXIST)
+	    if (status != 0 && status != EEXIST) {
+	        dres_free_expr((dres_expr_t *)call);
 	        YYABORT;
+            }
 
             $$ = (dres_expr_t *)call;
         }

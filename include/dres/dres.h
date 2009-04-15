@@ -467,6 +467,7 @@ int dres_register_builtins(dres_t *dres);
 /* ast.c */
 void dres_dump_statement(dres_t *dres, dres_stmt_t *stmt, int level);
 void dres_free_statement(dres_stmt_t *stmt);
+void dres_free_expr(dres_expr_t *expr);
 
 
 /* compiler.c */
