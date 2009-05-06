@@ -518,6 +518,9 @@ dres_update_goal(dres_t *dres, char *goal, char **locals)
             dres_store_tx_rollback(dres);
     }
     
+    DEBUG(DBG_RESOLVE, "updated of goal %s done with status %d (%s)",
+          goal, status, status < 0 ? "error" : (status ? "success" : "failed"));
+
     return status;
 }
 
