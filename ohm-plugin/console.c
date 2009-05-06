@@ -357,6 +357,8 @@ command_grab(int id, char *input)
     console_grab(id, 0);
     console_grab(id, 1);
     console_grab(id, 2);
+    setvbuf(stdout, NULL, _IONBF, 0);
+    setvbuf(stderr, NULL, _IONBF, 0);
 }
 
 /********************
@@ -370,6 +372,8 @@ command_release(int id, char *input)
     console_ungrab(id, 0);
     console_ungrab(id, 1);
     console_ungrab(id, 2);
+    setvbuf(stdout, NULL, _IOLBF, 0);
+    setvbuf(stderr, NULL, _IOLBF, 0);
 }
 
 
