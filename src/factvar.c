@@ -95,12 +95,17 @@ int
 dres_check_factvar(dres_t *dres, int id, int refstamp)
 {
     dres_variable_t *var = dres->factvars + DRES_INDEX(id);
-    char             buf[32];
+    char             name[64];
+    int              touched;
+
+    touched = var->stamp > refstamp;
     
-    DEBUG(DBG_RESOLVE, "%s: %d > %d ?",
-          dres_name(dres, id, buf, sizeof(buf)), var->stamp, refstamp);
+    DEBUG(DBG_RESOLVE, "%s: %s (%d > %d)",
+          dres_name(dres, id, name, sizeof(name)),
+          touched ? "outdated" : "up-to-date",
+          var->stamp, refstamp);
     
-    return var->stamp > refstamp;
+    return touched;
 }
 
 

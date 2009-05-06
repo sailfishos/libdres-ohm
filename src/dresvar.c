@@ -100,11 +100,16 @@ dres_check_dresvar(dres_t *dres, int id, int refstamp)
 {
     dres_variable_t *var = dres->dresvars + DRES_INDEX(id);
     char             name[64];
+    int              touched;
     
-    DEBUG(DBG_RESOLVE, "%s: %d > %d ?",
-          dres_name(dres, id, name, sizeof(name)), var->stamp, refstamp);
-    
-    return var->stamp > refstamp;
+    touched = var->stamp > refstamp;
+
+    DEBUG(DBG_RESOLVE, "%s: %s (%d > %d)",
+          dres_name(dres, id, name, sizeof(name)),
+          touched ? "outdated" : "up-to-date",
+          var->stamp, refstamp);
+
+    return touched;
 }
 
 

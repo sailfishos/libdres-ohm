@@ -69,7 +69,7 @@ update_all(gpointer data)
 {
     (void)data;
 
-    OHM_DEBUG(DBG_RESOLVE, "resolving goal \"all\"...\n");
+    OHM_DEBUG(DBG_RESOLVE, "resolving goal \"all\"...");
     dres_update_goal(dres, "all", NULL);
     update = 0;
 
@@ -87,7 +87,7 @@ schedule_resolve(gpointer object, gpointer user_data)
     (void)user_data;
 
     if (!update) {
-        OHM_DEBUG(DBG_RESOLVE, "resolving of goal \"all\" scheduled...\n");
+        OHM_DEBUG(DBG_RESOLVE, "resolving of goal \"all\" scheduled...");
         update = g_idle_add(update_all, NULL);
     }
 }

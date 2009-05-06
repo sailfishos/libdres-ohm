@@ -120,13 +120,15 @@ BUILTIN_HANDLER(dres)
     nsize  = dres->vm.nsize;
     info   = dres->vm.info;
 
-    DEBUG(DBG_RESOLVE, "DRES recursing for %sgoal %s",
+    DEBUG(DBG_RESOLVE, "recursively resolving %sgoal %s",
           goal ? "" : "the default ", goal ? goal : "");
     
     status = dres_update_goal(dres, goal, NULL);
 
-    DEBUG(DBG_RESOLVE, "DRES back from goal %s", goal);
-
+    DEBUG(DBG_RESOLVE, "resolved %sgoal %s with status %d (%s)",
+          goal ? "" : "the default ", goal ? goal : "", status,
+          status < 0 ? "error" : (status ? "success" : "failure"));
+    
     /* restore VM context */
     dres->vm.chunk  = chunk;
     dres->vm.pc     = pc;

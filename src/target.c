@@ -185,36 +185,31 @@ dres_check_target(dres_t *dres, int tid)
 
     target = dres->targets + DRES_INDEX(tid);
     
-    if ((prq = target->prereqs) == NULL)
+    if ((prq = target->prereqs) == NULL) {
+        DEBUG(DBG_RESOLVE, "no prereqs (always update)");
         update = TRUE;
+    }
     else {
         update = FALSE;
         for (i = 0; i < prq->nid; i++) {
             id = prq->ids[i];
             switch (DRES_ID_TYPE(id)) {
             case DRES_TYPE_FACTVAR:
-                if (dres_check_factvar(dres, id, target->stamp)) {
-                    DEBUG(DBG_RESOLVE, "=> newer, %s needs to be updated",
-                          target->name);
+                if (dres_check_factvar(dres, id, target->stamp))
                     update = TRUE;
-                }
                 break;
             case DRES_TYPE_DRESVAR:
-                if (dres_check_dresvar(dres, id, target->stamp)) {
-                    DEBUG(DBG_RESOLVE, "=> newer, %s needs to be updated",
-                          target->name);
+                if (dres_check_dresvar(dres, id, target->stamp))
                     update = TRUE;
-                }
                 break;
             case DRES_TYPE_TARGET:
                 t = dres->targets + DRES_INDEX(id);
-                DEBUG(DBG_RESOLVE, "%s: %d > %s: %d ?",
-                      target->name, target->stamp, t->name, t->stamp);
-                if (t->stamp > target->stamp) {
-                    DEBUG(DBG_RESOLVE, "=> %s newer, %s needs to be updated",
-                          t->name, target->name);
+                DEBUG(DBG_RESOLVE, "%s: %s (%d > %d)",
+                      t->name,
+                      t->stamp > target->stamp ? "outdated" : "up-to-date",
+                      t->stamp, target->stamp);
+                if (t->stamp > target->stamp)
                     update = TRUE;
-                }
                 break;
             default:
                 DRES_ERROR("BUG: invalid prereq 0x%x for %s", id, target->name);
@@ -224,11 +219,14 @@ dres_check_target(dres_t *dres, int tid)
     }
     
     if (update) {
+        DEBUG(DBG_RESOLVE, "=> %s needs to be updated", target->name);
         if ((status = dres_run_actions(dres, target)) > 0)
             dres_update_target_stamp(dres, target);
     }
-    else
+    else {
+        DEBUG(DBG_RESOLVE, "=> %s already up-to-date", target->name);
         status = TRUE;
+    }
     
     return status;
 }

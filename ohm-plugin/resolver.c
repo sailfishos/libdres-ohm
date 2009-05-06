@@ -282,7 +282,14 @@ rules_exit(void)
  ********************/
 OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
 {
-    return dres_update_goal(dres, goal, locals);
+    int success;
+
+    OHM_DEBUG(DBG_RESOLVE, "resolving goal %s", goal);
+    success = dres_update_goal(dres, goal, locals);
+    OHM_DEBUG(DBG_RESOLVE, "resolving goal %s %s", goal,
+              success ? "succeeded" : "failed");
+
+    return success;
 }
 
 
@@ -497,7 +504,7 @@ DRES_ACTION(signal_handler)
                                      completion_cb, TIMEOUT);
         }
         else {
-            OHM_DEBUG(DBG_SIGNAL, "could not resolve signal.\n");
+            OHM_DEBUG(DBG_SIGNAL, "could not resolve signal.");
             success = FALSE;
         }
     }
