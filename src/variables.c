@@ -90,7 +90,8 @@ dres_store_track(dres_t *dres)
     char            *name;
     int              id, i;
     
-    if ((store->view = ohm_fact_store_new_view(store->fs, NULL)) == NULL)
+    store->view = ohm_fact_store_new_transparent_view(store->fs, NULL);
+    if (store->view == NULL)
         return ENOMEM;
     
     for (i = 0; i < dres->nfactvar; i++) {
