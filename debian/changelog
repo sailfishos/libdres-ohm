@@ -1,3 +1,10 @@
+libdres (0.1.4) unstable; urgency=low
+
+  * Use 'transparent' factstore view for variable tracking.
+  * Free memory allocated in the parser on error branches to satisfy coverity.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon, 11 May 2009 15:55:38 +0300
+
 libdres (0.1.3) unstable; urgency=low
 
   * Log messages using an externally overridable logger.
