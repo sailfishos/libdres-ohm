@@ -30,7 +30,7 @@ vm_log(vm_log_level_t level, const char *format, ...)
         case VM_LOG_WARNING: out = stderr; prefix = "WARNING"; break;
         case VM_LOG_NOTICE:  out = stdout; prefix = "NOTICE";  break;
         case VM_LOG_INFO:    out = stdout; prefix = "INFO";    break;
-        default:                                                 return;
+        default:                                               return;
         }
 
         /*
