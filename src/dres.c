@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <unistd.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -47,9 +48,9 @@ static int  pop_locals (dres_t *dres);
  * dres_set_logger
  ********************/
 EXPORTED void
-dres_set_logger(void (*logger)(dres_log_level_t, const char *, ...))
+dres_set_logger(void (*logger)(dres_log_level_t, const char *, va_list))
 {
-    vm_set_logger((void (*)(vm_log_level_t, const char *, ...))logger);
+    vm_set_logger((void (*)(vm_log_level_t, const char *, va_list))logger);
 }
 
 
