@@ -154,32 +154,82 @@ BUILTIN_HANDLER(resolve)
 }
 
 
+static FILE *
+redirect(char *path, FILE *current)
+{
+    const char *mode;
+    FILE       *fp;
+
+    if (path[0] == '>' && path[1] == '>') {
+        path += 2;
+        mode  = "a";
+    }
+    else {
+        path++;
+        mode = "w";
+    }
+
+    if (!strcmp(path, "stdout"))
+        fp = stdout;
+    else if (!strcmp(path, "stderr"))
+        fp = stderr;
+    else
+        fp = fopen(path, mode);
+    
+    if (fp == NULL)
+        fp = current;
+    else
+        if (current != stdout && current != stderr)
+            fclose(current);
+    
+    return fp;
+}
+
+
 /********************
  * dres_builtin_echo
  ********************/
 BUILTIN_HANDLER(echo)
 {
-    dres_t       *dres = (dres_t *)data;
-    char         *t;
-    int           i;
+    dres_t *dres = (dres_t *)data;
+    FILE   *fp;
+    char   *t;
+    int     i;
     
-    for (i = 0, t = ""; i < narg; i++, t = " ") {
-        printf(t);
+    fp = stdout;
+
+    t = "";
+    for (i = 0; i < narg; i++) {
         switch (args[i].type) {
-        case DRES_TYPE_NIL:     printf("<nil>");           break;
-        case DRES_TYPE_INTEGER: printf("%d", args[i].v.i); break;
-        case DRES_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
-        case DRES_TYPE_STRING:  printf("%s", args[i].v.s); break;
+        case DRES_TYPE_STRING:
+            if (args[i].v.s[0] == '>') {
+                fp = redirect(args[i].v.s, fp);
+                t = "";
+                continue;
+            }
+            else
+                fprintf(fp, "%s%s", t, args[i].v.s);
+            break;
+            
+        case DRES_TYPE_NIL:     fprintf(fp, "%s<nil>", t);           break;
+        case DRES_TYPE_INTEGER: fprintf(fp, "%s%d", t, args[i].v.i); break;
+        case DRES_TYPE_DOUBLE:  fprintf(fp, "%s%f", t, args[i].v.d); break;
         case DRES_TYPE_FACTVAR:
-            vm_global_print(args[i].v.g);
+            fprintf(fp, "%s", t);
+            vm_global_print(fp, args[i].v.g);
             break;
         default:
-            printf("<unknown>");
+            fprintf(fp, "<unknown>");
         }
+        t = " ";
     }
-
-    printf("\n");
     
+    fprintf(fp, "\n");
+    fflush(fp);
+    
+    if (fp != stdout && fp != stderr)
+        fclose(fp);
+
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
     DRES_ACTION_SUCCEED;
