@@ -106,22 +106,22 @@ vm_global_free(vm_global_t *g)
  * vm_global_print
  ********************/
 void
-vm_global_print(vm_global_t *g)
+vm_global_print(FILE *fp, vm_global_t *g)
 {
     int i;
 
     if (g->name != NULL)
-        printf("global <%s>\n", g->name);
+        fprintf(fp, "global <%s>\n", g->name);
     else {
-        printf("global with %d facts:\n", g->nfact);
+        fprintf(fp, "global with %d facts:\n", g->nfact);
         for (i = 0; i < g->nfact; i++) {
             if (g->facts[i]) {
-                printf("#%d: ", i);
-                vm_fact_print(g->facts[i]);
-                printf("\n");
+                fprintf(fp, "#%d: ", i);
+                vm_fact_print(fp, g->facts[i]);
+                fprintf(fp, "\n");
             }
             else
-                printf("#%d: <NULL>\n", i);
+                fprintf(fp, "#%d: <NULL>\n", i);
         }
     }
 }
@@ -455,11 +455,11 @@ vm_fact_matches(OhmFact *f, char **fields, GValue **values, int nfield)
  * vm_fact_print
  ********************/
 void
-vm_fact_print(OhmFact *fact)
+vm_fact_print(FILE *fp, OhmFact *fact)
 {
     char *s = ohm_structure_to_string(OHM_STRUCTURE(fact));
 
-    printf("%s", s ? s: "<invalid fact>");
+    fprintf(fp, "%s", s ? s: "<invalid fact>");
     g_free(s);
 }
 

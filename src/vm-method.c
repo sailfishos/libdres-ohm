@@ -201,7 +201,7 @@ vm_unknown_handler(void *data, char *name,
         case VM_TYPE_GLOBAL:
             for (j = 0; j < args[i].v.g->nfact; j++) {
                 printf("$");
-                vm_fact_print(args[i].v.g->facts[j]);
+                vm_fact_print(stdout, args[i].v.g->facts[j]);
                 printf("\n");
             }
             break;

@@ -718,7 +718,7 @@ vm_global_t *vm_global_name  (char *name);
 vm_global_t *vm_global_alloc (int nfact);
 
 void         vm_global_free  (vm_global_t *g);
-void         vm_global_print (vm_global_t *g);
+void         vm_global_print (FILE *fp, vm_global_t *g);
 
 
 GSList      *vm_fact_lookup(char *name);
@@ -745,9 +745,7 @@ int          vm_global_find_first(vm_global_t *g,
 int          vm_global_find_next(vm_global_t *g, int idx,
                                  char **fields, GValue **values, int nfield);
 
-
-
-void vm_fact_print(OhmFact *fact);
+void vm_fact_print(FILE *fp, OhmFact *fact);
 
 
 /* vm-local.c */

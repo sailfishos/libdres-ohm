@@ -1,7 +1,9 @@
 #ifndef __POLICY_DRES_H__
 #define __POLICY_DRES_H__
 
+#include <stdarg.h>
 #include <glib.h>
+
 #include <dres/vm.h>
 #include <dres/mm.h>
 
@@ -403,7 +405,7 @@ void    dres_free_value(dres_value_t *val);
 void    dres_free_field(dres_field_t *f);
 
 typedef vm_log_level_t dres_log_level_t;
-void dres_set_logger(void (*logger)(dres_log_level_t, const char *, ...));
+void dres_set_logger(void (*logger)(dres_log_level_t, const char *, va_list));
 
 /* target.c */
 int            dres_add_target   (dres_t *dres, char *name);
