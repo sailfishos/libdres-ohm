@@ -30,7 +30,7 @@ dump_global(vm_global_t *g)
     printf("global with %d fact%s\n", g->nfact, g->nfact == 1 ? "" : "s");
     for (i = 0; i < g->nfact; i++) {
         s = ohm_structure_to_string(OHM_STRUCTURE(g->facts[i]));
-        printf("  #%d: ", i); vm_fact_print(g->facts[i]); printf("\n");
+        printf("  #%d: ", i); vm_fact_print(stdout, g->facts[i]); printf("\n");
     }
 }
 
@@ -338,7 +338,7 @@ echo_handler(void *data, char *name,
         case VM_TYPE_INTEGER: printf("%d", args[i].v.i); break;
         case VM_TYPE_DOUBLE:  printf("%f", args[i].v.d); break;
         case VM_TYPE_STRING:  printf("%s", args[i].v.s); break;
-        case VM_TYPE_GLOBAL:  vm_global_print(args[i].v.g); break;
+        case VM_TYPE_GLOBAL:  vm_global_print(stdout, args[i].v.g); break;
         default:              printf("<unknown type 0x%x>", args[i].type);
         }
         printf(" ");
