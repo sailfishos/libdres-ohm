@@ -1,3 +1,11 @@
+libdres (0.1.5) unstable; urgency=low
+
+  * Load precompiled ruleset if found.
+  * Default console on any interface.
+  * Added output redirection support for builtin echo.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Thu, 14 May 2009 15:08:29 +0300
+
 libdres (0.1.4) unstable; urgency=low
 
   * Use 'transparent' factstore view for variable tracking.
