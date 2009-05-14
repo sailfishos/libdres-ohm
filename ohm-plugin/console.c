@@ -418,6 +418,7 @@ command_log(int id, char *input)
     int          length, e, w, i, d, off;
     OhmLogLevel  l;
     
+    (void)id;
     
     e = ohm_log_disable(OHM_LOG_ERROR);
     w = ohm_log_disable(OHM_LOG_WARNING);
