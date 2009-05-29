@@ -415,12 +415,13 @@ stmt_ifthen: TOKEN_IF expr TOKEN_THEN TOKEN_EOL
         ;
 
 stmt_assign: varref "=" expr {
-            dres_stmt_assign_t *a  = ALLOC(typeof(*a));
-            dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+            dres_stmt_assign_t *a;
+            dres_expr_varref_t *vr;
 
-            if (a == NULL)
+            if ((a = ALLOC(typeof(*a))) == NULL)
                 YYABORT;
-            if (vr == NULL) {
+
+            if ((vr = ALLOC(typeof(*vr))) == NULL) {
 	        dres_free_statement((dres_stmt_t *)a);
 		YYABORT;
             }
@@ -435,12 +436,13 @@ stmt_assign: varref "=" expr {
             $$ = (dres_stmt_t *)a;
         }
         |   varref "|=" expr {
-            dres_stmt_assign_t *a  = ALLOC(typeof(*a));
-            dres_expr_varref_t *vr = ALLOC(typeof(*vr));
+            dres_stmt_assign_t *a;
+            dres_expr_varref_t *vr;
 
-            if (a == NULL)
+            if ((a = ALLOC(typeof(*a))) == NULL)
                 YYABORT;
-	    if (vr == NULL) {
+
+	    if ((vr = ALLOC(typeof(*vr))) == NULL) {
 	        dres_free_statement((dres_stmt_t *)a);
 		YYABORT;
             }
