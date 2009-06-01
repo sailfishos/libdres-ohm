@@ -3,6 +3,20 @@
 #define REDO_LAST   "!"
 
 
+/* console interface */
+OHM_IMPORTABLE(int, console_open  , (char  *address,
+                                     void (*opened)(int, struct sockaddr *,int),
+                                     void (*closed)(int),
+                                     void (*input)(int, char *, void *),
+                                     void  *data, int multiple));
+OHM_IMPORTABLE(int, console_close , (int id));
+OHM_IMPORTABLE(int, console_grab  , (int id, int fd));
+OHM_IMPORTABLE(int, console_ungrab, (int id, int fd));
+
+/* console event handlers */
+static void console_opened (int id, struct sockaddr *peer, int peerlen);
+static void console_closed (int id);
+static void console_input  (int id, char *buf, void *data);
 
 static int parse_dres_args(char *input, char **args, int narg);
 
@@ -59,13 +73,43 @@ static char prefix[128];
 static int
 console_init(char *address)
 {
-    OHM_INFO("resolver: using console %s", address);
+    char *signature;
+    
+#define IMPORT(name, ptr) ({                                            \
+            signature = (char *)ptr##_SIGNATURE;                        \
+            ohm_module_find_method((name), &signature, (void *)(ptr));  \
+        })
+    
+    if (!strcmp(address, "disabled")) {
+        OHM_INFO("resolver: console disabled");
+        return 0;
+    }
+    
+    if (!IMPORT("console.open", &console_open)) {
+        OHM_INFO("resolver: no console methods available, console disabled");
+        return 0;
+    }
+    
+    IMPORT("console.close" , &console_close);
+    IMPORT("console.printf", &console_printf);
+    IMPORT("console.grab"  , &console_grab);
+    IMPORT("console.ungrab", &console_ungrab);
 
+    if (console_close == NULL || console_printf == NULL ||
+        console_grab == NULL || console_ungrab == NULL) {
+        OHM_WARNING("resolver: missing console methods, console disabled");
+        return 0;
+    }
+    
+    
+    OHM_INFO("resolver: using console %s", address);
+    
     console = console_open(address,
                            console_opened, console_closed, console_input,
                            NULL, FALSE);
-
+    
     return console < 0 ? EINVAL : 0;
+#undef IMPORT    
 }
 
 
@@ -76,10 +120,10 @@ static void
 console_exit(void)
 {
 #if 0
-    if (console > 0)
+    if (console > 0 && console_close)
         console_close(console);
 #endif
-
+    
     console = 0;
 }
 

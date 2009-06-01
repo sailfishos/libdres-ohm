@@ -53,7 +53,6 @@ OHM_IMPORTABLE(int , rule_eval        ,
                (int rule, void *retval, void **args, int narg));
 OHM_IMPORTABLE(void, rule_statistics  , (char *));
 
-
 static void plugin_exit(OhmPlugin *plugin);
 
 static int  rules_init(void);
@@ -121,6 +120,7 @@ plugin_init(OhmPlugin *plugin)
     
     if (console == NULL)
         console = DEFAULT_CONSOLE;
+    
     if (ruleset == NULL)
         ruleset = DEFAULT_RULESET;
     
@@ -599,13 +599,11 @@ OHM_PLUGIN_DESCRIPTION("dres",
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_REQUIRES("rule_engine", "console");
-
 OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
     OHM_EXPORT(update_goal, "resolve")
 );
 
-OHM_PLUGIN_REQUIRES_METHODS(dres, 14,
+OHM_PLUGIN_REQUIRES_METHODS(dres, 8,
     OHM_IMPORT("rule_engine.find"      , rule_find),
     OHM_IMPORT("rule_engine.eval"      , rule_eval),
     OHM_IMPORT("rule_engine.free"      , rules_free_result),
@@ -613,13 +611,6 @@ OHM_PLUGIN_REQUIRES_METHODS(dres, 14,
     OHM_IMPORT("rule_engine.prompt"    , rules_prompt),
     OHM_IMPORT("rule_engine.trace"     , rules_trace),
     OHM_IMPORT("rule_engine.statistics", rule_statistics),
-
-    OHM_IMPORT("console.open"  , console_open),
-    OHM_IMPORT("console.close" , console_close),
-    OHM_IMPORT("console.write" , console_write),
-    OHM_IMPORT("console.printf", console_printf),
-    OHM_IMPORT("console.grab"  , console_grab),
-    OHM_IMPORT("console.ungrab", console_ungrab),
 
     OHM_IMPORT("signaling.signal_changed", signal_changed)
 );
