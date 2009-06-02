@@ -653,8 +653,6 @@ vm_instr_create(vm_state_t *vm)
     
     nfield = VM_CREATE_NFIELD(*vm->pc);    
 
-    printf("*** %d fields to create...\n", nfield);
-    
     if (ALLOC_VAROBJ(g, nfield, facts) == NULL)
         FAIL(ENOMEM, "CREATE: failed to allocate memory for new global");
 
@@ -667,8 +665,6 @@ vm_instr_create(vm_state_t *vm)
         
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
-
-        printf("*** field %s...\n", field);
 
         if (!vm_fact_set_field(vm, fact, field, type, &value))
             FAIL(ENOMEM, "failed to add field %s", field);
@@ -785,9 +781,9 @@ vm_instr_cmp(vm_state_t *vm)
     case VM_RELOP_GE:  COMPARE(arg1, >=, arg2); break;
     case VM_RELOP_NOT:
         switch ((vm_type_t)type1) {
-        case VM_TYPE_INTEGER: result = (arg1.i == 0   ); break;
+        case VM_TYPE_INTEGER: result = (arg1.i != 0   ); break;
         case VM_TYPE_DOUBLE:  result = (arg1.d == 0.0 ); break;
-        case VM_TYPE_STRING:  result = (arg1.s == NULL); break;
+        case VM_TYPE_STRING:  result = (arg1.s != NULL); break;
         case VM_TYPE_GLOBAL:  result = !arg1.g->nfact;   break;
         default: FAIL(EINVAL, "CMP: invalid type 0x%x", type1);
         }
