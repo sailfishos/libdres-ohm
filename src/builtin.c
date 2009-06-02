@@ -349,8 +349,6 @@ BUILTIN_HANDLER(fail)
 
     (void)data;
     (void)name;
-    (void)args;
-    (void)narg;
 }
 
 

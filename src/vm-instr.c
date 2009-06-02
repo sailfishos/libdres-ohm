@@ -215,12 +215,13 @@ vm_instr_filter(vm_state_t *vm)
     int          nfield, nfact;
     char        *field;
     vm_value_t   value;
-    int          type;
-    int          i, j;
+    int          type, neq;
+    int          i, j, match;
+    
     
     nfield = VM_FILTER_NFIELD(*vm->pc);
     
-    if (vm_peek(vm->stack, 2*nfield, &value) != VM_TYPE_GLOBAL)
+    if (vm_peek(vm->stack, 3*nfield, &value) != VM_TYPE_GLOBAL)
         FAIL(ENOENT, "FILTER: no global found in stack");
     
     g      = value.g;
@@ -233,6 +234,7 @@ vm_instr_filter(vm_state_t *vm)
         
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
+        neq   = vm_pop_int(vm->stack) == VM_RELOP_NE;
 
         for (j = 0; j < g->nfact; j++) {
             OhmFact    *fact;
@@ -244,7 +246,9 @@ vm_instr_filter(vm_state_t *vm)
             if ((gval = ohm_fact_get(fact, field)) == NULL)
                 FAIL(ENOENT, "fact has no expected field %s", field);
         
-            if (!vm_fact_match_field(vm, fact, field, gval, type, &value)) {
+            match = vm_fact_match_field(vm, fact, field, gval, type, &value);
+
+            if ((!match && !neq) || (match && neq)) {
                 g_object_unref(fact);
                 g->facts[j] = NULL;
                 nfact--;
@@ -785,9 +789,9 @@ vm_instr_cmp(vm_state_t *vm)
     case VM_RELOP_GE:  COMPARE(arg1, >=, arg2); break;
     case VM_RELOP_NOT:
         switch ((vm_type_t)type1) {
-        case VM_TYPE_INTEGER: result = (arg1.i != 0   ); break;
+        case VM_TYPE_INTEGER: result = (arg1.i == 0   ); break;
         case VM_TYPE_DOUBLE:  result = (arg1.d == 0.0 ); break;
-        case VM_TYPE_STRING:  result = (arg1.s != NULL); break;
+        case VM_TYPE_STRING:  result = (arg1.s == NULL); break;
         case VM_TYPE_GLOBAL:  result = !arg1.g->nfact;   break;
         default: FAIL(EINVAL, "CMP: invalid type 0x%x", type1);
         }

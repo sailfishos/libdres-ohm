@@ -154,7 +154,7 @@ compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
 {
     const char    *name;
     dres_select_t *sel;
-    int            update, nfield, partial, err;
+    int            update, nfield, partial, selop, err;
 
 
     partial = (op == DRES_STMT_PARTIAL_ASSIGN);
@@ -173,6 +173,8 @@ compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
             continue;
         }
         else {
+            selop = (int)sel->op;
+            VM_INSTR_PUSH_INT(code, fail, err, selop);
             PUSH_VALUE(code, fail, err, &sel->field.value);
             VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
             nfield++;
@@ -421,7 +423,7 @@ compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
     const char    *name;
     dres_varref_t *vref;
     dres_select_t *sel;
-    int            nfield, err;
+    int            nfield, op, err;
 
 
     vref = &expr->ref;
@@ -444,8 +446,11 @@ compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
             if (sel->field.value.type == DRES_TYPE_UNKNOWN)
                 FAIL("update-stype field in a non-lvalue variable reference");
 
+            op = (int)sel->op;
+            VM_INSTR_PUSH_INT(code, fail, err, op);
             PUSH_VALUE(code, fail, err, &sel->field.value);
             VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
+            
             nfield++;
         }
         if (nfield)

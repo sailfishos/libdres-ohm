@@ -174,7 +174,7 @@ dres_print_selector(dres_t *dres, dres_select_t *s, char *buf, size_t size)
         left -= n;                                  \
     } while (0)
 
-    char *p, *t, value[128];
+    char *p, *t, value[128], *op;
     int   left, n;
 
     p    = buf;
@@ -182,10 +182,11 @@ dres_print_selector(dres_t *dres, dres_select_t *s, char *buf, size_t size)
     *p   = '\0';
 
     for (t = ""; s != NULL; s = s->next, t = ", ") {
+        op = s->op == DRES_OP_NEQ ? "!" : "";
         P("%s%s", t, s->field.name);
         if (s->field.value.type != DRES_TYPE_UNKNOWN) {
             dres_print_value(dres, &s->field.value, value, sizeof(value));
-            P(":%s", value);
+            P(":%s%s", op, value);
         }
     }
 

@@ -96,10 +96,18 @@ typedef struct {
 } dres_field_t;
 
 
+typedef enum {
+    DRES_OP_UNKNOWN = 0,
+    DRES_OP_EQ  = VM_RELOP_EQ,
+    DRES_OP_NEQ = VM_RELOP_NE,
+} dres_op_t;
+
+
 typedef struct dres_select_s dres_select_t;    /* rename to dres_selector_t */
 struct dres_select_s {
     dres_field_t   field;
     dres_select_t *next;
+    dres_op_t      op;
 };
 
 typedef struct dres_init_s dres_init_t;

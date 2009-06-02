@@ -4,7 +4,7 @@
 #include <string.h>
 #include <errno.h>
 
-#include <dres/dres.h>
+#include "dres/dres.h"
 #include <glib-object.h>
 
 #if !defined(DEBUG) || defined(__TEST_PARSER__) || 1
@@ -101,6 +101,7 @@ static char *current_prefix;
 %type <field>     field
 %type <init>      ifields
 %type <select>    sfields
+%type <select>    sfield
 %type <initializer> initializer
 %type <initializer> initializers
 %type <local>       local
@@ -180,29 +181,95 @@ ifields: field {
                 YYABORT;
             for (p = $1; p->next; p = p->next)
                 ;
-	    p->next = f;
+	    p->next  = f;
             f->field = $3;
             f->next  = NULL;
-            $$ = $1;
+            $$       = $1;
         }
         ;
 
-sfields: field {
-            if (($$ = ALLOC(dres_select_t)) == NULL)
-	        YYABORT;
-            $$->field = $1;
-            $$->next  = NULL;
-        }
-        | sfields "," field {
-            dres_select_t *f, *p;
-            if ((f = ALLOC(dres_select_t)) == NULL)
-                YYABORT;
+sfields: sfield { $$ = $1; }
+        | sfields "," sfield {
+	    dres_select_t *p;
             for (p = $1; p->next; p = p->next)
                 ;
-	    p->next = f;
-            f->field = $3;
-            f->next  = NULL;
-            $$ = $1;
+	    p->next = $3;
+            $$      = $1;
+        }
+        ;
+
+
+sfield: TOKEN_IDENT ":" TOKEN_INTEGER {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_EQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_INTEGER;
+	    $$->field.value.v.i  = $3;
+        }
+        | TOKEN_IDENT ":" TOKEN_DOUBLE {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_EQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_DOUBLE;
+	    $$->field.value.v.d  = $3;
+        }
+        | TOKEN_IDENT ":" TOKEN_STRING {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_EQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($3);
+        }
+        | TOKEN_IDENT ":" TOKEN_IDENT {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_EQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($3);
+        }
+	| TOKEN_IDENT {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_UNKNOWN;
+            $$->field.name = STRDUP($1);
+	    $$->field.value.type = DRES_TYPE_UNKNOWN;
+	    $$->field.value.v.i  = 0;
+	}
+	| TOKEN_IDENT ":" "!" TOKEN_INTEGER {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_NEQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_INTEGER;
+	    $$->field.value.v.i  = $4;
+        }
+        | TOKEN_IDENT ":" "!" TOKEN_DOUBLE {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_NEQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_DOUBLE;
+	    $$->field.value.v.d  = $4;
+        }
+        | TOKEN_IDENT ":" "!" TOKEN_STRING {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_NEQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($4);
+        }
+        | TOKEN_IDENT ":" "!" TOKEN_IDENT {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = DRES_OP_NEQ;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($4);
         }
         ;
 
