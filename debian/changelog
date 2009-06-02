@@ -1,3 +1,11 @@
+libdres (0.1.7) unstable; urgency=low
+
+  * Added support for negation (field:!value) in selectors.
+  * Removed leftover debugging printfs.
+  * Fix VM_RELOP_NOT typo/thinko for integers and strings.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Tue, 02 Jun 2009 20:12:04 +0300
+
 libdres (0.1.6) unstable; urgency=low
 
   * Don't require the ohm console plugin.
