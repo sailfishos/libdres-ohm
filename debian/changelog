@@ -1,3 +1,10 @@
+libdres (0.1.6) unstable; urgency=low
+
+  * Don't require the ohm console plugin.
+  * Coverity fixes.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Tue, 02 Jun 2009 15:02:12 +0300
+
 libdres (0.1.5) unstable; urgency=low
 
   * Load precompiled ruleset if found.

@@ -657,8 +657,6 @@ vm_instr_create(vm_state_t *vm)
     
     nfield = VM_CREATE_NFIELD(*vm->pc);    
 
-    printf("*** %d fields to create...\n", nfield);
-    
     if (ALLOC_VAROBJ(g, nfield, facts) == NULL)
         FAIL(ENOMEM, "CREATE: failed to allocate memory for new global");
 
@@ -671,8 +669,6 @@ vm_instr_create(vm_state_t *vm)
         
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
-
-        printf("*** field %s...\n", field);
 
         if (!vm_fact_set_field(vm, fact, field, type, &value))
             FAIL(ENOMEM, "failed to add field %s", field);
