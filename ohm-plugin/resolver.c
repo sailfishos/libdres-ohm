@@ -65,6 +65,7 @@ static GHashTable *ruletbl;
 static int  resolver_init(const char *ruleset);
 static void resolver_exit(void);
 
+static dres_handler_t unknown_handler;
 
 
 /* signaling */
@@ -86,6 +87,7 @@ static int  retval_to_facts(char ***objects, OhmFact **facts, int max);
 
 DRES_ACTION(rule_handler);
 DRES_ACTION(signal_handler);
+DRES_ACTION(fallback_handler);
 
 static dres_t *dres;
 
@@ -215,6 +217,9 @@ resolver_init(const char *ruleset)
         }
     }
     
+    unknown_handler = dres_fallback_handler(dres, fallback_handler);
+    
+
     /* finalize/check resolver ruleset */
     OHM_DEBUG(DBG_RESOLVE, "Finalizing resolver ruleset...");
     if (dres_finalize(dres) != 0) {
@@ -350,6 +355,91 @@ DRES_ACTION(rule_handler)
         }
     }
     
+    
+    status = rule_eval(rule, &retval, (void **)argv, narg);
+
+    if (status < 0) {
+        rules_dump_result(retval);                  /* dump exceptions */
+        FAIL(status);
+    }
+    else if (!status)                               /* predicate failure */
+        FAIL(FALSE);
+    
+    if (OHM_LOGGED(INFO))
+        rules_dump_result(retval);
+
+    if ((g = vm_global_alloc(MAX_FACTS)) == NULL)
+        FAIL(-ENOMEM);
+    
+    if ((g->nfact = retval_to_facts(retval, g->facts, MAX_FACTS)) < 0)
+        FAIL(-EINVAL);
+
+    rules_free_result(retval);
+
+    rv->type = DRES_TYPE_FACTVAR;
+    rv->v.g  = g;
+    DRES_ACTION_SUCCEED;
+    
+ fail:
+    if (g)
+        vm_global_free(g);
+    
+    if (retval)
+        rules_free_result(retval);
+    
+    DRES_ACTION_ERROR(status);
+
+#undef MAX_FACTS
+}
+
+
+/********************
+ * fallback_handler
+ ********************/
+DRES_ACTION(fallback_handler)
+{
+#define FAIL(ec) do { status = ec; goto fail; } while (0)
+#define MAX_FACTS 63
+#define MAX_ARGS  (32*2)
+
+    int            rule;
+    char          *rule_name;
+    char          *argv[MAX_ARGS];
+    char        ***retval;
+    vm_global_t   *g = NULL;
+    int            i, status;
+
+    (void)data;
+    
+    OHM_DEBUG(DBG_RESOLVE, "Fallback handler called for '%s'...", name);
+    
+    retval    = NULL;
+    rule_name = name;
+
+    if ((rule = rule_lookup(rule_name, narg + 1)) < 0)
+        if (unknown_handler)
+            return unknown_handler(data, name, args, narg, rv);
+        else
+            DRES_ACTION_ERROR(EINVAL);
+    
+    for (i = 0; i < narg; i++) {
+        switch (args[i].type) {
+        case DRES_TYPE_STRING:
+            argv[2*i]   = (char *)'s';
+            argv[2*i+1] = args[i].v.s;
+            break;
+        case DRES_TYPE_INTEGER:
+            argv[2*i]   = (char *)'i';
+            argv[2*i+1] = (char *)args[i].v.i;
+            break;
+        case DRES_TYPE_DOUBLE:
+            argv[2*i]   = (char *)'d';
+            argv[2*i+1] = (char *)&args[i].v.d;
+            break;
+        default:
+            FAIL(EINVAL);
+        }
+    }
     
     status = rule_eval(rule, &retval, (void **)argv, narg);
 
