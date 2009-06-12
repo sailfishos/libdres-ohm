@@ -123,13 +123,21 @@ vm_method_by_id(vm_state_t *vm, int id)
  * vm_method_default
  ********************/
 vm_action_t
-vm_method_default(vm_state_t *vm, vm_action_t handler)
+vm_method_default(vm_state_t *vm, vm_action_t handler, void **data)
 {
-    vm_action_t old = default_method.handler;
+    vm_action_t  old_handler = default_method.handler;
+    void        *old_data    = default_method.data;
 
     default_method.handler = handler;
-
-    return old;
+    
+    if (data != NULL) {
+        default_method.data = *data;
+        *data               = old_data;
+    }
+    else
+        default_method.data = NULL;
+    
+    return old_handler;
 
     (void)vm;
 }
@@ -142,6 +150,7 @@ int
 vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
 {
     vm_action_t       handler;
+    void             *data;
     vm_stack_entry_t *args = vm_args(vm->stack, narg);
     vm_stack_entry_t  retval;
     int               status;
@@ -151,7 +160,8 @@ vm_method_call(vm_state_t *vm, char *name, vm_method_t *m, int narg)
                  "CALL: failed to pop %d args for %s", narg, m->name);
     
     handler = m->handler ? m->handler : default_method.handler;
-    status  = handler(m->data, name, args, narg, &retval);
+    data    = m->handler ? m->data    : default_method.data;
+    status  = handler(data, name, args, narg, &retval);
     vm_stack_cleanup(vm->stack, narg);
     
     if (status > 0)

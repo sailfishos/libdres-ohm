@@ -472,6 +472,7 @@ int           dres_print_varref(dres_t *dres, dres_varref_t *vr,
 
 /* builtin.c */
 int dres_register_builtins(dres_t *dres);
+dres_handler_t dres_fallback_handler(dres_t *dres, dres_handler_t handler);
 
 
 /* ast.c */

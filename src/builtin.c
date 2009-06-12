@@ -4,6 +4,7 @@
 
 #include <ohm/ohm-fact.h>
 #include <dres/dres.h>
+#include <dres/compiler.h>
 #include "dres-debug.h"
 
 
@@ -64,11 +65,15 @@ dres_fallback_call(void *data, char *name,
 /********************
  * dres_fallback_handler
  ********************/
-int
+EXPORTED dres_handler_t
 dres_fallback_handler(dres_t *dres, dres_handler_t handler)
 {
+    dres_handler_t old;
+
+    old            = dres->fallback;
     dres->fallback = handler;
-    return 0;
+
+    return old;
 }
 
 
@@ -80,12 +85,14 @@ dres_register_builtins(dres_t *dres)
 {
     dres_builtin_t *b;
     int             status;
+    void           *data;
 
     for (b = builtins; b->name; b++)
         if ((status = dres_register_handler(dres, b->name, b->handler)) != 0)
             return status;
     
-    vm_method_default(&dres->vm, dres_fallback_call);
+    data = dres;
+    vm_method_default(&dres->vm, dres_fallback_call, &data);
     
     return 0;
 }

@@ -701,7 +701,8 @@ int          vm_method_set    (vm_state_t *vm, char *name,
 vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
 vm_method_t *vm_method_by_id  (vm_state_t *vm, int id);
 int          vm_method_id     (vm_state_t *vm, char *name);
-vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler);
+vm_action_t  vm_method_default(vm_state_t *vm, vm_action_t handler,
+                               void **data);
 int          vm_method_call   (vm_state_t *vm,
                                char *name, vm_method_t *m, int narg);
 void         vm_free_methods  (vm_state_t *vm);
