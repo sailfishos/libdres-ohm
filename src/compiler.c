@@ -471,20 +471,115 @@ compile_expr_varref(dres_t *dres, dres_expr_varref_t *expr, vm_chunk_t *code)
 
 
 static int
+compile_expr_or(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
+{
+    int brTX, brFT, brP1, err;
+
+    /* evaluate arg1 */
+    if (!compile_expr(dres, expr->arg1, code)) {
+        DRES_ERROR("%s: code generation failed", __FUNCTION__);
+        return FALSE;
+    }
+
+    /* branch to 'push 1' if arg1 was true */
+    brTX = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH_EQ, 0);
+    
+    /* evaluate arg2 */
+    if (!compile_expr(dres, expr->arg2, code)) {
+        DRES_ERROR("%s: code generation failed", __FUNCTION__);
+        return FALSE;
+    }
+
+    /* branch to 'push 1' if arg2 was true */
+    brFT = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH_EQ, 0);
+    
+    /* push 0 and jump to end (2 instructions, the size of push + branch) */
+    VM_INSTR_PUSH_INT(code, fail, err, 0);
+    brP1 = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH, 2);
+    VM_INSTR_PUSH_INT(code, fail, err, 1);
+    
+    VM_BRANCH_PATCH(code, brTX, fail, err, VM_BRANCH_EQ, brP1-brTX+1);
+    VM_BRANCH_PATCH(code, brFT, fail, err, VM_BRANCH_EQ, brP1-brFT+1);
+    return TRUE;
+
+ fail:
+    return FALSE;
+}
+
+
+static int
+compile_expr_and(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
+{
+    int brFX, brTF, brP0, err;
+
+    /* evaluate arg1 */
+    if (!compile_expr(dres, expr->arg1, code)) {
+        DRES_ERROR("%s: code generation failed", __FUNCTION__);
+        return FALSE;
+    }
+
+    /* branch to 'push 0' if arg1 was false */
+    brFX = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH_NE, 0);
+    
+    /* evaluate arg2 */
+    if (!compile_expr(dres, expr->arg2, code)) {
+        DRES_ERROR("%s: code generation failed", __FUNCTION__);
+        return FALSE;
+    }
+
+    /* branch to 'push 0' if arg2 was false */
+    brTF = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH_NE, 0);
+    
+    /* push 1 and jump to end (2 instructions, the size of push + branch) */
+    VM_INSTR_PUSH_INT(code, fail, err, 1);
+    brP0 = VM_INSTR_BRANCH(code, fail, err, VM_BRANCH, 2);
+    VM_INSTR_PUSH_INT(code, fail, err, 0);
+    
+    VM_BRANCH_PATCH(code, brFX, fail, err, VM_BRANCH_NE, brP0-brFX+1);
+    VM_BRANCH_PATCH(code, brTF, fail, err, VM_BRANCH_NE, brP0-brTF+1);
+    return TRUE;
+
+ fail:
+    return FALSE;
+}
+
+
+static int
+compile_expr_boolean(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
+{
+    
+    switch (expr->op) {
+    case DRES_RELOP_OR:  return compile_expr_or(dres, expr, code); break;
+    case DRES_RELOP_AND: return compile_expr_and(dres, expr, code); break;
+    default: FAIL("invalid boolean operator 0x%x", expr->op);
+    }
+
+ fail:
+    DRES_ERROR("%s: code generation failed", __FUNCTION__);
+    return FALSE;
+}
+
+
+static int
 compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
 {
     int err;
-    
-    if (expr->arg2)
-        if (!compile_expr(dres, expr->arg2, code))
-            FAIL("failed to generate code for relop argument");
 
-    if (!compile_expr(dres, expr->arg1, code))
-        FAIL("failed to generate code for relop argument");
     
-    VM_INSTR_CMP(code, fail, err, expr->op);
-    return TRUE;
+    if (expr->op == VM_RELOP_OR || expr->op == VM_RELOP_AND)
+        return compile_expr_boolean(dres, expr, code);
+    else {
+        if (expr->arg2)
+            if (!compile_expr(dres, expr->arg2, code))
+                FAIL("failed to generate code for relop argument");
+
+        if (!compile_expr(dres, expr->arg1, code))
+            FAIL("failed to generate code for relop argument");
     
+        VM_INSTR_CMP(code, fail, err, expr->op);
+        return TRUE;
+    }
+
  fail:
     DRES_ERROR("%s: code generation failed", __FUNCTION__);
     return FALSE;

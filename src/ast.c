@@ -50,6 +50,16 @@ dump_expr_relop(dres_t *dres, dres_expr_relop_t *expr)
     case DRES_RELOP_GT:  ARG1; printf(" > "); ARG2;  break;
     case DRES_RELOP_GE:  ARG1; printf(" >= "); ARG2; break;
     case DRES_RELOP_NOT: printf("!"); ARG1;          break;
+    case DRES_RELOP_OR:
+        printf("(");
+        ARG1; printf(" || "); ARG2;
+        printf(")");
+        break;
+    case DRES_RELOP_AND:
+        printf("(");
+        ARG1; printf(" && "); ARG2;
+        printf(")");
+        break;
     default: printf("<unknown relop of type 0x%x>", expr->op);
     }
 }

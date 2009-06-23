@@ -83,6 +83,7 @@ static char *current_prefix;
 %token           TOKEN_THEN "then"
 %token           TOKEN_ELSE "else"
 %token           TOKEN_END  "end"
+
 %token           TOKEN_EQ   "=="
 %token           TOKEN_NE   "!="
 %token           TOKEN_LT   "<"
@@ -90,6 +91,11 @@ static char *current_prefix;
 %token           TOKEN_GT   ">"
 %token           TOKEN_GE   ">="
 %token           TOKEN_NOT  "!"
+%token           TOKEN_OR   "||"
+%token           TOKEN_AND  "&&"
+
+%left TOKEN_EQ TOKEN_NE TOKEN_LT TOKEN_GT TOKEN_LE TOKEN_GE
+%left TOKEN_OR TOKEN_AND
 
 %token           TOKEN_UNKNOWN
 
@@ -619,10 +625,11 @@ args_by_value: expr { $$ = $1; }
      ;
 
 
-expr:  expr_const  { $$ = $1; }
-     | expr_varref { $$ = $1; }
-     | expr_relop  { $$ = $1; }
-     | expr_call   { $$ = $1; }
+expr:  expr_const   { $$ = $1; }
+     | expr_varref  { $$ = $1; }
+     | expr_relop   { $$ = $1; }
+     | expr_call    { $$ = $1; }
+     | "(" expr ")" { $$ = $2; }
      ;
 
 expr_const: TOKEN_INTEGER {
@@ -787,6 +794,32 @@ expr_relop: expr "<" expr {
                 op->op   = DRES_RELOP_NOT;
                 op->arg1 = $2;
                 op->arg2 = NULL;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr "||" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_OR;
+                op->arg1 = $1;
+                op->arg2 = $3;
+
+                $$ = (dres_expr_t *)op;
+            }
+            | expr "&&" expr {
+                dres_expr_relop_t *op = ALLOC(typeof(*op));
+
+                if (op == NULL)
+                    YYABORT;
+
+                op->type = DRES_EXPR_RELOP;
+                op->op   = DRES_RELOP_AND;
+                op->arg1 = $1;
+                op->arg2 = $3;
 
                 $$ = (dres_expr_t *)op;
             }

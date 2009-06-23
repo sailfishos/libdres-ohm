@@ -114,6 +114,9 @@ static int  ringoffs = 0;
      TOKEN_GE,
      TOKEN_NOT,
 
+     TOKEN_OR,
+     TOKEN_AND,
+
      TOKEN_UNKNOWN,
    };
    const char *tokenname[] = {
@@ -133,6 +136,8 @@ static int  ringoffs = 0;
        "<", "<=",
        ">", ">=",
        "!",
+
+       "OR", "AND"
 
        "<<UNKNOWN>>"
    };
@@ -289,6 +294,9 @@ end             { TOKEN(END);  }
 >=              { TOKEN(GE);          }
 >               { TOKEN(GT);          }
 !               { TOKEN(NOT);         }
+\|\|		{ TOKEN(OR);          }
+\&\&		{ TOKEN(AND);         }
+
 
 =		{ TOKEN(EQUAL);       }
 \+=             { TOKEN(APPEND);      }

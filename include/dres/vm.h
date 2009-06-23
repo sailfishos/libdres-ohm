@@ -348,6 +348,8 @@ typedef enum {
     VM_RELOP_GT,
     VM_RELOP_GE,
     VM_RELOP_NOT,
+    VM_RELOP_OR,
+    VM_RELOP_AND
 } vm_relop_t;
 
 #define VM_CMP_RELOP(instr) ((vm_relop_t)VM_OP_ARGS(instr))

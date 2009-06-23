@@ -155,6 +155,8 @@ typedef enum {
     DRES_RELOP_GT      = VM_RELOP_GT,
     DRES_RELOP_GE      = VM_RELOP_GE,
     DRES_RELOP_NOT     = VM_RELOP_NOT,
+    DRES_RELOP_OR      = VM_RELOP_OR,
+    DRES_RELOP_AND     = VM_RELOP_AND
 } dres_relop_t;
 
 typedef enum {
