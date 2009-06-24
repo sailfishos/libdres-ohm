@@ -1,3 +1,10 @@
+libdres (0.1.8) unstable; urgency=low
+
+  * Added support for boolean expressions.
+  * Allow rule evaluation with foo(arg1, arg2...) syntax in addition to prolog|rule(foo, arg1, arg2...).
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Wed, 24 Jun 2009 12:03:40 +0300
+
 libdres (0.1.7) unstable; urgency=low
 
   * Added support for negation (field:!value) in selectors.
