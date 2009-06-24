@@ -94,8 +94,9 @@ static char *current_prefix;
 %token           TOKEN_OR   "||"
 %token           TOKEN_AND  "&&"
 
-%left TOKEN_EQ TOKEN_NE TOKEN_LT TOKEN_GT TOKEN_LE TOKEN_GE
 %left TOKEN_OR TOKEN_AND
+%left TOKEN_EQ TOKEN_NE TOKEN_LT TOKEN_GT TOKEN_LE TOKEN_GE
+%nonassoc TOKEN_NOT
 
 %token           TOKEN_UNKNOWN
 
