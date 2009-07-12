@@ -112,6 +112,8 @@ BUILTIN_HANDLER(dres)
     int           status;
     const char   *info;
 
+    (void)name;
+
     if (narg < 1)
         goal = NULL;
     else {
@@ -147,8 +149,6 @@ BUILTIN_HANDLER(dres)
     rv->v.i  = status;
 
     return status;
-    
-    (void)name;
 }
 
 
@@ -202,6 +202,9 @@ BUILTIN_HANDLER(echo)
     FILE   *fp;
     char   *t;
     int     i;
+
+    (void)dres;
+    (void)name;
     
     fp = stdout;
 
@@ -240,9 +243,6 @@ BUILTIN_HANDLER(echo)
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
     DRES_ACTION_SUCCEED;
-
-    (void)dres;
-    (void)name;
 }
 
 
@@ -256,6 +256,9 @@ BUILTIN_HANDLER(fact)
     GValue       *value;
     char         *field;
     int           a, i, err;
+
+    (void)dres;
+    (void)name;
 
     if (narg < 1) {
         DRES_ERROR("builtin 'fact': called with no arguments");
@@ -323,10 +326,7 @@ BUILTIN_HANDLER(fact)
     if (g)
         vm_global_free(g);
     
-    DRES_ACTION_ERROR(err);
-    
-    (void)dres;
-    (void)name;
+    DRES_ACTION_ERROR(err);    
 }
 
 
@@ -345,6 +345,9 @@ BUILTIN_HANDLER(shell)
 BUILTIN_HANDLER(fail)
 {
     int err;
+
+    (void)data;
+    (void)name;
     
     if (narg > 0 && args[0].type == DRES_TYPE_INTEGER)
         err = args[0].v.i;
@@ -353,9 +356,6 @@ BUILTIN_HANDLER(fail)
     
     rv->type = DRES_TYPE_UNKNOWN;
     DRES_ACTION_ERROR(err);
-
-    (void)data;
-    (void)name;
 }
 
 
