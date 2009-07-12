@@ -1,3 +1,10 @@
+libdres (0.1.9) unstable; urgency=low
+
+  * Don't add variables or targets if we're resolving or running a precompiled file.
+  * Fix incorrect operator precedence.
+
+ -- K. Litkey <krisztian.litkey@nokia.com>  Mon, 13 Jul 2009 01:45:36 +0300
+
 libdres (0.1.8) unstable; urgency=low
 
   * Added support for boolean expressions.
