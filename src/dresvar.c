@@ -21,6 +21,10 @@ dres_add_dresvar(dres_t *dres, char *name)
     dres_variable_t *var;
     int              id;
 
+    /* don't create new vars if we resolve or run a precompiled file */
+    if (DRES_TST_FLAG(dres, TARGETS_FINALIZED) || DRES_TST_FLAG(dres, COMPILED))
+        return DRES_ID_NONE;
+    
     if (!REALLOC_ARR(dres->dresvars, dres->ndresvar, dres->ndresvar + 1))
         return DRES_ID_NONE;
 
@@ -49,11 +53,8 @@ dres_dresvar_id(dres_t *dres, char *name)
                 return var->id;
         }
     
-    /* kludgish: don't demand-create new vars once we're resolving */
-    if (!DRES_TST_FLAG(dres, TARGETS_FINALIZED))
-        return dres_add_dresvar(dres, name);
-    else
-        return DRES_ID_NONE;
+
+    return dres_add_dresvar(dres, name);
 }
 
 

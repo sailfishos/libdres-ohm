@@ -22,7 +22,10 @@ dres_add_target(dres_t *dres, char *name)
     dres_target_t *target;
     int            id;
 
-
+    /* don't create new vars if we resolve or run a precompiled file */
+    if (DRES_TST_FLAG(dres, TARGETS_FINALIZED) || DRES_TST_FLAG(dres, COMPILED))
+        return DRES_ID_NONE;
+    
     if (REALLOC_ARR(dres->targets, dres->ntarget, dres->ntarget + 1) == NULL)
         return DRES_ID_NONE;
 
