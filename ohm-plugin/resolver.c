@@ -416,11 +416,12 @@ DRES_ACTION(fallback_handler)
     retval    = NULL;
     rule_name = name;
 
-    if ((rule = rule_lookup(rule_name, narg + 1)) < 0)
+    if ((rule = rule_lookup(rule_name, narg + 1)) < 0) {
         if (unknown_handler)
             return unknown_handler(data, name, args, narg, rv);
         else
             DRES_ACTION_ERROR(EINVAL);
+    }
     
     for (i = 0; i < narg; i++) {
         switch (args[i].type) {
