@@ -50,6 +50,7 @@ static char *current_prefix;
 
     dres_stmt_t        *statement;
     dres_expr_t        *expression;
+    dres_op_t           dresop;
 }
 
 %defines
@@ -126,7 +127,7 @@ static char *current_prefix;
 %type <expression>  expr_relop
 %type <expression>  expr_call
 %type <expression>  args_by_value
-
+%type <dresop>      select_op
 
 %%
 
@@ -206,35 +207,75 @@ sfields: sfield { $$ = $1; }
         ;
 
 
-sfield: TOKEN_IDENT ":" TOKEN_INTEGER {
+sfield: TOKEN_IDENT select_op TOKEN_INTEGER {
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
-	    $$->op = DRES_OP_EQ;
+	    $$->op = $2;
             $$->field.name = STRDUP($1);
             $$->field.value.type = DRES_TYPE_INTEGER;
 	    $$->field.value.v.i  = $3;
         }
-        | TOKEN_IDENT ":" TOKEN_DOUBLE {
+	| TOKEN_INTEGER select_op TOKEN_INTEGER {
+	    char field[64];
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
-	    $$->op = DRES_OP_EQ;
+	    $$->op = $2;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
+            $$->field.value.type = DRES_TYPE_INTEGER;
+	    $$->field.value.v.i  = $3;
+        }
+        | TOKEN_IDENT select_op TOKEN_DOUBLE {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
             $$->field.name = STRDUP($1);
             $$->field.value.type = DRES_TYPE_DOUBLE;
 	    $$->field.value.v.d  = $3;
         }
-        | TOKEN_IDENT ":" TOKEN_STRING {
+        | TOKEN_INTEGER select_op TOKEN_DOUBLE {
+	    char field[64];
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
-	    $$->op = DRES_OP_EQ;
+	    $$->op = $2;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
+            $$->field.value.type = DRES_TYPE_DOUBLE;
+	    $$->field.value.v.d  = $3;
+        }
+        | TOKEN_IDENT select_op TOKEN_STRING {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
             $$->field.name = STRDUP($1);
             $$->field.value.type = DRES_TYPE_STRING;
             $$->field.value.v.s  = STRDUP($3);
         }
-        | TOKEN_IDENT ":" TOKEN_IDENT {
+        | TOKEN_INTEGER select_op TOKEN_STRING {
+	    char field[64];
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
-	    $$->op = DRES_OP_EQ;
+	    $$->op = $2;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($3);
+        }
+        | TOKEN_IDENT select_op TOKEN_IDENT {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
             $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_STRING;
+            $$->field.value.v.s  = STRDUP($3);
+        }
+        | TOKEN_INTEGER select_op TOKEN_IDENT {
+	    char field[64];
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
             $$->field.value.type = DRES_TYPE_STRING;
             $$->field.value.v.s  = STRDUP($3);
         }
@@ -246,43 +287,31 @@ sfield: TOKEN_IDENT ":" TOKEN_INTEGER {
 	    $$->field.value.type = DRES_TYPE_UNKNOWN;
 	    $$->field.value.v.i  = 0;
 	}
-	| TOKEN_IDENT ":" "!" TOKEN_INTEGER {
+	| TOKEN_INTEGER {
+	    char field[64];
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
-	    $$->op = DRES_OP_NEQ;
-            $$->field.name = STRDUP($1);
-            $$->field.value.type = DRES_TYPE_INTEGER;
-	    $$->field.value.v.i  = $4;
-        }
-        | TOKEN_IDENT ":" "!" TOKEN_DOUBLE {
-	    if (($$ = ALLOC(dres_select_t)) == NULL)
-	        YYABORT;
-	    $$->op = DRES_OP_NEQ;
-            $$->field.name = STRDUP($1);
-            $$->field.value.type = DRES_TYPE_DOUBLE;
-	    $$->field.value.v.d  = $4;
-        }
-        | TOKEN_IDENT ":" "!" TOKEN_STRING {
-	    if (($$ = ALLOC(dres_select_t)) == NULL)
-	        YYABORT;
-	    $$->op = DRES_OP_NEQ;
-            $$->field.name = STRDUP($1);
-            $$->field.value.type = DRES_TYPE_STRING;
-            $$->field.value.v.s  = STRDUP($4);
-        }
-        | TOKEN_IDENT ":" "!" TOKEN_IDENT {
-	    if (($$ = ALLOC(dres_select_t)) == NULL)
-	        YYABORT;
-	    $$->op = DRES_OP_NEQ;
-            $$->field.name = STRDUP($1);
-            $$->field.value.type = DRES_TYPE_STRING;
-            $$->field.value.v.s  = STRDUP($4);
-        }
+	    $$->op = DRES_OP_UNKNOWN;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
+	    $$->field.value.type = DRES_TYPE_UNKNOWN;
+	    $$->field.value.v.i  = 0;
+	}
         ;
 
+select_op: ":" "!" { $$ = DRES_OP_NEQ; }
+        |  ":"     { $$ = DRES_OP_EQ;  }
+        ;
 
 field: TOKEN_IDENT ":" TOKEN_INTEGER {
             $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_INTEGER;
+	    $$.value.v.i  = $3;
+        }
+        | TOKEN_INTEGER ":" TOKEN_INTEGER {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
             $$.value.type = DRES_TYPE_INTEGER;
 	    $$.value.v.i  = $3;
         }
@@ -291,8 +320,22 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
             $$.value.type = DRES_TYPE_DOUBLE;
 	    $$.value.v.d  = $3;
         }
+        | TOKEN_INTEGER ":" TOKEN_DOUBLE {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
+            $$.value.type = DRES_TYPE_DOUBLE;
+	    $$.value.v.d  = $3;
+        }
         | TOKEN_IDENT ":" TOKEN_STRING {
             $$.name = STRDUP($1);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP($3);
+        }
+        | TOKEN_INTEGER ":" TOKEN_STRING {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
             $$.value.type = DRES_TYPE_STRING;
             $$.value.v.s  = STRDUP($3);
         }
@@ -301,13 +344,34 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
             $$.value.type = DRES_TYPE_STRING;
             $$.value.v.s  = STRDUP($3);
         }
+        | TOKEN_INTEGER ":" TOKEN_IDENT {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP($3);
+        }
         | TOKEN_IDENT ":" {
             $$.name = STRDUP($1);
             $$.value.type = DRES_TYPE_STRING;
             $$.value.v.s  = STRDUP("");
         }
+        | TOKEN_INTEGER ":" {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
+            $$.value.type = DRES_TYPE_STRING;
+            $$.value.v.s  = STRDUP("");
+        }
 	| TOKEN_IDENT {
 	    $$.name = STRDUP($1);
+	    $$.value.type = DRES_TYPE_UNKNOWN;
+	    $$.value.v.i  = 0;
+	}
+	| TOKEN_INTEGER {
+	    char field[64];
+            snprintf(field, sizeof(field), "%d", $1);
+            $$.name = STRDUP(field);
 	    $$.value.type = DRES_TYPE_UNKNOWN;
 	    $$.value.v.i  = 0;
 	}
@@ -354,6 +418,13 @@ varref: TOKEN_FACTVAR {
             $$.variable = dres_factvar_id(dres, FQFN($1));
             $$.selector = NULL;
             $$.field    = STRDUP($3);
+        }
+        | TOKEN_FACTVAR ":" TOKEN_INTEGER {
+	    char field[64];
+            $$.variable = dres_factvar_id(dres, FQFN($1));
+            $$.selector = NULL;
+	    snprintf(field, sizeof(field), "%d", $3);
+            $$.field    = STRDUP(field);
         }
         | TOKEN_FACTVAR "[" sfields "]" {
             $$.variable = dres_factvar_id(dres, FQFN($1));
