@@ -1,6 +1,6 @@
 libdres (0.1.10) unstable; urgency=low
 
-  * support for 'delayed_execution' method
+  * Support for 'delayed_execution' method.
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sat, 25 Jul 2009 21:15:00 +0300
 
