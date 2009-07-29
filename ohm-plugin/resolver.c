@@ -33,13 +33,15 @@
 
 
 /* debug flags */
-static int DBG_RESOLVE, DBG_PROLOG, DBG_SIGNAL, DBG_FACTS;
+static int DBG_RESOLVE, DBG_PROLOG, DBG_SIGNAL, DBG_FACTS, DBG_DELAY;
 
 OHM_DEBUG_PLUGIN(resolver,
     OHM_DEBUG_FLAG("resolver", "dependency resolving", &DBG_RESOLVE),
     OHM_DEBUG_FLAG("prolog"  , "prolog handler"      , &DBG_PROLOG),
     OHM_DEBUG_FLAG("signal"  , "decision emission"   , &DBG_SIGNAL),
-    OHM_DEBUG_FLAG("facts"   , "fact handling"       , &DBG_FACTS));
+    OHM_DEBUG_FLAG("facts"   , "fact handling"       , &DBG_FACTS),
+    OHM_DEBUG_FLAG("delay"   , "delayed execution"   , &DBG_DELAY)
+);
 
 
 /* rule engine methods */
@@ -70,23 +72,36 @@ static dres_handler_t unknown_handler;
 
 /* signaling */
 typedef void (*completion_cb_t)(int transid, int success);
+typedef void (*delay_cb_t)(char *id, char *argt, void **argv);
 
-OHM_IMPORTABLE(int, signal_changed,(char *signal, int transid,
-                                    int factc, char **factv,
-                                    completion_cb_t callback,
-                                    unsigned long timeout));
+OHM_IMPORTABLE(int, signal_changed,    (char *signal, int transid,
+                                        int factc, char **factv,
+                                        completion_cb_t callback,
+                                        unsigned long timeout));
+OHM_IMPORTABLE(void, completion_cb,    (int transid, int success));
 
-OHM_IMPORTABLE(void, completion_cb, (int transid, int success));
+OHM_IMPORTABLE(int, delay_execution,   (unsigned long delay, char *id,
+                                        int restart, char *cb_name,
+                                        delay_cb_t cb,char *argt,void **argv));
+OHM_IMPORTABLE(int, delay_cancel,      (char *id));
+OHM_IMPORTABLE(void, delay_cb,         (char *name, char *argt, void **argv));
+
+static void delayed_resolve(char *id, char *argt, void **argv);
 
 static void dump_signal_changed_args(char *signame, int transid, int factc,
                                      char**factv, completion_cb_t callback,
                                      unsigned long timeout);
+static void dump_delayed_execution_args(char *function, int delay, char * id,
+                                        char *cb_name, char *argt,void **argv);
+
 static int  retval_to_facts(char ***objects, OhmFact **facts, int max);
 
 
 
 DRES_ACTION(rule_handler);
 DRES_ACTION(signal_handler);
+DRES_ACTION(delay_handler);
+DRES_ACTION(cancel_handler);
 DRES_ACTION(fallback_handler);
 
 static dres_t *dres;
@@ -97,10 +112,12 @@ typedef struct {
 } handler_t;
 
 static handler_t handlers[] = {
-    { "prolog"        , rule_handler,   },
-    { "rule"          , rule_handler,   },
-    { "signal_changed", signal_handler, },
-    { NULL, NULL }
+    { "prolog"         , rule_handler   },
+    { "rule"           , rule_handler   },
+    { "signal_changed" , signal_handler },
+    { "delay_execution", delay_handler  },
+    { "delay_cancel"   , cancel_handler },
+    { NULL             , NULL           }
 };
 
 
@@ -390,6 +407,7 @@ DRES_ACTION(rule_handler)
     DRES_ACTION_ERROR(status);
 
 #undef MAX_FACTS
+#undef MAX_ARGS
 }
 
 
@@ -476,16 +494,15 @@ DRES_ACTION(fallback_handler)
     DRES_ACTION_ERROR(status);
 
 #undef MAX_FACTS
+#undef MAX_ARGS
 }
 
 
-/********************
- * signal_handler
- ********************/
-DRES_ACTION(signal_handler)
-{
-#define GET_ARG(var, n, f, t, def) do {          \
-        if (args[(n)].type != t)                 \
+/**************************************
+ * macros to fetch arguments
+ **************************************/
+#define GET_ARG(var, n, f, t) do {               \
+        if (args[(n)].type == t)                 \
             (var) = args[(n)].v.f;               \
         else                                     \
             DRES_ACTION_ERROR(EINVAL);           \
@@ -504,6 +521,12 @@ DRES_ACTION(signal_handler)
         }                                                               \
     } while (0)
 
+
+/********************
+ * signal_handler
+ ********************/
+DRES_ACTION(signal_handler)
+{
 #define MAX_FACTS  64
 #define MAX_LENGTH 64
 #define TIMEOUT    (5 * 1000)
@@ -614,6 +637,225 @@ DRES_ACTION(signal_handler)
 }
 
 
+/********************
+ * delay_handler
+ ********************/
+DRES_ACTION(delay_handler)
+{
+#define MAX_ARGS   64
+
+    char        *signature = (char *)delay_cb_SIGNATURE;
+    int          delay;
+    char        *delay_str;
+    char        *id;
+    char        *cb_name;
+    delay_cb_t   cb;
+    char         argt[MAX_ARGS + 1];
+    void        *argv[MAX_ARGS];
+    int          i;
+    vm_global_t *g;
+    const char  *nm;
+    char        *e;
+    int          success;
+
+    (void)name;
+    (void)data;
+    
+    if (narg < 3)
+        DRES_ACTION_ERROR(EINVAL);
+    
+    switch (args[0].type) {
+
+    case DRES_TYPE_INTEGER:
+        delay = args[0].v.i;
+        break;
+
+    case DRES_TYPE_STRING:
+        GET_STRING(0, delay_str, "_");
+        delay = strtol(delay_str, &e, 10);
+
+        if (*delay_str && !*e)
+            break;
+
+        /* intentional fall trough */
+    default:
+        DRES_ACTION_ERROR(EINVAL);
+        break;
+    }
+   
+    GET_STRING  (1, id, "<unknown>");
+    GET_STRING  (2, cb_name, "");
+    
+
+    args += 3;
+    narg -= 3;
+
+    if (delay < 0 || delay > 3600000 || narg > MAX_ARGS)
+        DRES_ACTION_ERROR(EINVAL);
+    
+    /*
+     * This approach assumes that no module get unloaded. IMHO this is good
+     * compromise between multiple lookups of the same CB routine and the
+     * assumption that nothing disappears from under us
+     * In additition it provides a convenient way to hide the dirty details
+     * of the 'resolve' method and alike
+     */
+
+    if (!strcmp(cb_name, "resolve")) {
+        /* check the arglist wheter it starts with a rule name
+           and the rest is series of name,value pairs */
+
+        if (!(narg & 1) || narg < 1 || args[0].type != DRES_TYPE_STRING)
+            DRES_ACTION_ERROR(EINVAL);
+
+        for (i = 1; i < narg-1; i += 2) {
+            if (args[i].type != DRES_TYPE_STRING)
+                DRES_ACTION_ERROR(EINVAL);
+        }
+
+        cb = delayed_resolve;
+    }
+    else if (!ohm_module_find_method(cb_name, &signature, (void *)&cb)) {
+        OHM_DEBUG(DBG_DELAY, "could not resolve callback '%s'", cb_name);
+        DRES_ACTION_ERROR(EINVAL);
+    }
+
+    memset(argt, 0, sizeof(argt));
+
+    for (i = 0; i < narg; i++) {
+        switch (args[i].type) {
+
+        case DRES_TYPE_FACTVAR:
+            g = args[i].v.g;
+
+            if (g->nfact < 1)
+                break;
+            if (!(nm = ohm_structure_get_name(OHM_STRUCTURE(g->facts[0]))))
+                break;
+     
+            argt[i] = 's';
+            argv[i] = (void *)nm;
+            break;
+
+        case DRES_TYPE_NIL:
+            argt[i] = 's';
+            argv[i] = "";
+            break;
+
+        case DRES_TYPE_STRING:
+            argt[i] = 's';
+            argv[i] = args[i].v.s;
+            break;
+
+        case DRES_TYPE_INTEGER:
+            argt[i] = 'i';
+            argv[i] = &args[i].v.i;
+            break;
+
+        case DRES_TYPE_DOUBLE:
+            argt[i] = 'f';
+            argv[i] = &args[i].v.d;
+            break;
+
+        default:
+            OHM_INFO("We are fucked up");
+            DRES_ACTION_ERROR(EINVAL);
+            break;
+        }
+        
+    }
+
+    dump_delayed_execution_args("delay_execution", delay, id,
+                                cb_name, argt, argv);
+
+    success = delay_execution(delay, id, TRUE, cb_name, cb, argt, argv);
+
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = 0;
+
+    if (success)
+        DRES_ACTION_SUCCEED;
+    else
+        DRES_ACTION_ERROR(EIO);
+
+#undef MAX_ARGS
+}
+
+
+/********************
+ * cancel_handler
+ ********************/
+DRES_ACTION(cancel_handler)
+{
+    char        *id;
+    int          success;
+
+    (void)name;
+    (void)data;
+    
+    if (narg != 1)
+        DRES_ACTION_ERROR(EINVAL);
+    
+    GET_STRING(0, id, "<unknown>");
+
+
+    OHM_DEBUG(DBG_DELAY, "calling delay_cancel('%s')", id);
+
+    success = delay_cancel(id);
+
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = 0;
+
+    if (success)
+        DRES_ACTION_SUCCEED;
+    else
+        DRES_ACTION_ERROR(EIO);
+
+}
+
+static void delayed_resolve(char *id, char *argt, void **argv)
+{
+#define MAX_ARG 64
+
+    int   argc;
+    char *target;
+    char *vars[MAX_ARG * 3];
+    int   i, j;
+    
+
+    if (id && argt && argv) {
+        argc = strlen(argt);
+
+        if (argc > 0 && argc < MAX_ARG && (argc & 1) && argt[0] == 's') {
+            target = argv[0];
+
+            dump_delayed_execution_args("delayed_resolve", -1, id,
+                                        "resolve", argt, argv);
+
+            for (i = 1, j = 0;   i < argc;   i += 2) {
+                if (argt[i] != 's')
+                    goto failed;
+
+                vars[j++] = (char *)argv[i];
+                vars[j++] = (char *)((int)argt[i+1]);
+                vars[j++] = (char *)argv[i+1];
+            }
+
+            vars[j++] = NULL;
+
+            update_goal(target, vars);
+
+            return;
+        }
+    }
+
+
+ failed:
+    OHM_DEBUG(DBG_DELAY, "invalid argument list");
+
+
+#undef MAX_ARG
+}
 
 
 static void dump_signal_changed_args(char *signame, int transid, int factc,
@@ -629,6 +871,27 @@ static void dump_signal_changed_args(char *signame, int transid, int factc,
         OHM_DEBUG(DBG_SIGNAL, "   fact[%d]: '%s'", i, factv[i]);
 }
 
+static void dump_delayed_execution_args(char *function, int delay, char * id, 
+                                        char *cb_name, char *argt, void **argv)
+{
+    char  buf[256];
+    int   i,n;
+
+    OHM_DEBUG(DBG_DELAY, "calling %s(%d, '%s', 1, %s, '%s', %p)",
+              function, delay, id, cb_name, argt, argv);
+
+    for (i = 0, n = strlen(argt);   i < n;   i++) {
+
+        switch (argt[i]) {
+        case 's':  snprintf(buf, sizeof(buf), "%s", (char *)argv[i]);    break;
+        case 'i':  snprintf(buf, sizeof(buf), "%d", *(int *)argv[i]);    break;
+        case 'f':  snprintf(buf, sizeof(buf), "%lf", *(double*)argv[i]); break;
+        default:   snprintf(buf, sizeof(buf), "<invalid>");              break;
+        }
+
+        OHM_DEBUG(DBG_DELAY, "   argv[%d]: %s", i, buf);
+    }
+}
 
 
 /*****************************************************************************
@@ -675,11 +938,12 @@ rule_lookup(const char *name, int arity)
 
 
 
-
+#define MAX_ARGS  (32*2)
 
 #include "console.c"
 #include "factstore.c"
- 
+
+#undef MAX_ARGS 
 
 
 OHM_PLUGIN_DESCRIPTION("dres",
@@ -694,7 +958,7 @@ OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
     OHM_EXPORT(update_goal, "resolve")
 );
 
-OHM_PLUGIN_REQUIRES_METHODS(dres, 8,
+OHM_PLUGIN_REQUIRES_METHODS(dres, 10,
     OHM_IMPORT("rule_engine.find"      , rule_find),
     OHM_IMPORT("rule_engine.eval"      , rule_eval),
     OHM_IMPORT("rule_engine.free"      , rules_free_result),
@@ -703,7 +967,10 @@ OHM_PLUGIN_REQUIRES_METHODS(dres, 8,
     OHM_IMPORT("rule_engine.trace"     , rules_trace),
     OHM_IMPORT("rule_engine.statistics", rule_statistics),
 
-    OHM_IMPORT("signaling.signal_changed", signal_changed)
+    OHM_IMPORT("signaling.signal_changed", signal_changed),
+
+    OHM_IMPORT("delay.delay_execution", delay_execution),
+    OHM_IMPORT("delay.delay_cancel"   , delay_cancel)
 );
 
                             
