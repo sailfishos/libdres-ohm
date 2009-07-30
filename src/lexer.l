@@ -21,6 +21,7 @@
 
 static int lexer_push_include(char *path);
 static int lexer_pop_include (void);
+static int yywrap(void);
 
 
 /*
@@ -384,6 +385,10 @@ lexer_lineno(void)
 }
 
 
+static int yywrap(void)
+{
+    return 1;
+}
 
 
 #ifdef __TEST_LEXER__

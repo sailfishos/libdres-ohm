@@ -35,7 +35,7 @@ lexer_test_LDADD   = -lfl
 
 parser_test_SOURCES = parser-test.c
 parser_test_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
-parser_test_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
+parser_test_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ -lm
 
 INCLUDES = -I$(top_builddir)/include
 
