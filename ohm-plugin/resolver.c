@@ -304,14 +304,20 @@ rules_exit(void)
  ********************/
 OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
 {
-    int success;
+    int   status;
+    char *result;
 
-    OHM_DEBUG(DBG_RESOLVE, "resolving goal %s", goal);
-    success = dres_update_goal(dres, goal, locals);
-    OHM_DEBUG(DBG_RESOLVE, "resolving goal %s %s", goal,
-              success ? "succeeded" : "failed");
+    OHM_DEBUG(DBG_RESOLVE, "resolving goal '%s'", goal);
 
-    return success;
+    status = dres_update_goal(dres, goal, locals);
+
+    if      (status >  0) result = "succeeded";
+    else if (status == 0) result = "failed";
+    else                  result = "failed with an exception";
+
+    OHM_DEBUG(DBG_RESOLVE, "resolving goal '%s' %s", goal, result);
+    
+    return status;
 }
 
 
