@@ -1,5 +1,11 @@
 libdres (0.1.10) unstable; urgency=low
 
+  * Bumping version number for a full policy release
+
+ -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sat, 25 Jul 2009 21:15:00 +0300
+
+libdres (0.1.10) unstable; urgency=low
+
   * Support for 'delayed_execution' method.
 
  -- Janos Kovacs <janos.f.kovacs@nokia.com>  Sat, 25 Jul 2009 21:15:00 +0300
