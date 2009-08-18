@@ -1,3 +1,9 @@
+libdres (0.1.11) unstable; urgency=low
+
+  * Support dynamically registrable additional commands.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Tue, 18 Aug 2009 15:32:13 +0300
+
 libdres (0.1.10) unstable; urgency=low
 
   * Support for 'delayed_execution' method.
