@@ -960,8 +960,9 @@ OHM_PLUGIN_DESCRIPTION("dres",
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_PROVIDES_METHODS(dres, 1,
-    OHM_EXPORT(update_goal, "resolve")
+OHM_PLUGIN_PROVIDES_METHODS(dres, 2,
+    OHM_EXPORT(update_goal, "resolve"),
+    OHM_EXPORT(add_command, "add_command")
 );
 
 OHM_PLUGIN_REQUIRES_METHODS(dres, 10,

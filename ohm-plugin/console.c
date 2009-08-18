@@ -13,6 +13,7 @@ OHM_IMPORTABLE(int, console_close , (int id));
 OHM_IMPORTABLE(int, console_grab  , (int id, int fd));
 OHM_IMPORTABLE(int, console_ungrab, (int id, int fd));
 
+
 /* console event handlers */
 static void console_opened (int id, struct sockaddr *peer, int peerlen);
 static void console_closed (int id);
@@ -38,6 +39,22 @@ static void command_release(int id, char *input);
 static void command_debug  (int id, char *input);
 static void command_log    (int id, char *input);
 static void command_statistics(int id, char *input);
+
+typedef struct {
+    char  *name;
+    void (*handler)(char *);
+} extension_t;
+
+static void extension_init(void);
+static void extension_exit(void);
+static extension_t *extension_find(char *name);
+static void         extension_run(int id, extension_t *ext, char *command);
+
+static extension_t *extensions = NULL;
+static int          nextension = 0;
+static int          grabbed    = FALSE;
+
+
 
 #define COMMAND(c, a, d) {                                      \
     name:       #c,                                             \
@@ -67,6 +84,7 @@ static int console;
 static char prefix[128];
 
 
+
 /********************
  * console_init
  ********************/
@@ -79,6 +97,8 @@ console_init(char *address)
             signature = (char *)ptr##_SIGNATURE;                        \
             ohm_module_find_method((name), &signature, (void *)(ptr));  \
         })
+
+    extension_init();
     
     if (!strcmp(address, "disabled")) {
         OHM_INFO("resolver: console disabled");
@@ -125,6 +145,8 @@ console_exit(void)
 #endif
     
     console = 0;
+
+    extension_exit();
 }
 
 
@@ -144,7 +166,7 @@ console_opened(int id, struct sockaddr *peer, int peerlen)
 
     OHM_INFO("new console 0x%x opened", id);
 
-    console_printf(id, "OHMng Dependency Resolver Console\n");
+    console_printf(id, "OHM Policy Debug Console\n");
     console_printf(id, "Type help to get a list of available commands.\n\n");
     console_printf(id, CONSOLE_PROMPT);
 }
@@ -169,6 +191,7 @@ console_input(int id, char *input, void *data)
     static char last[256] = "\0";
 
     command_t    *command;
+    extension_t  *extension;
     char          name[64], *args, *s, *d;
     unsigned int  n;
 
@@ -197,8 +220,12 @@ console_input(int id, char *input, void *data)
 
     if ((command = find_command(name)) != NULL)
         command->handler(id, args);
-    else
-        console_printf(id, "unknown console command \"%s\"\n", input);
+    else {
+        if ((extension = extension_find(name)) != NULL)
+            extension_run(id, extension, args);
+        else
+            console_printf(id, "unknown console command \"%s\"\n", input);
+    }
     
     if (strcmp(input, REDO_LAST)) {
         strncpy(last, input, sizeof(last) - 1);
@@ -213,6 +240,99 @@ console_input(int id, char *input, void *data)
 /*****************************************************************************
  *                       *** console command handlers ***                    *
  *****************************************************************************/
+
+/********************
+ * extension_init
+ ********************/
+static void
+extension_init(void)
+{
+    extensions = NULL;
+    nextension = 0;
+}
+
+
+/********************
+ * extension_exit
+ ********************/
+static void
+extension_exit(void)
+{
+    int i;
+
+    for (i = 0; i < nextension; i++)
+        FREE(extensions[i].name);
+
+    FREE(extensions);
+    extensions = NULL;
+    nextension = 0;
+}
+
+
+/********************
+ * extension_find
+ ********************/
+static extension_t *
+extension_find(char *name)
+{
+    int i;
+    
+    for (i = 0; i < nextension; i++)
+        if (!strcmp(extensions[i].name, name))
+            return extensions + i;
+
+    return NULL;
+}
+
+
+/********************
+ * extension_add
+ ********************/
+static int
+extension_add(char *name, void (*handler)(char *))
+{
+
+    if (extension_find(name) != NULL || find_command(name) != NULL)
+        return FALSE;
+    
+    if (REALLOC_ARR(extensions, nextension, nextension + 1) == NULL)
+        return FALSE;
+    else {
+        extensions[nextension].name    = STRDUP(name);
+        extensions[nextension].handler = handler;
+        nextension++;
+        return TRUE;
+    }
+}
+
+
+/********************
+ * extension_run
+ ********************/
+static void
+extension_run(int id, extension_t *extension, char *command)
+{
+    int release;
+
+    if (!grabbed) {
+        command_grab(id, "");
+        release = TRUE;
+    }
+
+    extension->handler(command);
+
+    if (release)
+        command_release(id, "");
+}
+
+
+/********************
+ * add_command
+ ********************/
+OHM_EXPORTABLE(int, add_command, (char *name, void (*handler)(char *)))
+{
+    return extension_add(name, handler);
+}
 
 
 /********************
@@ -398,9 +518,12 @@ command_grab(int id, char *input)
 {
     (void)input;
 
-    console_grab(id, 0);
-    console_grab(id, 1);
-    console_grab(id, 2);
+    if (!grabbed) {
+        console_grab(id, 0);
+        console_grab(id, 1);
+        console_grab(id, 2);
+        grabbed = TRUE;
+    }
 }
 
 /********************
@@ -411,9 +534,12 @@ command_release(int id, char *input)
 {
     (void)input;
 
-    console_ungrab(id, 0);
-    console_ungrab(id, 1);
-    console_ungrab(id, 2);
+    if (grabbed) {
+        console_ungrab(id, 0);
+        console_ungrab(id, 1);
+        console_ungrab(id, 2);
+        grabbed = FALSE;
+    }
 }
 
 
@@ -529,6 +655,7 @@ command_help(int id, char *input)
 {
     command_t *c;
     char       syntax[128];
+    int        i, release;
 
     (void)input;
 
@@ -536,6 +663,23 @@ command_help(int id, char *input)
     for (c = commands; c->name != NULL; c++) {
         sprintf(syntax, "%s%s%s", c->name, c->args ? " ":"", c->args ?: ""); 
         console_printf(id, "    %-30.30s %s\n", syntax, c->description);
+    }
+
+    if (nextension > 0) {
+        console_printf(id, "Additional commands:\n");
+
+        if (!grabbed) {
+            command_grab(id, "");
+            release = TRUE;
+        }
+        
+        for (i = 0; i < nextension; i++) {
+            console_printf(id, "%s:\n", extensions[i].name);
+            extensions[i].handler("help");
+        }
+        
+        if (release)
+            command_release(id, "");
     }
 }
 
