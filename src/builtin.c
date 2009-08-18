@@ -16,6 +16,9 @@
 BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
+#if 0
+BUILTIN_HANDLER(info);
+#endif
 BUILTIN_HANDLER(fact);
 BUILTIN_HANDLER(shell);
 BUILTIN_HANDLER(fail);
@@ -31,6 +34,9 @@ static dres_builtin_t builtins[] = {
     BUILTIN(dres),
     BUILTIN(resolve),
     BUILTIN(echo),
+#if 0
+    BUILTIN(info),
+#endif
     BUILTIN(fact),
     BUILTIN(shell),
     BUILTIN(fail),
@@ -244,6 +250,55 @@ BUILTIN_HANDLER(echo)
     rv->v.i  = 0;
     DRES_ACTION_SUCCEED;
 }
+
+
+#if 0
+/********************
+ * dres_builtin_info
+ ********************/
+BUILTIN_HANDLER(info)
+{
+    dres_t *dres = (dres_t *)data;
+    FILE   *fp;
+    char   *t;
+    int     i;
+
+    (void)dres;
+    (void)name;
+    
+    t = "";
+    for (i = 0; i < narg; i++) {
+        switch (args[i].type) {
+        case DRES_TYPE_STRING:
+            dres_log(DRES_LOG_INFO, "%s%s", t, args[i].v.s);
+            break;
+        case DRES_TYPE_NIL:
+            dres_log(DRES_LOG_INFO, "%s<nil>", t);
+            break;
+        case DRES_TYPE_INTEGER:
+            dres_log(DRES_LOG_INFO, "%s%d", t, args[i].v.i);
+            break;
+        case DRES_TYPE_DOUBLE:
+            dres_log(DRES_LOG_INFO, "%s%f", t, args[i].v.d);
+            break;
+        case DRES_TYPE_FACTVAR:
+            dres_log(DRES_LOG_INFO, "** TODO: info printing of facts **");
+#if 0
+            dres_log(DRES_LOG_INFO, "%s", t);
+            vm_global_print(fp, args[i].v.g);
+#endif
+            break;
+        default:
+            dres_log(DRES_LOG_INFO, "<unknown>");
+        }
+        t = " ";
+    }
+    
+    rv->type = DRES_TYPE_INTEGER;
+    rv->v.i  = 0;
+    DRES_ACTION_SUCCEED;
+}
+#endif
 
 
 /********************
