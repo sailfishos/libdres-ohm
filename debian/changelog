@@ -1,3 +1,9 @@
+libdres (0.1.13) unstable; urgency=low
+
+  * Allow for local variable references as selector field values.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Wed, 16 Sep 2009 18:32:35 +0300
+
 libdres (0.1.12) unstable; urgency=low
 
   * Support dynamically registrable additional commands.
