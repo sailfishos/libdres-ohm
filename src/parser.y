@@ -279,6 +279,24 @@ sfield: TOKEN_IDENT select_op TOKEN_INTEGER {
             $$->field.value.type = DRES_TYPE_STRING;
             $$->field.value.v.s  = STRDUP($3);
         }
+        | TOKEN_IDENT select_op TOKEN_DRESVAR {
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
+            $$->field.name = STRDUP($1);
+            $$->field.value.type = DRES_TYPE_DRESVAR;
+            $$->field.value.v.id = dres_dresvar_id(dres, $3);
+        }
+        | TOKEN_INTEGER select_op TOKEN_DRESVAR {
+	    char field[64];
+	    if (($$ = ALLOC(dres_select_t)) == NULL)
+	        YYABORT;
+	    $$->op = $2;
+	    snprintf(field, sizeof(field), "%d", $1);
+            $$->field.name = STRDUP(field);
+            $$->field.value.type = DRES_TYPE_DRESVAR;
+            $$->field.value.v.id = dres_dresvar_id(dres, $3);
+        }
 	| TOKEN_IDENT {
 	    if (($$ = ALLOC(dres_select_t)) == NULL)
 	        YYABORT;
