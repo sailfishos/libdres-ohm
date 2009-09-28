@@ -506,6 +506,7 @@ typedef struct vm_catch_s vm_catch_t;
 struct vm_catch_s {
     jmp_buf         location;                  /* catch exceptions here */
     int             depth;                     /* stack depth upon entry */
+    vm_scope_t     *scope;                     /* locals upon entry */
     vm_exception_t  exception;                 /* exception details */
     vm_catch_t     *prev;                      /* previous entry if any */
 };
@@ -533,6 +534,7 @@ struct vm_catch_s {
         VM_RESET_EXCEPTION(&__catch.exception);                         \
         __catch.prev  = vm->catch;                                      \
         __catch.depth = vm->stack ? vm->stack->nentry : 0;              \
+        __catch.scope = vm->scope;                                      \
         vm->catch     = &__catch;                                       \
                                                                         \
         if ((__status = setjmp(__catch.location)) != 0) {               \
@@ -576,11 +578,18 @@ struct vm_catch_s {
                 }                                                       \
             }                                                           \
             fflush(stdout);                                             \
+                                                                        \
             if (vm->stack->nentry > __catch.depth) {                    \
                 VM_INFO("cleaning up the stack...");                    \
                 vm_stack_cleanup(vm->stack,                             \
                                  vm->stack->nentry - __catch.depth);    \
             }                                                           \
+            if (vm->scope != __catch.scope) {                           \
+                VM_INFO("cleaning up the local/scope stack...");        \
+                while (vm->scope && vm->scope != __catch.scope)         \
+                    vm_scope_pop(vm);                                   \
+            }                                                           \
+                                                                        \
             vm->catch = vm->catch->prev;                                \
             __status = e->error;                                        \
             if (__status > 0)                                           \
