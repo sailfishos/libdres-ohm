@@ -537,49 +537,31 @@ DRES_ACTION(signal_handler)
 #define MAX_LENGTH 64
 #define TIMEOUT    (5 * 1000)
     
-    char *signal_name, *cb_name, *txid_name;
+    char *signal_name, *cb_name;
     int   txid;
     int   nfact, i;
     char *facts[MAX_FACTS + 1];
     char  buf  [MAX_FACTS * MAX_LENGTH];
-    char *p, *e;
+    char *p;
     char *signature;
     int   success;
 
     (void)name;
     (void)data;
     
-    if (narg < 3)
+    if (narg < 4)
         DRES_ACTION_ERROR(EINVAL);
     
     GET_STRING(0, signal_name, "");
     GET_STRING(1, cb_name, "");
-    GET_STRING(2, txid_name, "");
+    GET_INTEGER(2, txid);
 
-    /* XXX TODO:
-     * Notes: IMHO this is wrong. This starts processing txid_name as a
-     *        fact. Since Ismos signal_changed->send_ipc_signal code ignores
-     *        any facts it cannot look up (with an "ERROR: NO FACTS!"
-     *        warning) this does not cause major malfunction but it is still
-     *        wrong.
-     *
-     * Rather, this should be:
-     *     nfact = narg - 3;
-     *     args += 3;
-     *     narg -= 3;
-     */
-
-    nfact = narg - 2;
-    args += 2;
-    narg -= 2;
-    
-    e = NULL;
-    txid = strtol(txid_name, &e, 10);
-    if (e != NULL && *e)
-        DRES_ACTION_ERROR(EINVAL);
-    
-    OHM_DEBUG(DBG_SIGNAL, "signal='%s', cb='%s' txid='%s'",
-              signal_name, cb_name, txid_name);
+    nfact = narg - 3;
+    args += 3;
+    narg -= 3;
+        
+    OHM_DEBUG(DBG_SIGNAL, "signal='%s', cb='%s' txid=%d",
+              signal_name, cb_name, txid);
     
 
     for (i = 0, p = buf; i < narg; i++) {
@@ -707,7 +689,12 @@ DRES_ACTION(delay_handler)
      * of the 'resolve' method and alike
      */
 
-    if (!strcmp(cb_name, "resolve")) {
+    if (!strcmp(cb_name, "")) {
+        OHM_DEBUG(DBG_DELAY, "silently ignoring delayed execution request "
+                  "'%s' with empty callback", id);
+        DRES_ACTION_SUCCEED;
+    }
+    else if (!strcmp(cb_name, "resolve")) {
         /* check the arglist wheter it starts with a rule name
            and the rest is series of name,value pairs */
 
@@ -809,14 +796,14 @@ DRES_ACTION(cancel_handler)
 
     success = delay_cancel(id);
 
+    if (!success)
+        OHM_DEBUG(DBG_DELAY, "delay_cancel('%s') failed", id);
+
+
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
 
-    if (success)
-        DRES_ACTION_SUCCEED;
-    else
-        DRES_ACTION_ERROR(EIO);
-
+    DRES_ACTION_SUCCEED;
 }
 
 static void delayed_resolve(char *id, char *argt, void **argv)
