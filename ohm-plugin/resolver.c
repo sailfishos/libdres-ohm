@@ -71,7 +71,7 @@ static dres_handler_t unknown_handler;
 
 
 /* signaling */
-typedef void (*completion_cb_t)(int transid, int success);
+typedef void (*completion_cb_t)(char *id, char *argt, void **argv);
 typedef void (*delay_cb_t)(char *id, char *argt, void **argv);
 
 OHM_IMPORTABLE(int, signal_changed,    (char *signal, int transid,
