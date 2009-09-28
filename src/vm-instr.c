@@ -130,6 +130,11 @@ vm_instr_push(vm_state_t *vm)
         break;
 
     case VM_TYPE_LOCAL:
+        /*
+         * Notes:
+         *   VM_TRY takes care of popping locals off the scope stack in
+         *   case of an exception.
+         */
         if (vm_scope_push(vm) != 0)
             VM_RAISE(vm, ENOMEM, "PUSH LOCALS: failed to push new scope");
         for (i = 0; i < data; i++) {
