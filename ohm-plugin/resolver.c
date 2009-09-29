@@ -510,8 +510,12 @@ DRES_ACTION(fallback_handler)
 #define GET_ARG(var, n, f, t) do {               \
         if (args[(n)].type == t)                 \
             (var) = args[(n)].v.f;               \
-        else                                     \
-            DRES_ACTION_ERROR(EINVAL);           \
+        else {                                   \
+            if (args[(n)].type == DRES_TYPE_NIL) \
+                (var) = 0;                       \
+            else                                 \
+                DRES_ACTION_ERROR(EINVAL);       \
+        }                                        \
     } while (0)
 #define GET_INTEGER(n, var) GET_ARG(var, (n), i, DRES_TYPE_INTEGER)
 #define GET_DOUBLE(n, var)  GET_ARG(var, (n), d, DRES_TYPE_DOUBLE)
@@ -610,6 +614,8 @@ DRES_ACTION(signal_handler)
             success = FALSE;
         }
     }
+
+    OHM_DEBUG(DBG_SIGNAL, "signal_changed() %s", success?"succeeded":"failed");
 
     rv->type = DRES_TYPE_INTEGER;
     rv->v.i  = 0;
