@@ -1,10 +1,15 @@
 libdres (0.1.14) unstable; urgency=low
 
-  * change in 'signal_changed' signature
-  * silently ignore 'delay_execution' requests with empty callback argument
-  * prevent 'delay_cancel' to fail. Print debug message instead.
+  [Krisztian Litkey]
+  * Properly clean up the scope/stack of locals in case of an exception.
 
- -- Janos Kovacs <janos.f.kovacs@nokia.com>  Mon, 28 Sep 2009 21:15:00 +0300
+  [Janos Kovacs]
+  * Changed signal_changed signature.
+  * More relaxed error checking in the delay plugin:
+    - silently ignore delay_execution with empty callback, and
+    - don't fail delay_cancel, print a debug message instead.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Tue, 29 Sep 2009 14:15:46 +0300
 
 libdres (0.1.13) unstable; urgency=low
 
