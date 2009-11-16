@@ -1,3 +1,9 @@
+libdres (0.1.16) unstable; urgency=low
+
+  * Corner case fix: don't crash when assigning a global/fact to itself.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 16 Nov 2009 10:11:20 +0200
+
 libdres (0.1.15) unstable; urgency=low
 
   * Bumping version number (Fixes: NB#145279)
