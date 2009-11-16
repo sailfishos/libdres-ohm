@@ -194,16 +194,20 @@ vm_fact_dup(OhmFact *src, char *name)
 OhmFact *
 vm_fact_copy(OhmFact *dst, OhmFact *src)
 {
-    GSList *l = (GSList *)ohm_fact_get_fields(src);
+    GSList *p, *n;
     GQuark  q;
     
-    vm_fact_reset(dst);
+    if (dst != src)
+        vm_fact_reset(dst);
 
-    for ( ; l != NULL; l = g_slist_next(l)) {
+    p = (GSList *)ohm_fact_get_fields(src);
+    while (p != NULL) {
         char   *field;
         GValue *value;
         
-        q     = GPOINTER_TO_INT(l->data);
+        n = p->next;
+        
+        q     = GPOINTER_TO_INT(p->data);
         field = (char *)g_quark_to_string(q);
         value = ohm_copy_value(ohm_fact_get(src, field));
         
@@ -211,8 +215,10 @@ vm_fact_copy(OhmFact *dst, OhmFact *src)
             return NULL;
         
         ohm_fact_set(dst, field, value);
+        
+        p = n;
     }
-
+    
     return dst;
 }
 
