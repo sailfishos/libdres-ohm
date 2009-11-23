@@ -210,12 +210,6 @@ vm_instr_pop(vm_state_t *vm)
 int
 vm_instr_filter(vm_state_t *vm)
 {
-#define FAIL(err, fmt, args...) do {       \
-        if (g)                             \
-            vm_global_free(g);             \
-        VM_RAISE(vm, err, fmt, ## args);   \
-    } while (0)
-    
     vm_global_t *g = NULL;
     int          nfield, nfact;
     char        *field;
@@ -227,7 +221,7 @@ vm_instr_filter(vm_state_t *vm)
     nfield = VM_FILTER_NFIELD(*vm->pc);
     
     if (vm_peek(vm->stack, 3*nfield, &value) != VM_TYPE_GLOBAL)
-        FAIL(ENOENT, "FILTER: no global found in stack");
+        VM_RAISE(vm, ENOENT, "FILTER: no global found in stack");
     
     g      = value.g;
     nfact  = g->nfact;
@@ -235,7 +229,7 @@ vm_instr_filter(vm_state_t *vm)
     for (i = 0; i < nfield; i++) {
 
         if (vm_type(vm->stack) != VM_TYPE_STRING)
-            FAIL(EINVAL, "FILTER: invalid field name, string expected");
+            VM_RAISE(vm, EINVAL, "FILTER: invalid field name, string expected");
         
         field = vm_pop_string(vm->stack);
         type  = vm_pop(vm->stack, &value);
@@ -249,7 +243,7 @@ vm_instr_filter(vm_state_t *vm)
                 continue;
 
             if ((gval = ohm_fact_get(fact, field)) == NULL)
-                FAIL(ENOENT, "fact has no expected field %s", field);
+                VM_RAISE(vm, ENOENT, "fact has no expected field %s", field);
         
             match = vm_fact_match_field(vm, fact, field, gval, type, &value);
 
@@ -276,7 +270,6 @@ vm_instr_filter(vm_state_t *vm)
     vm->nsize -= sizeof(int);
 
     return 0;
-#undef FAIL
 }
 
 
