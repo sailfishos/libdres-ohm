@@ -1,6 +1,7 @@
 libdres (0.1.16) unstable; urgency=low
 
   * Corner case fix: don't crash when assigning a global/fact to itself.
+  * Fix memory corruption/crash for exceptions during VM filter instructions.
 
  -- Krisztian Litkey <krisztian.litkey@nokia.com>  Mon, 16 Nov 2009 10:11:20 +0200
 
