@@ -243,10 +243,10 @@ vm_instr_filter(vm_state_t *vm)
                 continue;
 
             if ((gval = ohm_fact_get(fact, field)) == NULL)
-                VM_RAISE(vm, ENOENT, "fact has no expected field %s", field);
-        
-            match = vm_fact_match_field(vm, fact, field, gval, type, &value);
-
+                match = FALSE;
+            else
+                match = vm_fact_match_field(vm, fact, field, gval, type,&value);
+            
             if ((!match && !neq) || (match && neq)) {
                 g_object_unref(fact);
                 g->facts[j] = NULL;
