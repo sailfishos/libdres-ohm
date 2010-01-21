@@ -1,3 +1,9 @@
+libdres (0.1.17) unstable; urgency=low
+
+  * Fix autograb/release non-determinism for console extension commands.
+
+ -- Krisztian Litkey <krisztian.litkey@nokia.com>  Thu, 21 Jan 2010 22:55:39 +0200
+
 libdres (0.1.16) unstable; urgency=low
 
   * Corner case fix: don't crash when assigning a global/fact to itself.
