@@ -318,6 +318,8 @@ extension_run(int id, extension_t *extension, char *command)
         command_grab(id, "");
         release = TRUE;
     }
+    else
+        release = FALSE;
 
     extension->handler(command);
 
