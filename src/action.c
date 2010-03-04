@@ -65,10 +65,24 @@ dres_free_varref(dres_varref_t *vref)
 EXPORTED int
 dres_register_handler(dres_t *dres, char *name, dres_handler_t handler)
 {
+    int status;
+    
     if (!DRES_TST_FLAG(dres, COMPILED))
         return vm_method_add(&dres->vm, name, handler, dres);
-    else
-        return vm_method_set(&dres->vm, name, handler, dres);
+    else {
+        status = vm_method_set(&dres->vm, name, handler, dres);
+        /*
+         * Notes:
+         *   For compiled rulesets, registering a handler for a non-
+         *   existing method is not treated as an error. As the VM is
+         *   never going to attempt to call the method (that is why it
+         *   is non-existent) no harm is done. If we start compiling
+         *   extra code for precompiled rulesets (eg. for the debug
+         *   console) this might need different treatment (eg. the
+         *   introduction of a dynamic method table).
+         */
+        return (status == 0 || status == ENOENT ? 0 : status);
+    }
 }
 
 
