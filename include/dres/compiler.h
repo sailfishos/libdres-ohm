@@ -45,9 +45,9 @@
 #include <dres/config.h>                   /* HAVE_VISIBILITY_SUPPORT */
 
 
-#if __GNUC__
+#ifdef __GNUC__
 
-#  if HAVE_VISIBILITY_SUPPORT
+#  ifdef HAVE_VISIBILITY_SUPPORT
 #    define NOEXPORT_BY_DEFAULT _Pragma("GCC visibility push(hidden)")
 #    define EXPORTED_BY_DEFAULT _Pragma("GCC visibility push(default)")
 
