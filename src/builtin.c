@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #include <ohm/ohm-fact.h>
 #include <dres/dres.h>
@@ -16,9 +18,6 @@
 BUILTIN_HANDLER(dres);
 BUILTIN_HANDLER(resolve);
 BUILTIN_HANDLER(echo);
-#if 0
-BUILTIN_HANDLER(info);
-#endif
 BUILTIN_HANDLER(fact);
 BUILTIN_HANDLER(shell);
 BUILTIN_HANDLER(fail);
@@ -34,9 +33,6 @@ static dres_builtin_t builtins[] = {
     BUILTIN(dres),
     BUILTIN(resolve),
     BUILTIN(echo),
-#if 0
-    BUILTIN(info),
-#endif
     BUILTIN(fact),
     BUILTIN(shell),
     BUILTIN(fail),
@@ -252,55 +248,6 @@ BUILTIN_HANDLER(echo)
 }
 
 
-#if 0
-/********************
- * dres_builtin_info
- ********************/
-BUILTIN_HANDLER(info)
-{
-    dres_t *dres = (dres_t *)data;
-    FILE   *fp;
-    char   *t;
-    int     i;
-
-    (void)dres;
-    (void)name;
-    
-    t = "";
-    for (i = 0; i < narg; i++) {
-        switch (args[i].type) {
-        case DRES_TYPE_STRING:
-            dres_log(DRES_LOG_INFO, "%s%s", t, args[i].v.s);
-            break;
-        case DRES_TYPE_NIL:
-            dres_log(DRES_LOG_INFO, "%s<nil>", t);
-            break;
-        case DRES_TYPE_INTEGER:
-            dres_log(DRES_LOG_INFO, "%s%d", t, args[i].v.i);
-            break;
-        case DRES_TYPE_DOUBLE:
-            dres_log(DRES_LOG_INFO, "%s%f", t, args[i].v.d);
-            break;
-        case DRES_TYPE_FACTVAR:
-            dres_log(DRES_LOG_INFO, "** TODO: info printing of facts **");
-#if 0
-            dres_log(DRES_LOG_INFO, "%s", t);
-            vm_global_print(fp, args[i].v.g);
-#endif
-            break;
-        default:
-            dres_log(DRES_LOG_INFO, "<unknown>");
-        }
-        t = " ";
-    }
-    
-    rv->type = DRES_TYPE_INTEGER;
-    rv->v.i  = 0;
-    DRES_ACTION_SUCCEED;
-}
-#endif
-
-
 /********************
  * dres_builtin_fact
  ********************/
@@ -390,7 +337,37 @@ BUILTIN_HANDLER(fact)
  ********************/
 BUILTIN_HANDLER(shell)
 {
-    return dres_fallback_call(data, name, args, narg, rv);
+    int status;
+
+    if (narg != 1) {
+        DRES_ERROR("builtin 'shell': passed %d arguments instead of 1", narg);
+        DRES_ACTION_ERROR(EINVAL);
+    }
+
+    if (args[0].type != DRES_TYPE_STRING) {
+        DRES_ERROR("builtin 'shell': argument must be of type string");
+        DRES_ACTION_ERROR(EINVAL);
+    }
+
+    errno  = 0;
+    status = system(args[0].v.s);
+    
+    if (status < 0) {
+        if (errno)
+            DRES_ACTION_ERROR(errno);
+        else
+            DRES_ACTION_ERROR(EINVAL);
+    }
+    
+    status = WEXITSTATUS(status);
+
+    if (status == 0) {
+        rv->type = DRES_TYPE_INTEGER;
+        rv->v.i  = 0;
+        DRES_ACTION_SUCCEED;
+    }
+    else
+        DRES_ACTION_ERROR(status);
 }
 
 
