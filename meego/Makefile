@@ -1,5 +1,5 @@
 PACKAGE := libdres
-VERSION := 0.0.4
+VERSION := 0.1.0
 THISDIR := meego
 
 TOPDIR  := $(shell while [ ! -d $(THISDIR) -a "`pwd`" != "/" ]; do cd ..; done;\
