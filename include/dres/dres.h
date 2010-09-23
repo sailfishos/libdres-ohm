@@ -409,6 +409,10 @@ typedef struct {
 
 #define DRES_RELOCATE(ptr, diff) ((ptr) = ((void *)(ptr)) + (diff))
 
+#define DRES_ALIGN_TO   VM_ALIGN_TO
+#define DRES_ALIGNED    VM_ALIGNED
+#define DRES_ALIGNMENT  VM_ALIGNMENT
+#define DRES_ALIGNED_OK VM_ALIGNED_OK
 
 extern int depth;
 

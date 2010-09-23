@@ -681,6 +681,12 @@ dres_save(dres_t *dres, char *path)
         fwrite(buf->data   , buf->dused, 1, fp) != 1)
         goto fail;
 
+    if (!DRES_ALIGNED_OK(buf->sused)) {
+        DRES_ERROR("%s: alignment error, string table size: %d.",
+                   __FUNCTION__, buf->sused);
+        goto fail;
+    }
+    
     fclose(fp);
     
     return 0;
@@ -984,21 +990,26 @@ dres_buf_t *
 dres_buf_create(int dsize, int ssize)
 {
     dres_buf_t *buf;
+    int         align, i;
 
     if (ALLOC_OBJ(buf) == NULL)
         goto fail;
 
+    align = sizeof(void *);
+    dsize = DRES_ALIGN_TO(dsize, align);
+    ssize = DRES_ALIGN_TO(ssize, align);
+    
     if ((buf->data    = ALLOC_ARR(char, dsize)) == NULL ||
         (buf->strings = ALLOC_ARR(char, ssize)) == NULL)
         goto fail;
-        
+
     buf->dsize = dsize;
     buf->ssize = ssize;
 
-    buf->strings[0] = '\0';
-    buf->strings[1] = '\0';
-    buf->sused      = 2;
-
+    for (i = 0; i < align; i++)
+        buf->strings[i] = '\0';
+    buf->sused = align;
+    
     return buf;
 
  fail:
@@ -1070,11 +1081,18 @@ dres_buf_stralloc(dres_buf_t *buf, char *str)
         return buf->strings;
 
     if (str[0] == '\0')
-        return buf->strings + 1;
+        return buf->strings /* + 1 ??? */;
         
     /* XXX TODO: fold non-empty identical strings as well */
-    size = strlen(str) + 1;
-    if ((size_t)(buf->ssize - buf->sused) < strlen(str) + 1) {
+    size = DRES_ALIGN_TO(strlen(str) + 1, DRES_ALIGNMENT);
+
+    if (!DRES_ALIGNED_OK(size)) {
+        DRES_ERROR("%s: alignment error: size = %d.", __FUNCTION__, size);
+        buf->error = errno = EINVAL;
+        return NULL;
+    }
+    
+    if ((ssize_t)(buf->ssize - buf->sused) < size) {
         buf->error = errno = ENOMEM;
         return NULL;
     }
@@ -1082,7 +1100,7 @@ dres_buf_stralloc(dres_buf_t *buf, char *str)
     ptr         = buf->strings + buf->sused;
     buf->sused += size;
 
-    strcpy(ptr, str);
+    strncpy(ptr, str, size);                    /* strncpy null-pads ! */
 
     return ptr;
 }

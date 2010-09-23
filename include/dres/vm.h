@@ -34,6 +34,10 @@ USA.
  */
 
 #define VM_ALIGN_TO(n, a) (((n) + ((a)-1)) & ~((a)-1))
+#define VM_ALIGNED(n, a)  (!((n) & ((a) - 1)))
+
+#define VM_ALIGNMENT     (sizeof(void *))
+#define VM_ALIGNED_OK(n) VM_ALIGNED(n, VM_ALIGNMENT)
 
 
 /*
