@@ -678,7 +678,7 @@ command_help(int id, char *input)
 {
     command_t *c;
     char       syntax[128];
-    int        i, release;
+    int        i, release = FALSE;
 
     (void)input;
 

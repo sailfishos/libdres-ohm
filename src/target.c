@@ -374,12 +374,12 @@ dres_load_targets(dres_t *dres, dres_buf_t *buf)
                 exit(1);
             }
 
-            t->code->ninstr = n;
-            t->code->nsize  = dres_buf_rs32(buf);
-            
             if (t->code == NULL)
                 return ENOMEM;
 
+            t->code->ninstr = n;
+            t->code->nsize  = dres_buf_rs32(buf);
+            
 #if 1 /* XXX TODO: this is broken wrt. endianness */
             t->code->instrs = (unsigned int *)dres_buf_rbuf(buf,t->code->nsize);
 #else /* XXX TODO: this is also broken wrt. endianness */
