@@ -1019,6 +1019,11 @@ vm_chunk_add(vm_chunk_t *c, unsigned int *code, int ninstr, int nsize)
 {
     unsigned int *cp = vm_chunk_grow(c, nsize);
 
+    if (!VM_ALIGNED_OK(nsize)) {
+        VM_ERROR("%s: code aligment problem, size: %d.", __FUNCTION__, nsize);
+        return EINVAL;
+    }
+
     if (cp == NULL)
         return ENOMEM;
 

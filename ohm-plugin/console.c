@@ -116,7 +116,7 @@ console_init(char *address)
     
 #define IMPORT(name, ptr) ({                                            \
             signature = (char *)ptr##_SIGNATURE;                        \
-            ohm_module_find_method((name), &signature, (void *)(ptr));  \
+            ohm_module_find_method((name), &signature, (void *)&(ptr)); \
         })
 
     extension_init();
@@ -126,15 +126,15 @@ console_init(char *address)
         return 0;
     }
     
-    if (!IMPORT("console.open", &console_open)) {
+    if (!IMPORT("console.open", console_open)) {
         OHM_INFO("resolver: no console methods available, console disabled");
         return 0;
     }
     
-    IMPORT("console.close" , &console_close);
-    IMPORT("console.printf", &console_printf);
-    IMPORT("console.grab"  , &console_grab);
-    IMPORT("console.ungrab", &console_ungrab);
+    IMPORT("console.close" , console_close);
+    IMPORT("console.printf", console_printf);
+    IMPORT("console.grab"  , console_grab);
+    IMPORT("console.ungrab", console_ungrab);
 
     if (console_close == NULL || console_printf == NULL ||
         console_grab == NULL || console_ungrab == NULL) {

@@ -367,6 +367,13 @@ dres_load_targets(dres_t *dres, dres_buf_t *buf)
             t->code = NULL;
         else {
             t->code = dres_buf_alloc(buf, sizeof(*t->code));
+            
+            if (!DRES_ALIGNED_OK((ptrdiff_t)t->code)) {
+                DRES_ERROR("%s: VM code alignment error (%p) for target '%s'.",
+                           __FUNCTION__, t->code, t->name);
+                exit(1);
+            }
+
             t->code->ninstr = n;
             t->code->nsize  = dres_buf_rs32(buf);
             
