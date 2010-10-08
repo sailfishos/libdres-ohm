@@ -22,12 +22,7 @@ dresc_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
 dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
 # various test programs
-noinst_PROGRAMS = vm-test lexer-test parser-test
-
-vm_test_SOURCES  = vm-stack.c vm-instr.c vm-global.c vm-local.c \
-                   vm-method.c vm-debug.c vm-log.c vm-test.c
-vm_test_CFLAGS   = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@ @LIBTRACE_CFLAGS@
-vm_test_LDADD    = @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LIBTRACE_LIBS@
+noinst_PROGRAMS = lexer-test parser-test
 
 lexer_test_SOURCES = lexer.l
 lexer_test_CFLAGS  = -D__TEST_LEXER__=1
