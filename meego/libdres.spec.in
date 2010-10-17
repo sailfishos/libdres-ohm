@@ -43,16 +43,18 @@ A dependency resolver plugin for OHM.
 Miscallaneous DRES utilities, including dresc.
 
 %prep
-%setup -q -n ##__TARDIR__##
+%setup -q
 
 %build
+./autogen.sh
 %configure --disable-static
 make
 
 %install
 rm -rf $RPM_BUILD_ROOT
 %make_install
-    
+rm -f $RPM_BUILD_ROOT%{_libdir}/*.la
+rm -f $RPM_BUILD_ROOT%{_libdir}/ohm/*.la
 
 %clean
 rm -rf $RPM_BUILD_ROOT
