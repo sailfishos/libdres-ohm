@@ -113,7 +113,6 @@ AC_OUTPUT([
 	src/libdres.pc
 	include/Makefile
 	ohm-plugin/Makefile
-	test/Makefile
 	tests/Makefile
 	doc/Makefile
 ])
