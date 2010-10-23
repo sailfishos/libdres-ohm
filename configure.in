@@ -8,11 +8,14 @@ AC_INIT([dres],
 	[multimedia at maemo.org])
 
 AC_CONFIG_SRCDIR([src])
+AC_CONFIG_MACRO_DIR([m4])
 
 DOC_SUPPORT_INIT
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
 AC_CONFIG_HEADER([include/dres/config.h])
+
+AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
 
 m4_define(version_major, `echo $VERSION | cut -d. -f1 | cut -d- -f1`)
 m4_define(version_minor, `echo $VERSION | cut -d. -f2 | cut -d- -f1`)
@@ -119,14 +122,18 @@ AC_SUBST(LIBTRACE_LIBS)
 AC_CHECK_CCOPT_VISIBILITY
 AC_SUBST(CCOPT_VISIBILITY_HIDDEN)
 
-AC_CONFIG_FILES([
-	Makefile
-	src/Makefile
-	src/libdres.pc
-	include/Makefile
-	ohm-plugin/Makefile
-	tests/Makefile
-	doc/Makefile
+# shave
+SHAVE_INIT([build-aux], [enable])
+
+AC_CONFIG_FILES([build-aux/shave
+		 build-aux/shave-libtool
+		 Makefile
+		 src/Makefile
+		 src/libdres.pc
+		 include/Makefile
+		 ohm-plugin/Makefile
+		 tests/Makefile
+		 doc/Makefile
 ])
 
 AC_OUTPUT
