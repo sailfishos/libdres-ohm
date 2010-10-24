@@ -15,11 +15,13 @@ libdres_la_SOURCES = parser.y lexer.l \
 
 libdres_la_CFLAGS  = @GLIB_CFLAGS@ @CCOPT_VISIBILITY_HIDDEN@
 libdres_la_LIBADD  = @GLIB_LIBS@ @LEXLIB@ @LIBTRACE_LIBS@ -lm
+libdres_la_LDFLAGS = -version-info @LIBDRES_VERSION_INFO@
 
 # DRES binary generator
 dresc_SOURCES = dresc.c
 dresc_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@
 dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
+
 
 # various test programs
 noinst_PROGRAMS = lexer-test parser-test
