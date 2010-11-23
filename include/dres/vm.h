@@ -733,6 +733,7 @@ int vm_run(vm_state_t *vm);
 /* vm-method.c */
 int          vm_method_add    (vm_state_t *vm,
                                char *name, vm_action_t handler, void *data);
+int          vm_method_del    (vm_state_t *vm, char *name, vm_action_t handler);
 int          vm_method_set    (vm_state_t *vm, char *name,
                                vm_action_t handler, void *data);
 vm_method_t *vm_method_lookup (vm_state_t *vm, char *name);
