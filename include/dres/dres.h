@@ -548,6 +548,7 @@ int dres_update_goal(dres_t *dres, char *goal, char **locals);
 dres_handler_t dres_lookup_handler(dres_t *dres, char *name);
 
 int dres_register_handler(dres_t *dres, char *name, dres_handler_t handler);
+int dres_unregister_handler(dres_t *dres, char *name, dres_handler_t handler);
 
 int dres_run_actions(dres_t *dres, dres_target_t *target);
 

@@ -871,6 +871,10 @@ vm_instr_branch (vm_state_t *vm)
         
         if (brtype == VM_BRANCH_NE)
             branch = !branch;
+
+        if (type == VM_TYPE_GLOBAL)      /* free/unref tested globals */
+            vm_global_free(value.g);
+
         break;
         
     default:

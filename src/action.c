@@ -109,6 +109,20 @@ dres_register_handler(dres_t *dres, char *name, dres_handler_t handler)
 
 
 /********************
+ * dres_unregister_handler
+ ********************/
+EXPORTED int
+dres_unregister_handler(dres_t *dres, char *name, dres_handler_t handler)
+{
+    int status;
+    
+    status = vm_method_del(&dres->vm, name, handler);
+
+    return (status == 0 || status == ENOENT ? 0 : status);
+}
+
+
+/********************
  * dres_lookup_handler
  ********************/
 EXPORTED dres_handler_t

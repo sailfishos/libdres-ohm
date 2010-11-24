@@ -343,6 +343,24 @@ OHM_EXPORTABLE(int, update_goal, (char *goal, char **locals))
 }
 
 
+/********************
+ * register_method
+ ********************/
+OHM_EXPORTABLE(int, register_method, (char *name, dres_handler_t handler))
+{
+    return (dres_register_handler(dres, name, handler) == 0);
+}
+
+
+/********************
+ * unregister_method
+ ********************/
+OHM_EXPORTABLE(int, unregister_method, (char *name, dres_handler_t handler))
+{
+    return (dres_unregister_handler(dres, name, handler) == 0);
+}
+
+
 /*****************************************************************************
  *                          *** DRES action handlers ***                     *
  *****************************************************************************/
@@ -975,10 +993,13 @@ OHM_PLUGIN_DESCRIPTION("dres",
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_PROVIDES_METHODS(dres, 2,
-    OHM_EXPORT(update_goal, "resolve"),
-    OHM_EXPORT(add_command, "add_command")
+OHM_PLUGIN_PROVIDES_METHODS(dres, 4,
+    OHM_EXPORT(update_goal      , "resolve"),
+    OHM_EXPORT(add_command      , "add_command"),
+    OHM_EXPORT(register_method  , "register_method"),
+    OHM_EXPORT(unregister_method, "unregister_method")
 );
+
 
 OHM_PLUGIN_REQUIRES_METHODS(dres, 10,
     OHM_IMPORT("rule_engine.find"      , rule_find),
