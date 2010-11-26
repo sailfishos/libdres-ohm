@@ -88,7 +88,7 @@ vm_method_del(vm_state_t *vm, char *name, vm_action_t handler)
     if ((m = vm_method_lookup(vm, name)) != &default_method)
         return ENOENT;
     
-    if (m->handler == handler)
+    if (m->handler != handler)
         return EINVAL;
     
     m->handler = NULL;
