@@ -993,9 +993,10 @@ OHM_PLUGIN_DESCRIPTION("dres",
                        plugin_exit,
                        NULL);
 
-OHM_PLUGIN_PROVIDES_METHODS(dres, 4,
+OHM_PLUGIN_PROVIDES_METHODS(dres, 5,
     OHM_EXPORT(update_goal      , "resolve"),
     OHM_EXPORT(add_command      , "add_command"),
+    OHM_EXPORT(del_command      , "del_command"),
     OHM_EXPORT(register_method  , "register_method"),
     OHM_EXPORT(unregister_method, "unregister_method")
 );

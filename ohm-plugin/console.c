@@ -282,8 +282,9 @@ extension_exit(void)
     int i;
 
     for (i = 0; i < nextension; i++)
-        FREE(extensions[i].name);
-
+        if (extensions[i].name != NULL)
+            FREE(extensions[i].name);
+    
     FREE(extensions);
     extensions = NULL;
     nextension = 0;
@@ -299,7 +300,7 @@ extension_find(char *name)
     int i;
     
     for (i = 0; i < nextension; i++)
-        if (!strcmp(extensions[i].name, name))
+        if (extensions[i].name != NULL && !strcmp(extensions[i].name, name))
             return extensions + i;
 
     return NULL;
@@ -324,6 +325,27 @@ extension_add(char *name, void (*handler)(char *))
         nextension++;
         return TRUE;
     }
+}
+
+
+/********************
+ * extension_del
+ ********************/
+static int
+extension_del(char *name, void (*handler)(char *))
+{
+    extension_t *extension;
+
+    if ((extension = extension_find(name)) != NULL) {
+        if (extension->handler == handler) {
+            FREE(extension->name);
+            extension->name    = NULL;
+            extension->handler = NULL;
+            return TRUE;
+        }
+    }
+
+    return FALSE;
 }
 
 
@@ -355,6 +377,15 @@ extension_run(int id, extension_t *extension, char *command)
 OHM_EXPORTABLE(int, add_command, (char *name, void (*handler)(char *)))
 {
     return extension_add(name, handler);
+}
+
+
+/********************
+ * del_command
+ ********************/
+OHM_EXPORTABLE(int, del_command, (char *name, void (*handler)(char *)))
+{
+    return extension_del(name, handler);
 }
 
 
@@ -697,8 +728,10 @@ command_help(int id, char *input)
         }
         
         for (i = 0; i < nextension; i++) {
-            console_printf(id, "%s:\n", extensions[i].name);
-            extensions[i].handler("help");
+            if (extensions[i].name != NULL) {
+                console_printf(id, "%s:\n", extensions[i].name);
+                extensions[i].handler("help");
+            }
         }
         
         if (release)
