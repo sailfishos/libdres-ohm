@@ -36,9 +36,15 @@ USA.
 int
 dres_add_prereq(dres_prereq_t *dep, int id)
 {
+    int i;
+    
     if (dep->nid < 0)                              /* unmark as not present */
         dep->nid = 0;
 
+    for (i = 0; i < dep->nid; i++)                 /* check if already there */
+        if (dep->ids[i] == id)
+            return 0;
+    
     if (REALLOC_ARR(dep->ids, dep->nid, dep->nid + 1) == NULL)
         return DRES_ID_NONE;
 

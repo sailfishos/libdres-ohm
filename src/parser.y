@@ -442,9 +442,40 @@ rules:    rule
 
 rule: TOKEN_IDENT ":" optional_prereqs TOKEN_EOL optional_statements {
             dres_target_t *t = dres_lookup_target(dres, $1);
-            t->prereqs = $3;
-            t->statements = $5;
-            t->id      = DRES_DEFINED(t->id);
+
+            if (!DRES_IS_DEFINED(t->id)) {
+                t->prereqs    = $3;
+                t->statements = $5;
+                t->id         = DRES_DEFINED(t->id);
+            }
+            else {
+                dres_stmt_t *s;
+                int          i;
+
+                /* append prerequisits */
+                if (t->prereqs != NULL) {
+                    if ($3 != NULL) {
+                        for (i = 0; i < $3->nid; i++) {
+                            if (dres_add_prereq(t->prereqs, $3->ids[i]) != 0)
+                                YYABORT;
+                        }
+                        
+                        dres_free_prereq($3);
+                    }
+                }
+                else
+                    t->prereqs = $3;
+
+                /* append statements */
+                if (t->statements != NULL) {
+                    for (s = t->statements; s->any.next; s = s->any.next)
+                        ;
+                    s->any.next = $5;
+                }
+                else
+                    t->statements = $5;
+            }
+
             $$ = t;
         }
 	;
