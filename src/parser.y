@@ -133,6 +133,7 @@ static char *current_prefix;
 %type <select>    sfield
 %type <initializer> initializer
 %type <initializer> initializers
+%type <initializer> optional_initializers
 %type <local>       local
 %type <local>       locals
 
@@ -153,7 +154,23 @@ static char *current_prefix;
 %%
 
 
-input: optional_prefix optional_initializers rules
+input: facts rules
+
+facts: prefixed_initializers
+        | facts prefixed_initializers
+        ;
+
+prefixed_initializers: optional_prefix optional_initializers {
+            dres_initializer_t *init;
+	    if (dres->initializers != NULL) {
+                for (init = dres->initializers; init->next; init = init->next)
+                    ;
+                init->next = $2;
+            }
+            else
+                dres->initializers = $2;
+        }
+        ;
 
 optional_prefix: /* empty */
         |        prefix
@@ -165,9 +182,11 @@ prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
 	| TOKEN_PREFIX "=" TOKEN_IDENT TOKEN_EOL {
             set_prefix($3);
 	}
+        ;
 
-optional_initializers: { dres->initializers = NULL; }
-        | initializers { dres->initializers = $1; }
+
+optional_initializers: /* empty */  { $$ = NULL; }
+        |              initializers { $$ = $1;   }
         ;
 
 initializers: initializer          { $$ = $1; }
@@ -193,7 +212,6 @@ initializer: TOKEN_FACTVAR assign_op "{" ifields "}" TOKEN_EOL {
 
             $$ = init;
         }
-        | prefix { $$ = NULL; }
         ;
 
 assign_op: "=" | "+=";
