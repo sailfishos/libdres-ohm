@@ -136,34 +136,19 @@ schedule_updated(gpointer fact, gpointer name, gpointer value,
  * object_to_fact
  ********************/
 static OhmFact *
-object_to_fact(char *name, char **object)
+object_to_fact(char **object)
 {
-#if 0
-    OhmFact      *fact;
-    GValue       *value;
-    char         *field;
-    int           i;
-
-    if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
-        return NULL;
-    
-    if ((fact = ohm_fact_new(name)) == NULL)
-        return NULL;
-    
-    for (i = 2; object[i] != NULL; i += 2) {
-        field = object[i];
-        value = ohm_value_from_string(object[i+1]);
-        ohm_fact_set(fact, field, value);
-    }
-#else
     OhmFact *fact;
     GValue  *value;
-    char    *field, *v;
+    char    *field, *v, *name;
     int      i, type;
     
     if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
         return NULL;
     
+    if ((int)object[1] != 's' || (name = object[2]) == NULL)
+        return NULL;
+
     if ((fact = ohm_fact_new(name)) == NULL)
         return NULL;
     
@@ -179,7 +164,6 @@ object_to_fact(char *name, char **object)
         }
         ohm_fact_set(fact, field, value);
     }
-#endif    
 
     return fact;
 }
@@ -195,7 +179,7 @@ retval_to_facts(char ***objects, OhmFact **facts, int max)
     int    i;
     
     for (i = 0; (object = objects[i]) != NULL && i < max; i++) {
-        if ((facts[i] = object_to_fact("foo", object)) == NULL)
+        if ((facts[i] = object_to_fact(object)) == NULL)
             return -EINVAL;
     }
     
