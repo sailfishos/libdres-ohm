@@ -132,8 +132,6 @@ static char *current_prefix;
 %type <select>    sfields
 %type <select>    sfield
 %type <initializer> initializer
-%type <initializer> initializers
-%type <initializer> optional_initializers
 %type <local>       local
 %type <local>       locals
 
@@ -154,27 +152,28 @@ static char *current_prefix;
 %%
 
 
-input: facts rules
+input: optional_facts rules
 
-facts: prefixed_initializers
-        | facts prefixed_initializers
-        ;
+optional_facts: /* empty */
+    | facts
+    ;
 
-prefixed_initializers: optional_prefix optional_initializers {
+facts: fact
+    |  fact facts
+    ;
+
+fact: prefix
+    | initializer {
             dres_initializer_t *init;
 	    if (dres->initializers != NULL) {
                 for (init = dres->initializers; init->next; init = init->next)
                     ;
-                init->next = $2;
+                init->next = $1;
             }
             else
-                dres->initializers = $2;
-        }
-        ;
-
-optional_prefix: /* empty */
-        |        prefix
-	;
+                dres->initializers = $1;
+    }
+    ;
 
 prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
             set_prefix($3);
@@ -184,22 +183,6 @@ prefix: TOKEN_PREFIX "=" TOKEN_FACTNAME TOKEN_EOL {
 	}
         ;
 
-
-optional_initializers: /* empty */  { $$ = NULL; }
-        |              initializers { $$ = $1;   }
-        ;
-
-initializers: initializer          { $$ = $1; }
-        | initializers initializer {
-            dres_initializer_t *init;
-	    if ($1 != NULL) {
-                for (init = $1; init->next; init = init->next)
-                    ;
-                init->next = $2;
-            }
-            $$ = $1;
-        }
-        ;
 
 initializer: TOKEN_FACTVAR assign_op "{" ifields "}" TOKEN_EOL {
             dres_initializer_t *init;
