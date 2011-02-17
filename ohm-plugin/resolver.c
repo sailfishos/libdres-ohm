@@ -637,8 +637,10 @@ DRES_ACTION(signal_handler)
     facts[nfact] = NULL;
     
     if (cb_name[0] == '\0') {
-        dump_signal_changed_args(signal_name, 0, nfact, facts, NULL, TIMEOUT);
-        success = signal_changed(signal_name, 0, nfact, facts, NULL, TIMEOUT);
+        if (txid > 0)  txid = 0; /* do not allow real transactions, if no CB */
+
+        dump_signal_changed_args(signal_name, txid, nfact,facts, NULL,TIMEOUT);
+        success = signal_changed(signal_name, txid, nfact,facts, NULL,TIMEOUT);
     }
     else {
         signature = (char *)completion_cb_SIGNATURE;
