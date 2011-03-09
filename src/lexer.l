@@ -100,6 +100,7 @@ static int  ringoffs = 0;
      TOKEN_EQUAL,
      TOKEN_APPEND,
      TOKEN_PARTIAL,
+     TOKEN_REPLACE,
      TOKEN_TAB,
      TOKEN_EOF,
 
@@ -302,6 +303,7 @@ end             { TOKEN(END);  }
 =		{ TOKEN(EQUAL);       }
 \+=             { TOKEN(APPEND);      }
 \|=             { TOKEN(PARTIAL);     }
+\*=             { TOKEN(REPLACE);     }
 
 .               { SAVE(yytext); TOKEN(UNKNOWN);     }
 

@@ -43,7 +43,7 @@ int vm_instr_call   (vm_state_t *vm);
 int vm_instr_cmp    (vm_state_t *vm);
 int vm_instr_branch (vm_state_t *vm);
 int vm_instr_debug  (vm_state_t *vm);
-
+int vm_instr_replace(vm_state_t *vm);
 
 /*****************************************************************************
  *                            *** code interpreter ***                       *
@@ -72,18 +72,19 @@ vm_run(vm_state_t *vm)
         }
         
         switch ((vm_opcode_t)VM_OP_CODE(*vm->pc)) {
-        case VM_OP_PUSH:   status = vm_instr_push(vm);   break;
-        case VM_OP_POP:    status = vm_instr_pop(vm);    break;
-        case VM_OP_FILTER: status = vm_instr_filter(vm); break;
-        case VM_OP_UPDATE: status = vm_instr_update(vm); break;
-        case VM_OP_SET:    status = vm_instr_set(vm);    break;
-        case VM_OP_GET:    status = vm_instr_get(vm);    break;
-        case VM_OP_CREATE: status = vm_instr_create(vm); break;
-        case VM_OP_CALL:   status = vm_instr_call(vm);   break;
-        case VM_OP_CMP:    status = vm_instr_cmp(vm);    break;
-        case VM_OP_BRANCH: status = vm_instr_branch(vm); break;
-        case VM_OP_DEBUG:  status = vm_instr_debug(vm);  break;
-        case VM_OP_HALT:   return status;
+        case VM_OP_PUSH:    status = vm_instr_push(vm);   break;
+        case VM_OP_POP:     status = vm_instr_pop(vm);    break;
+        case VM_OP_FILTER:  status = vm_instr_filter(vm); break;
+        case VM_OP_UPDATE:  status = vm_instr_update(vm); break;
+        case VM_OP_SET:     status = vm_instr_set(vm);    break;
+        case VM_OP_GET:     status = vm_instr_get(vm);    break;
+        case VM_OP_CREATE:  status = vm_instr_create(vm); break;
+        case VM_OP_CALL:    status = vm_instr_call(vm);   break;
+        case VM_OP_CMP:     status = vm_instr_cmp(vm);    break;
+        case VM_OP_BRANCH:  status = vm_instr_branch(vm); break;
+        case VM_OP_DEBUG:   status = vm_instr_debug(vm);  break;
+        case VM_OP_HALT:    return status;
+        case VM_OP_REPLACE: status = vm_instr_replace(vm); break;
         default: VM_RAISE(vm, EILSEQ, "invalid instruction 0x%x", *vm->pc);
         }
     }
@@ -379,6 +380,151 @@ vm_instr_update(vm_state_t *vm)
             dst->facts[j] = NULL;
             dst->nfact--;
         }
+    }
+    
+    if (src)
+        vm_global_free(src);
+    if (dst)
+        vm_global_free(dst);
+
+    vm->ninstr--;
+    vm->pc++;
+    vm->nsize -= sizeof(int);
+
+    return 0;
+#undef FAIL
+}
+
+
+/*
+ * REPLACE
+ */
+
+/********************
+ * vm_instr_replace
+ ********************/
+int
+vm_instr_replace(vm_state_t *vm)
+{
+#define FAIL(err, fmt, args...) do {                                    \
+        if (src) vm_global_free(src);                                   \
+        if (dst) vm_global_free(dst);                                   \
+        VM_RAISE(vm, err, fmt, ## args);                                \
+    } while (0)
+
+    vm_global_t *src, *dst;
+    int          nsrc, ndst;
+    vm_value_t   sval, dval;
+    OhmFact     *sfact, *dfact;
+    int          nfield, i, j, cnt;
+    int          match, success;
+    char         name[256];
+    
+    src     = NULL;
+    dst     = NULL;
+    nfield  = VM_REPLACE_NFIELD(*vm->pc);
+    
+    if (vm_peek(vm->stack, nfield, &dval) != VM_TYPE_GLOBAL)
+        FAIL(ENOENT, "REPLACE: no global destination found in stack");
+    
+    if (vm_peek(vm->stack, nfield + 1, &sval) != VM_TYPE_GLOBAL)
+        FAIL(ENOENT, "REPLACE: no global source found in stack");
+    
+    dst  = dval.g;
+    ndst = dst->nfact;
+    src  = sval.g;
+    nsrc = src->nfact;
+    
+    if (dst->nfact > 0 && dst->facts[0] != NULL) {
+        strncpy(name, ohm_structure_get_name(OHM_STRUCTURE(dst->facts[0])),
+                sizeof(name));
+        name[sizeof(name) - 1] = '\0';
+    }
+    else {
+        if (dst->name != NULL) {
+            strncpy(name, dst->name, sizeof(name));
+            name[sizeof(name) - 1] = '\0';
+        }
+        else
+            FAIL(EINVAL, "REPLACE: could not determine destination fact name");
+    }
+    
+    {
+        char    *fields[nfield];
+        GValue  *values[nfield];
+        
+        if (nfield > 0) {
+            for (i = 0; i < nfield; i++)
+                if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
+                    FAIL(ENOENT, "REPLACE: #%d field name not in stack", i);
+    
+            vm_pop_global(vm->stack);                    /* pop destination */
+            vm_pop_global(vm->stack);                    /* pop source */
+            
+            for (i = 0; i < nsrc; i++) {
+                sfact = src->facts[i];
+                if ((j = vm_fact_collect_fields(sfact,
+                                                fields, nfield, values)) < 0)
+                    FAIL(ENOENT, "REPLACE: source has no field %s", fields[-j]);
+                
+                match = FALSE;
+                for (j = vm_global_find_first(dst, fields, values, nfield);
+                     j >= 0;
+                     j = vm_global_find_next(dst, j, fields, values, nfield)) {
+                    match = TRUE;
+                
+                    dfact = dst->facts[j];
+                    success = (vm_fact_update(dfact, sfact) != NULL);
+                    if (!success)
+                        FAIL(EINVAL, "REPLACE: failed to update fact #%d", i);
+
+                    g_object_unref(dst->facts[j]);
+                    dst->facts[j] = NULL;
+                    dst->nfact--;
+                }
+            
+                if (match) {
+                    g_object_unref(sfact);
+                    src->facts[i] = NULL;
+                    src->nfact--;
+                }
+            }
+        }
+        
+        /* remove leftover destinations */
+        for (i = 0, cnt = dst->nfact; cnt > 0; i++) {
+            if ((dfact = dst->facts[i]) != NULL) {
+                vm_fact_remove_instance(dfact);
+
+                g_object_unref(dfact);
+                dst->facts[i] = NULL;
+                dst->nfact--;
+
+                cnt--;
+            }
+        }
+
+        /* insert leftover sources */
+        for (i = 0, cnt = src->nfact; cnt > 0; i++) {
+            if ((sfact = src->facts[i]) != NULL) {
+                /*
+                 * Notes:
+                 *   All of the current rules indicate the fact names
+                 *   either completely incorrectly or without the prefix.
+                 *   Hence, we need to rename them here correctly before
+                 *   inserting them to the factstore.
+                 */
+                
+                ohm_structure_set_name(OHM_STRUCTURE(sfact), name);
+                vm_fact_insert(sfact);
+
+                src->facts[i] = NULL;
+                src->nfact--;
+                
+                cnt--;
+            }
+        }
+
     }
     
     if (src)

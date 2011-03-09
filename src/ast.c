@@ -290,6 +290,7 @@ dres_free_statement(dres_stmt_t *stmt)
         switch (stmt->type) {
         case DRES_STMT_FULL_ASSIGN:
         case DRES_STMT_PARTIAL_ASSIGN:
+        case DRES_STMT_REPLACE_ASSIGN:
             free_assign(&stmt->assign);
             break;
         case DRES_STMT_CALL:
@@ -318,6 +319,9 @@ dres_dump_statement(dres_t *dres, dres_stmt_t *stmt, int level)
         break;
     case DRES_STMT_PARTIAL_ASSIGN:
         dump_assign(dres, &stmt->assign, "|=", level);
+        break;
+    case DRES_STMT_REPLACE_ASSIGN:
+        dump_assign(dres, &stmt->assign, "*=", level);
         break;
     case DRES_STMT_CALL:
         dump_call(dres, &stmt->call, level);

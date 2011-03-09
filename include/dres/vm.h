@@ -140,7 +140,7 @@ typedef enum {
     VM_OP_BRANCH,                             /* branch */
     VM_OP_DEBUG,                              /* VM debugging */
     VM_OP_HALT,                               /* stop VM execution */
-
+    VM_OP_REPLACE,                            /* global replacement */
     VM_OP_MAXCODE = 0xff
 } vm_opcode_t;
 
@@ -278,6 +278,20 @@ enum {
             goto errlbl;                                                \
     } while (0)
 
+
+/*
+ * REPLACE instructions
+ */
+
+#define VM_REPLACE_NFIELD(instr) (VM_OP_ARGS(instr))
+#define VM_INSTR_REPLACE(c, errlbl, ec, n) do {                         \
+        unsigned int instr;                                             \
+        unsigned int mod = n;                                           \
+        instr = VM_INSTR(VM_OP_REPLACE, mod);                           \
+        ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
+        if (ec)                                                         \
+            goto errlbl;                                                \
+    } while (0)
 
 
 /*
@@ -767,6 +781,9 @@ OhmFact     *vm_fact_copy  (OhmFact *dst, OhmFact *src);
 OhmFact     *vm_fact_update(OhmFact *dst, OhmFact *src);
 
 void         vm_fact_remove(char *name);
+void         vm_fact_remove_instance(OhmFact *fact);
+
+void         vm_fact_insert(OhmFact *fact);
 
 int          vm_fact_set_field  (vm_state_t *vm, OhmFact *fact, char *field,
                                  int type, vm_value_t *value);

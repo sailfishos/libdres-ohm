@@ -50,7 +50,7 @@ int vm_dump_branch (unsigned int **pc, char *buf, size_t size, int indent);
 int vm_dump_debug  (unsigned int **pc, char *buf, size_t size, int indent);
 int vm_dump_halt   (unsigned int **pc, char *buf, size_t size, int indent);
 int vm_dump_invalid(unsigned int **pc, char *buf, size_t size, int indent);
-
+int vm_dump_replace(unsigned int **pc, char *buf, size_t size, int indent);
 
 /********************
  * vm_dump_chunk
@@ -94,19 +94,20 @@ vm_dump_instr(unsigned int **pc, char *buf, size_t size, int indent)
     int n;
     
     switch ((vm_opcode_t)VM_OP_CODE(**pc)) {
-    case VM_OP_PUSH:   n = vm_dump_push(pc, buf, size, indent);    break;
-    case VM_OP_POP:    n = vm_dump_pop(pc, buf, size, indent);     break;
-    case VM_OP_FILTER: n = vm_dump_filter(pc, buf, size, indent);  break;
-    case VM_OP_UPDATE: n = vm_dump_update(pc, buf, size, indent);  break;
-    case VM_OP_SET:    n = vm_dump_set(pc, buf, size, indent);     break;
-    case VM_OP_GET:    n = vm_dump_get(pc, buf, size, indent);     break;
-    case VM_OP_CREATE: n = vm_dump_create(pc, buf, size, indent);  break;
-    case VM_OP_CALL:   n = vm_dump_call(pc, buf, size, indent);    break;
-    case VM_OP_CMP:    n = vm_dump_cmp(pc, buf, size, indent);     break;
-    case VM_OP_BRANCH: n = vm_dump_branch(pc, buf, size, indent);  break;
-    case VM_OP_DEBUG:  n = vm_dump_debug(pc, buf, size, indent);   break;
-    case VM_OP_HALT:   n = vm_dump_halt(pc, buf, size, indent);    break;
-    default:           n = vm_dump_invalid(pc, buf, size, indent); *pc = 0x0;
+    case VM_OP_PUSH:    n = vm_dump_push(pc, buf, size, indent);    break;
+    case VM_OP_POP:     n = vm_dump_pop(pc, buf, size, indent);     break;
+    case VM_OP_FILTER:  n = vm_dump_filter(pc, buf, size, indent);  break;
+    case VM_OP_UPDATE:  n = vm_dump_update(pc, buf, size, indent);  break;
+    case VM_OP_SET:     n = vm_dump_set(pc, buf, size, indent);     break;
+    case VM_OP_GET:     n = vm_dump_get(pc, buf, size, indent);     break;
+    case VM_OP_CREATE:  n = vm_dump_create(pc, buf, size, indent);  break;
+    case VM_OP_CALL:    n = vm_dump_call(pc, buf, size, indent);    break;
+    case VM_OP_CMP:     n = vm_dump_cmp(pc, buf, size, indent);     break;
+    case VM_OP_BRANCH:  n = vm_dump_branch(pc, buf, size, indent);  break;
+    case VM_OP_DEBUG:   n = vm_dump_debug(pc, buf, size, indent);   break;
+    case VM_OP_HALT:    n = vm_dump_halt(pc, buf, size, indent);    break;
+    case VM_OP_REPLACE: n = vm_dump_replace(pc, buf, size, indent);  break;
+    default:            n = vm_dump_invalid(pc, buf, size, indent); *pc = 0x0;
     }
         
     return n;
@@ -224,6 +225,25 @@ vm_dump_update(unsigned int **pc, char *buf, size_t size, int indent)
     INDENT(indent);
 
     n += snprintf(buf, size, "update %d\n", nfield);
+
+    (*pc)++;
+
+    return n;
+}
+
+
+/********************
+ * vm_dump_replace
+ ********************/
+int
+vm_dump_replace(unsigned int **pc, char *buf, size_t size, int indent)
+{
+    int nfield = VM_REPLACE_NFIELD(**pc);
+    int n;
+
+    INDENT(indent);
+
+    n += snprintf(buf, size, "replace %d\n", nfield);
 
     (*pc)++;
 

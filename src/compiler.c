@@ -155,6 +155,7 @@ compile_statement(dres_t *dres, dres_stmt_t *stmt, vm_chunk_t *code)
     switch (stmt->type) {
     case DRES_STMT_FULL_ASSIGN:
     case DRES_STMT_PARTIAL_ASSIGN:
+    case DRES_STMT_REPLACE_ASSIGN:
         return compile_stmt_assign(dres, &stmt->assign, code);
 
     case DRES_STMT_CALL:
@@ -221,15 +222,23 @@ compile_stmt_lvalue(dres_t *dres, dres_varref_t *lval, int op, vm_chunk_t *code)
             VM_INSTR_PUSH_STRING(code, fail, err, sel->field.name);
             nfield++;
         }
-        VM_INSTR_UPDATE(code, fail, err, nfield, partial);
+
+        if (op == DRES_STMT_REPLACE_ASSIGN)
+            VM_INSTR_REPLACE(code, fail, err, nfield);
+        else
+            VM_INSTR_UPDATE(code, fail, err, nfield, partial);
     }
     else {
         if (lval->field != NULL) {
             VM_INSTR_PUSH_STRING(code, fail, err, lval->field);
             VM_INSTR_SET_FIELD(code, fail, err);
         }
-        else
-            VM_INSTR_SET(code, fail, err);
+        else {
+            if (op == DRES_STMT_REPLACE_ASSIGN)
+                VM_INSTR_REPLACE(code, fail, err, 0);
+            else
+                VM_INSTR_SET(code, fail, err);
+        }
     }
         
     return TRUE;

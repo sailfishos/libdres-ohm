@@ -293,6 +293,30 @@ vm_fact_remove(char *name)
 
 
 /********************
+ * vm_fact_remove_instance
+ ********************/
+void
+vm_fact_remove_instance(OhmFact *fact)
+{
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    
+    ohm_fact_store_remove(store, fact);
+}
+
+
+/********************
+ * vm_fact_insert
+ ********************/
+void
+vm_fact_insert(OhmFact *fact)
+{
+    OhmFactStore *store = ohm_fact_store_get_fact_store();
+    
+    ohm_fact_store_insert(store, fact);
+}
+
+
+/********************
  * vm_fact_set_field
  ********************/
 int

@@ -97,6 +97,7 @@ static char *current_prefix;
 %token           TOKEN_EQUAL   "="
 %token           TOKEN_APPEND  "+="
 %token           TOKEN_PARTIAL "|="
+%token           TOKEN_REPLACE "*="
 %token           TOKEN_TAB "\t"
 %token           TOKEN_EOL
 %token           TOKEN_EOF
@@ -667,6 +668,27 @@ stmt_assign: varref "=" expr {
             vr->ref  = $1;
 
             a->type   = DRES_STMT_PARTIAL_ASSIGN;
+	    a->lvalue = vr;
+            a->rvalue = $3;
+
+            $$ = (dres_stmt_t *)a;
+        }
+        |   varref "*=" expr {
+            dres_stmt_assign_t *a;
+            dres_expr_varref_t *vr;
+
+            if ((a = ALLOC(typeof(*a))) == NULL)
+                YYABORT;
+
+	    if ((vr = ALLOC(typeof(*vr))) == NULL) {
+	        dres_free_statement((dres_stmt_t *)a);
+		YYABORT;
+            }
+
+	    vr->type = DRES_EXPR_VARREF;
+            vr->ref  = $1;
+
+            a->type   = DRES_STMT_REPLACE_ASSIGN;
 	    a->lvalue = vr;
             a->rvalue = $3;
 
