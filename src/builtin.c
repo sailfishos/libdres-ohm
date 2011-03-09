@@ -281,25 +281,40 @@ BUILTIN_HANDLER(fact)
     dres_t       *dres = (dres_t *)data;
     vm_global_t  *g;
     GValue       *value;
-    char         *field;
+    char         *field, *factname;
     int           a, i, err;
 
     (void)dres;
     (void)name;
 
+    g = NULL;
+
     if (narg < 1) {
         DRES_ERROR("builtin 'fact': called with no arguments");
         DRES_ACTION_ERROR(EINVAL);
     }
+
+    if (args[0].type != DRES_TYPE_STRING) {
+        DRES_ERROR("builtin 'fact': invalid fact name (type 0x%x)",
+                   args[i].type);
+        err = EINVAL;
+        goto fail;
+    }
+
+    factname = args[0].v.s;
     
-    if ((g = vm_global_alloc(narg)) == NULL) {
+    if ((g = vm_global_alloc(narg - 1)) == NULL) {
         DRES_ERROR("builtin 'fact': failed to allocate new global");
         DRES_ACTION_ERROR(ENOMEM);
     }
     
-    for (a = 0, i = 0; a < narg && i < narg; a++) {
-        g->facts[a] = ohm_fact_new("foo");
+    for (a = 0, i = 1; a < narg && i < narg; a++) {
+        printf("* outer: i=%d, a=%d\n", i, a);
+        g->facts[a] = ohm_fact_new(factname);
+        g->nfact = a + 1;
+        printf("* created fact %d...\n", a + 1);
         while (i < narg) {
+            printf("* inner: i=%d, a=%d\n", i, a);
             if (args[i].type != DRES_TYPE_STRING) {
                 DRES_ERROR("builtin 'fact': invalid field name (type 0x%x)",
                            args[i].type);
@@ -343,8 +358,6 @@ BUILTIN_HANDLER(fact)
         }
     }
     
-    g->nfact = a;
-
     rv->type = DRES_TYPE_FACTVAR;
     rv->v.g  = g;
     DRES_ACTION_SUCCEED;
