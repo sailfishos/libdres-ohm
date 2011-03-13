@@ -86,6 +86,7 @@ static char *current_prefix;
 %token <dbl>     TOKEN_DOUBLE
 %token <string>  TOKEN_FACTVAR
 %token <string>  TOKEN_DRESVAR
+%token           TOKEN_VARIABLES
 %token           TOKEN_COLON ":"
 %token           TOKEN_PAREN_OPEN  "("
 %token           TOKEN_PAREN_CLOSE ")"
@@ -153,7 +154,7 @@ static char *current_prefix;
 %%
 
 
-input: optional_facts rules
+input: optional_facts optional_local_decls rules
 
 optional_facts: /* empty */
     | facts
@@ -218,6 +219,25 @@ ifields: field {
             $$       = $1;
         }
         ;
+
+optional_local_decls: /* empty */
+        | local_decls
+        ;
+
+local_decls: local_decl
+        | local_decls local_decl
+        ;
+
+local_decl: TOKEN_VARIABLES dresvars TOKEN_EOL
+        ;
+
+dresvars: dresvar
+        | dresvars "," dresvar
+        ;
+
+dresvar: TOKEN_DRESVAR { dres_dresvar_id(dres, $1 + 1); }
+      |  TOKEN_IDENT   { dres_dresvar_id(dres, $1); }
+      ;
 
 sfields: sfield { $$ = $1; }
         | sfields "," sfield {

@@ -89,6 +89,7 @@ static int  ringoffs = 0;
      TOKEN_DOUBLE,
      TOKEN_FACTVAR,
      TOKEN_DRESVAR,
+     TOKEN_VARIABLES,
      TOKEN_COLON,
      TOKEN_PAREN_OPEN,
      TOKEN_PAREN_CLOSE,
@@ -125,7 +126,7 @@ static int  ringoffs = 0;
        "EOL",
        "PREFIX",
        "IDENT", "FACTNAME", "DOT", 
-       "STRING", "INTEGER", "DOUBLE", "FACTVAR", "DRESVAR",
+       "STRING", "INTEGER", "DOUBLE", "FACTVAR", "DRESVAR", "VARIABLES",
        "COLON",
        "PAREN_OPEN", "PAREN_CLOSE",
        "CURLY_OPEN", "CURLY_CLOSE",
@@ -190,6 +191,7 @@ PREFIX		^PREFIX/({WS}|=)
 INCLUDE		^INCLUDE
 COMMENT_FULL	^{OWS}#.*$
 COMMENT_TRAIL	#
+VARIABLES       ^variables
 EOL		\n+
 STRING		('[^\n']*')|(\"[^\n\"]*\")
 INTEGER		[+-]?[0-9]+
@@ -261,6 +263,7 @@ ESCAPE          \\
                       yyterminate();
                 }
 
+{VARIABLES}     { TOKEN(VARIABLES); }
 
 if              { TOKEN(IF);   }
 then            { TOKEN(THEN); }
