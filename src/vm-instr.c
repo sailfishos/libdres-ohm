@@ -457,10 +457,12 @@ vm_instr_replace(vm_state_t *vm)
             for (i = 0; i < nfield; i++)
                 if ((fields[i] = vm_pop_string(vm->stack)) == NULL)
                     FAIL(ENOENT, "REPLACE: #%d field name not in stack", i);
+        }
     
-            vm_pop_global(vm->stack);                    /* pop destination */
-            vm_pop_global(vm->stack);                    /* pop source */
+        vm_pop_global(vm->stack);                        /* pop destination */
+        vm_pop_global(vm->stack);                        /* pop source */
             
+        if (nfield > 0) {
             for (i = 0; i < nsrc; i++) {
                 sfact = src->facts[i];
                 if ((j = vm_fact_collect_fields(sfact,
