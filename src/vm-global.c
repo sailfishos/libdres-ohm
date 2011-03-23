@@ -288,6 +288,7 @@ vm_fact_remove(char *name)
     for (l = vm_fact_lookup(name); l != NULL; l = g_slist_next(l)) {
         fact = (OhmFact *)l->data;
         ohm_fact_store_remove(store, fact);
+        g_object_unref(fact);
     }
 }
 
@@ -301,6 +302,7 @@ vm_fact_remove_instance(OhmFact *fact)
     OhmFactStore *store = ohm_fact_store_get_fact_store();
     
     ohm_fact_store_remove(store, fact);
+    g_object_unref(fact);
 }
 
 
