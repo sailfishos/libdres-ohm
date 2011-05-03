@@ -1,198 +1,377 @@
-%{
+%{ /* -*- c -*- */
 
+#include <stdlib.h>
 #include <string.h>
+#include <limits.h>
+#include <stdarg.h>
 
-#ifndef __TEST_LEXER__
-#  include <dres/dres.h>
-#  include "parser.h"
+#include <dres/dres.h>
+
+#include "parser-types.h"
+#include "parser.h"
+
+
+
+
+#ifndef FALSE
+#  define FALSE 0
+#  define TRUE (!FALSE)
 #endif
 
-#if 0
-#define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
-#endif
 
-#if !defined(DEBUG)
-#  if defined(__TEST_LEXER__)
-#    define DEBUG(fmt, args...) printf("[lexer] "fmt"\n", ## args)
-#  else
-#    define DEBUG(fmt, args...)
-#  endif
-#endif
+#define DEBUG(format, args...) do {            \
+        if (lexer.debug)                       \
+            printf("D: "format"\n" , ## args); \
+    } while (0)
+    
+
+#define IGNORE(type) do {                                               \
+        DEBUG("%s:%d: ignored %s", lexer_file(), lexer_line(), #type);  \
+    } while (0)
+
+
+
+/*****************************************************************************
+ *                *** lexical analyser type definitions ***                  *
+ *****************************************************************************/
+
+/*
+ * To avoid continuous string duplication and freeing in the parser we
+ * instead collect tokens to a ring buffer. Doing so allows us to have
+ * reasonably sane lifecycle management with "owner allocates/releases"
+ * semantics without having to worry about freeing unneeded temporary
+ * tokens in the parser.
+ *
+ * The only gotcha is that the ring buffer must be big enough to hold
+ * all the values of the outstanding tokens between bison rule reductions
+ * by the parser. Currently there is no ring buffer overflow check in
+ * this code. Instead the ring buffer is now simply set to be way larger
+ * than necessary for any sanely manageable ruleset.
+ */
+
+#define RINGBUF_SIZE (16 * 1024)                /* token ring buffer size */
+
+typedef struct lexer_file_s lexer_file_t;
+
+struct lexer_file_s {
+    YY_BUFFER_STATE   yybuf;                    /* flex input buffer */
+    FILE             *fp;                       /* input stream */
+    char             *path;                     /* input file path */
+    int               line;                     /* input line number */
+    lexer_file_t     *prev;                     /* previous input */
+};
+
+typedef struct {
+    char          tokens[RINGBUF_SIZE];         /* token value ring buffer */
+    int           offset;                       /* ring buffer offset */
+    int           debug;                        /* debug lexical analysis ? */
+    int           pass_newline;                 /* pass next newline thru ? */
+    lexer_file_t *current;                      /* input file being processed */
+    lexer_file_t *processed;                    /* processed include */
+} lexer_t;
+
+
+static lexer_t lexer = { .debug = TRUE };
+
 
 static int lexer_push_include(char *path);
 static int lexer_pop_include (void);
+
 static int yywrap(void);
 
+int   lexer_line(void);
+char *lexer_file(void);
 
-/*
- * Notes:
- *
- *   To avoid unnecessary string duplication/freeing we collect tokens to a
- *   ring buffer. Doing so allows us to have a sane lifecycle management
- *   (owner allocates/frees semantics) without having to worry about freeing
- *   unneeded tokens in the parser.
- *
- *   However the ringbuffer must be big enough to hold all the outstanding
- *   tokens collected between (bison) rule reductions by the parser. There is
- *   no ringbuffer overflow check at the moment. Instead the ringbuffer is set
- *   to be way larger than necessary for any sanely manageable ruleset.
- */
+static inline int parse_integer(lexer_t *l, char *str, int *value);
+static inline int parse_double(lexer_t *l, char *str, double *value);
 
-#define RINGBUFF_SIZE (16 * 1024)
 
-static char ringbuff[RINGBUFF_SIZE];
-static int  ringoffs = 0;
 
-#ifndef __TEST_LEXER__
-#  define SAVE(v) do {                                  \
-       int __size = strlen(v) + 1;                      \
-       if (ringoffs + __size + 1 >= RINGBUFF_SIZE)      \
-           ringoffs = 0;                                \
-       yylval.string = strcpy(ringbuff + ringoffs, v);  \
-       ringoffs += __size;                              \
-   } while (0)
+/*****************************************************************************
+ *                    *** token ring buffer management ***                   *
+ *****************************************************************************/
 
-#  define SAVEN(v, n) do {                                 \
-       int   __size, __len;                                \
-       if ((n) > (__len = strlen(v)))                      \
-           __size = __len + 1;                             \
-       else                                                \
-           __size = (n) + 1;                               \
-       if (ringoffs + __size + 1 >= RINGBUFF_SIZE)         \
-           ringoffs = 0;                                   \
-       yylval.string = strncpy(ringbuff + ringoffs, v, n); \
-       ringbuff[ringoffs + (n)] = '\0';                    \
-       ringoffs += __size;                                 \
-   } while(0)
+static char *
+printable_token(char *token)
+{
+    static char buf[PATH_MAX], *p, *q;
+    int         n;
 
-#  define INTEGER(v, base) do {                            \
-       yylval.integer = strtol(v, NULL, base);             \
-   } while (0)
+    p = token;
+    q = buf;
+    n = sizeof(buf) - 1;
+    while (*p && n > 0) {
+        switch (*p) {
+        case '\n':
+        case '\r':
+            if (n > 2) {
+                *q++ = '\\';
+                *q++ = *p == '\n' ? 'n': 'r';
+                n -= 2;
+            }
+            else {
+                *q++ = '.';
+                n--;
+            }
+            break;
+        case '\t':
+            if (n > 2) {
+                *q++ = '\\'; *q++ = 't';
+                n -= 2;
+            }
+            else {
+                *q++ = '.';
+                n--;
+            }
+            break;
+        default:
+            *q++ = *p;
+            n--;
+        }
+        p++;
+    }
+    *q = '\0';
+    
+    return buf;
+}
 
-#  define DOUBLE(v) do {                                   \
-       yylval.dbl = strtod(v, NULL);                       \
-   } while (0)
 
-#else
-#  define SAVE(v)
-#  define SAVEN(v, n)
-#  define INTEGER(v, base)
-#  define DOUBLE(v)
-   enum {
-     TOKEN_EOL = 0,
-     TOKEN_PREFIX,
-     TOKEN_IDENT,
-     TOKEN_FACTNAME,
-     TOKEN_DOT,
-     TOKEN_STRING,
-     TOKEN_INTEGER,
-     TOKEN_DOUBLE,
-     TOKEN_FACTVAR,
-     TOKEN_DRESVAR,
-     TOKEN_VARIABLES,
-     TOKEN_COLON,
-     TOKEN_PAREN_OPEN,
-     TOKEN_PAREN_CLOSE,
-     TOKEN_CURLY_OPEN,
-     TOKEN_CURLY_CLOSE,
-     TOKEN_BRACE_OPEN,
-     TOKEN_BRACE_CLOSE,
-     TOKEN_COMMA,
-     TOKEN_EQUAL,
-     TOKEN_APPEND,
-     TOKEN_PARTIAL,
-     TOKEN_REPLACE,
-     TOKEN_TAB,
-     TOKEN_EOF,
+static char *
+token_saven(lexer_t *l, char *token, int length)
+{
+    int   size;
+    char *saved;
 
-     TOKEN_IF,
-     TOKEN_THEN,
-     TOKEN_ELSE,
-     TOKEN_END,
-     TOKEN_EQ,
-     TOKEN_NE,
-     TOKEN_LT,
-     TOKEN_LE,
-     TOKEN_GT,
-     TOKEN_GE,
-     TOKEN_NOT,
+    size = strlen(token);
+    
+    if (length > size)
+        length = size;
 
-     TOKEN_OR,
-     TOKEN_AND,
+    size = length + 1;
 
-     TOKEN_UNKNOWN,
-   };
-   const char *tokenname[] = {
-       "EOL",
-       "PREFIX",
-       "IDENT", "FACTNAME", "DOT", 
-       "STRING", "INTEGER", "DOUBLE", "FACTVAR", "DRESVAR", "VARIABLES",
-       "COLON",
-       "PAREN_OPEN", "PAREN_CLOSE",
-       "CURLY_OPEN", "CURLY_CLOSE",
-       "BREACE_OPEN", "BRACE_CLOSE",
-       "COMMA", "EQUAL", "APPEND", "TAB",
-       "<<EOF>>",
+    if (l->offset + size >= RINGBUF_SIZE)
+        l->offset = 0;
+    
+    saved = l->tokens + l->offset;
+    l->offset += size;
 
-       "IF", "THEN", "ELSE", "END",
-       "==", "!=",
-       "<", "<=",
-       ">", ">=",
-       "!",
+    strncpy(saved, token, length);
+    saved[length] = '\0';
 
-       "OR", "AND"
+    yylval.any.token  = saved;
+    yylval.any.lineno = l->current->line;
+    DEBUG("saved token '%s'", printable_token(saved));
 
-       "<<UNKNOWN>>"
-   };
-#endif /* __TEST_LEXER__ */
+    return saved;
+}
 
-#define TOKEN(t) do {                              \
-	DEBUG("%s(\"%s\")", #t,                    \
-	 TOKEN_##t == TOKEN_EOL ? "EOL" : yytext); \
-        if (TOKEN_##t == TOKEN_EOL) {              \
-	  if (!pass_newline)			   \
-	    DEBUG("EOL suppressed");	           \
-	  else {				   \
-	    pass_newline = 0;			   \
-	    return TOKEN_##t;			   \
-	  }					   \
-	}					   \
-	else {					   \
-	  pass_newline = 1;			   \
-	  return TOKEN_##t;			   \
-	}					   \
+static char *
+token_save(lexer_t *l, char *token)
+{
+    return token_saven(l, token, strlen(token));
+}
+
+
+
+/*****************************************************************************
+ *                      *** token parsing & passing ***                      *
+ *****************************************************************************/
+
+
+static void
+lexer_error(lexer_t *l, const char *format, ...)
+{
+    va_list ap;
+    
+    fprintf(stderr, "dres: lexical error on line %d in file %s",
+            l->current->line, l->current->path);
+    
+    va_start(ap, format);
+    vfprintf(stderr, format, ap);
+    va_end(ap);
+}
+
+
+#define PASS_TOKEN(type) do {                                           \
+        if (TOKEN_##type == TOKEN_EOL) {                                \
+            lexer_error(&lexer, "internal error: TOKEN(EOL) !");        \
+            return TOKEN_LEXER_ERROR;                                   \
+        }                                                               \
+                                                                        \
+        DEBUG("%s:%d: %s ('%s')", lexer_file(), lexer_line(),           \
+              #type, yytext);                                           \
+                                                                        \
+        token_save(&lexer, yytext);                                     \
+                                                                        \
+        lexer.pass_newline = TRUE;                                      \
+        return TOKEN_##type;                                            \
     } while (0)
 
-#define IGNORE(pt) do {                          \
-        DEBUG("ignored %s(\"%s\")", #pt,         \
-              *yytext == '\n' ? "\\n" : yytext); \
+
+#define PASS_NUMBER(type) do {                                          \
+        char *__token;                                                  \
+        int   __ok;                                                     \
+                                                                        \
+        DEBUG("%s:%d: %s ('%s')", lexer_file(), lexer_line(),           \
+              #type, yytext);                                           \
+                                                                        \
+        __token = token_save(&lexer, yytext);                           \
+                                                                        \
+        switch (TOKEN_##type) {                                         \
+        case TOKEN_INTEGER:                                             \
+            __ok = parse_integer(&lexer,__token,&yylval.integer.value); \
+            break;                                                      \
+        case TOKEN_DOUBLE:                                              \
+            __ok = parse_double(&lexer, __token, &yylval.dbl.value);    \
+            break;                                                      \
+        default:                                                        \
+            lexer_error(&lexer, "invalid numeric type %s", #type);      \
+            __ok = FALSE;                                               \
+        }                                                               \
+                                                                        \
+        lexer.pass_newline = TRUE;                                      \
+                                                                        \
+        return __ok ? TOKEN_##type : TOKEN_LEXER_ERROR;                 \
     } while (0)
 
-int pass_newline = 0;
 
-typedef struct lexer_file_s lexer_file_t;
-struct lexer_file_s {
-    char             *path;
-    YY_BUFFER_STATE   yybuf;
-    FILE             *fp;
-    int               lineno;
-    lexer_file_t     *prev;
-};
+#define PASS_STRING(type) do {                                          \
+        char *__token, *__value;                                        \
+        int   __len;                                                    \
+                                                                        \
+        DEBUG("%s:%d: %s ('%s')", lexer_file(), lexer_line(),           \
+              #type, yytext);                                           \
+                                                                        \
+        __len   = yyleng;                                               \
+        __value = yytext;                                               \
+                                                                        \
+        if (TOKEN_##type == TOKEN_STRING) {                             \
+            if (__value[0] == '"' || __value[0] == '\'')                \
+                __token = token_saven(&lexer, __value + 1, __len - 2);  \
+            else                                                        \
+                __token = token_save(&lexer, __value);                  \
+        }                                                               \
+        else                                                            \
+            __token = token_save(&lexer, __value);                      \
+                                                                        \
+        yylval.string.value = __token;                                  \
+                                                                        \
+        lexer.pass_newline  = TRUE;                                     \
+        return TOKEN_##type;                                            \
+    } while (0)
 
-lexer_file_t *current   = NULL;
-lexer_file_t *processed = NULL;
+
+#define PASS_IDENT(type) do {                                           \
+        char *__token, *__value;                                        \
+                                                                        \
+        __value = yytext;                                               \
+                                                                        \
+        DEBUG("%s:%d: %s ('%s')", lexer_file(), lexer_line(),           \
+              #type, __value);                                          \
+                                                                        \
+        if (TOKEN_##type == TOKEN_FACTVAR ||                            \
+            TOKEN_##type == TOKEN_DRESVAR)                              \
+            __value++;                                                  \
+                                                                        \
+        __token = token_save(&lexer, __value);                          \
+                                                                        \
+        yylval.string.value = __token;                                  \
+                                                                        \
+        lexer.pass_newline  = TRUE;                                     \
+        return TOKEN_##type;                                            \
+    } while (0)
+
+
+#define PROCESS_EOL(kind) do {                                          \
+        lexer.current->line++;                                          \
+        if (!lexer.pass_newline) {                                      \
+            DEBUG("%s:%d: ignore EOL (%s)", lexer_file(), lexer_line(), \
+                  #kind);                                               \
+            IGNORE(EOL);                                                \
+        }                                                               \
+        else {                                                          \
+            DEBUG("%s:%d: EOL (%s)", lexer_file(), lexer_line(),#kind); \
+                                                                        \
+            token_saven(&lexer, "\n", 1);                               \
+                                                                        \
+            lexer.pass_newline = FALSE;                                 \
+            return TOKEN_EOL;                                           \
+        }                                                               \
+    } while (0)
+
+
+#define PUSH_BACK_EOL() do {                                            \
+        lexer.current->line--;                                          \
+        unput('\n');                                                    \
+    } while (0)
+
+
+#define PROCESS_ESCAPE() do {                                           \
+        int __c;                                                        \
+                                                                        \
+        switch ((__c = input())) {                                      \
+        case '\n':                                                      \
+            DEBUG("%s:%d: ignore escaped '\\n'",                        \
+                  lexer_file(), lexer_line());                          \
+            lexer.current->line++;                                      \
+            /* kludge to get tabulation after escaped newline work */   \
+            if ((__c = input()) == '\t')                                \
+                unput(' ');                                             \
+            else                                                        \
+                unput(__c);                                             \
+            break;                                                      \
+        default:                                                        \
+            DEBUG("%s:%d: escaped '%c'",                                \
+                  lexer_file(), lexer_line(), __c);                     \
+            unput(__c);                                                 \
+        }                                                               \
+    } while (0)
+
+
+
+static inline int
+parse_integer(lexer_t *l, char *str, int *value)
+{
+    char *end;
+
+    *value = (int)strtoll(str, &end, 10);
+    
+    if (!*end)
+        return TRUE;
+    else {
+        lexer_error(l, "invalid integer \"%s\"", str);
+        return FALSE;
+    }
+}
+
+
+static inline int
+parse_double(lexer_t *l, char *str, double *value)
+{
+    char *end;
+
+    *value = strtod(str, &end);
+    
+    if (!*end)
+        return TRUE;
+    else {
+        lexer_error(l, "invalid double precision floating \"%s\"", str);
+        return FALSE;
+    }
+}
+
 
 %}
 
 TAB		^\t/[ \t]*[^#]+
-WS		[ \t]+
-OWS		[ \t]*
-PREFIX		^PREFIX/({WS}|=)
+WHITESPACE	[ \t]+
+EMPTY_LINE      [ \t]*$
+PREFIX		^PREFIX/({WHITESPACE}|=)
 INCLUDE		^INCLUDE
-COMMENT_FULL	^{OWS}#.*$
-COMMENT_TRAIL	#
+COMMENT_FULL    ^[ \t]*#.*$
+COMMENT_TRAIL    [ \t]*#.*$
 VARIABLES       ^variables
-EOL		\n+
+EOL		\n
 STRING		('[^\n']*')|(\"[^\n\"]*\")
 INTEGER		[+-]?[0-9]+
 HEXINT		[+-]?0x[0-9a-fA-F]+
@@ -209,106 +388,77 @@ ESCAPE          \\
 
 %%
 
-{WS}		{ IGNORE(WHITESPACE); }
-{COMMENT_FULL}  {   int c;
-                    IGNORE(COMMENT_FULL);
-                    if ((c = input()) != '\n')
-		        unput(c);
-                    else
-                        current->lineno++;
-                }
-{COMMENT_TRAIL} { int c;
-                  DEBUG("ignoring trailing comment");
-		  while ((c = input())) {
-		      if (c == '\n') {
-		          unput(c);
-			  break;
- 	              }
-                  }
-                }
-^[ \t]*$	{ int c;
-   		  if ((c = input()) != '\n')
-		      unput(c);
-		  current->lineno++;
-   		  if (!pass_newline)
-		      DEBUG("ignoring empty line");
-                  else
-                      TOKEN(EOL);
-		}
-{ESCAPE}        { int c;
-                  if ((c = input()) != '\n')
-		      unput(c);
-		  else {
-                      DEBUG("ignoring escaped newline");
-                      current->lineno++;
-		      if ((c = input()) == '\t')
-		          unput(' ');
-		      else
-		          unput(c);
-                  }
-                }
+{WHITESPACE}          { IGNORE(WHITESPACE);    }
+{COMMENT_FULL}        { IGNORE(COMMENT_FULL);
+                        PUSH_BACK_EOL();       }
+{COMMENT_TRAIL}       { IGNORE(COMMENT_TRAIL);
+                        PUSH_BACK_EOL();         }
+{ESCAPE}              { PROCESS_ESCAPE();      }
 
-{INCLUDE}       { BEGIN(incl); }
+{INCLUDE}             { BEGIN(incl);           }
 
-<incl>[ \t]*    { /* ignore whitespace before path */ }
-<incl>[^ \t\n]+ {
-                  if (lexer_push_include(yytext) != 0) {
-                      printf("failed to open file \"%s\"\n", yytext);
-                      exit(1);
-                  }
-                  BEGIN(INITIAL);
-                }
+<incl>{WHITESPACE}    { IGNORE(WHITESPACE);    }
+<incl>[^ \t\n]+       {
+                        if (lexer_push_include(yytext) != 0) {
+                            fprintf(stderr, "failed to open file \"%s\"\n",
+                                    yytext);
+                            exit(1);
+                        }
+                        else
+                            BEGIN(INITIAL);
+                      }
 
-<<EOF>>         { if (lexer_pop_include() == ENOENT)
-                      yyterminate();
-                }
+<<EOF>>               {
+                        if (lexer_pop_include() == ENOENT)
+                            yyterminate();
+                      }
 
-{VARIABLES}     { TOKEN(VARIABLES); }
+{VARIABLES}           { PASS_TOKEN(VARIABLES);   }
 
-if              { TOKEN(IF);   }
-then            { TOKEN(THEN); }
-else            { TOKEN(ELSE); }
-end             { TOKEN(END);  }
+if                    { PASS_TOKEN(IF);          }
+then                  { PASS_TOKEN(THEN);        }
+else                  { PASS_TOKEN(ELSE);        }
+end                   { PASS_TOKEN(END);         }
 
-{IDENT}		{ SAVE(yytext); TOKEN(IDENT);       }
-{PREFIX}        { TOKEN(PREFIX);                    }
-{TAB}           { TOKEN(TAB);                            }
-{EOL}		{ current->lineno += yyleng; TOKEN(EOL); }
-\.              { TOKEN(DOT);                         }
+{IDENT}		      { PASS_IDENT(IDENT);       }
+{PREFIX}              { PASS_TOKEN(PREFIX);      }
+{TAB}                 { PASS_TOKEN(TAB);         }
+{EOL}		      { PROCESS_EOL(EOL);        }
+\.                    { PASS_TOKEN(DOT);         }
 
-{STRING}	{ SAVEN(yytext+1, yyleng-2); TOKEN(STRING);   }
-{INTEGER}	{ INTEGER(yytext, 10);       TOKEN(INTEGER);  }
-{DOUBLE}	{ DOUBLE(yytext);            TOKEN(DOUBLE);   }
-{FACTNAME}	{ SAVE(yytext);              TOKEN(FACTNAME); }
-{FACTVAR}	{ SAVE(yytext + 1);          TOKEN(FACTVAR);  }
-{DRESVAR}       { SAVE(yytext + 1);          TOKEN(DRESVAR);  }
+{STRING}	      { PASS_STRING(STRING);     }
+{INTEGER}	      { PASS_NUMBER(INTEGER);    }
+{DOUBLE}	      { PASS_NUMBER(DOUBLE);     }
+{FACTNAME}	      { PASS_IDENT(FACTNAME);    }
+{FACTVAR}	      { PASS_IDENT(FACTVAR);     }
+{DRESVAR}             { PASS_IDENT(DRESVAR);     }
 
-\{		{ TOKEN(CURLY_OPEN);  }
-\}		{ TOKEN(CURLY_CLOSE); }
-\[		{ TOKEN(BRACE_OPEN);  }
-\]		{ TOKEN(BRACE_CLOSE); }
-\(              { TOKEN(PAREN_OPEN);  }
-\)              { TOKEN(PAREN_CLOSE); }
-:               { TOKEN(COLON);       }
-,               { TOKEN(COMMA);       }
+\{		      { PASS_TOKEN(CURLY_OPEN);  }
+\}		      { PASS_TOKEN(CURLY_CLOSE); }
+\[		      { PASS_TOKEN(BRACE_OPEN);  }
+\]		      { PASS_TOKEN(BRACE_CLOSE); }
+\(                    { PASS_TOKEN(PAREN_OPEN);  }
+\)                    { PASS_TOKEN(PAREN_CLOSE); }
+:                     { PASS_TOKEN(COLON);       }
+,                     { PASS_TOKEN(COMMA);       }
 
-==              { TOKEN(EQ);          }
-!=              { TOKEN(NE);          }
-\<=             { TOKEN(LE);          }
-\<              { TOKEN(LT);          }
->=              { TOKEN(GE);          }
->               { TOKEN(GT);          }
-!               { TOKEN(NOT);         }
-\|\|		{ TOKEN(OR);          }
-\&\&		{ TOKEN(AND);         }
+==                    { PASS_TOKEN(EQ);          }
+!=                    { PASS_TOKEN(NE);          }
+\<=                   { PASS_TOKEN(LE);          }
+\<                    { PASS_TOKEN(LT);          }
+>=                    { PASS_TOKEN(GE);          }
+>                     { PASS_TOKEN(GT);          }
+!                     { PASS_TOKEN(NOT);         }
+\|\|		      { PASS_TOKEN(OR);          }
+\&\&		      { PASS_TOKEN(AND);         }
 
 
-=		{ TOKEN(EQUAL);       }
-\+=             { TOKEN(APPEND);      }
-\|=             { TOKEN(PARTIAL);     }
-\*=             { TOKEN(REPLACE);     }
+=		      { PASS_TOKEN(EQUAL);       }
+\+=                   { PASS_TOKEN(APPEND);      }
+\|=                   { PASS_TOKEN(PARTIAL);     }
+\*=                   { PASS_TOKEN(REPLACE);     }
 
-.               { SAVE(yytext); TOKEN(UNKNOWN);     }
+.                     { PASS_TOKEN(UNKNOWN);     }
 
 %%
 
@@ -329,11 +479,11 @@ lexer_push_include(char *path)
         memset(file, 0, sizeof(*file));
         file->path   = strdup(path);
         file->fp     = fp;
-        file->lineno = 1;
-        file->prev   = current;
+        file->line = 1;
+        file->prev   = lexer.current;
         file->yybuf  = yy_create_buffer(fp, YY_BUF_SIZE);
 
-        current = file;
+        lexer.current = file;
         yypush_buffer_state(file->yybuf);
 
         DEBUG("PUSH \"%s\"...", file->path);
@@ -342,51 +492,60 @@ lexer_push_include(char *path)
     return 0;
 }
 
-
 static int
 lexer_pop_include(void)
 {
     lexer_file_t *old;
 
-    if (current == NULL)
+    if (lexer.current == NULL)
         return ENOENT;
 
-    old     = current;
-    current = old->prev;
+    old = lexer.current;
+    lexer.current = old->prev;
 
-    old->prev = processed;
-    processed = old;
+    old->prev = lexer.processed;
+    lexer.processed = old;
 
     DEBUG("POP: popped \"%s\"", old->path);
     fclose(old->fp);
     free(old->path);
 
-    if (current != NULL) {
+    if (lexer.current != NULL) {
         yypop_buffer_state();
-        DEBUG("POP: current in \"%s\"", current->path);
+        DEBUG("POP: current in \"%s\"", lexer.current->path);
         return 0;
     }
-    else {
-#ifdef __TEST_LEXER__
-        exit(0);
-#else
+    else
         return ENOENT;
-#endif
-    }
 }
 
 
 int
 lexer_open(char *path)
 {
+    char *var;
+
+    if ((var = getenv("DRES_LEXER_DEBUG")) != NULL &&
+        (!strcasecmp(var, "yes") || !strcasecmp(var, "true")))
+        lexer.debug = TRUE;
+    else
+        lexer.debug = FALSE;
+
     return lexer_push_include(path);
 }
 
 
-int
-lexer_lineno(void)
+char *
+lexer_file(void)
 {
-    return current ? current->lineno : 1;
+    return lexer.current ? lexer.current->path : "<unknown>";
+}
+
+
+int
+lexer_line(void)
+{
+    return lexer.current ? lexer.current->line : 1;
 }
 
 
@@ -396,32 +555,10 @@ static int yywrap(void)
 }
 
 
-#ifdef __TEST_LEXER__
-
-int depth = 0;
-
-int
-main(int argc, char *argv[])
-{
-    int token;
-  
-    if (argc != 2) {
-        fprintf(stderr, "usage: %s input-file\n", argv[0]);
-        exit(1);
-    }
-
-    lexer_open(argv[1]);
-  
-    while ((token = yylex()) != TOKEN_EOF) {
-      /*
-      DEBUG("token %s: \"%s\"\n", tokenname[token],
-      token == TOKEN_EOL ? "<<EOL>>" : yytext)*/;
-    }
-
-    return 0;
-
-    (void)ringbuff;
-    (void)ringoffs;
-}
-#endif
-
+/* 
+ * Local Variables:
+ * c-basic-offset: 4
+ * indent-tabs-mode: nil
+ * End:
+ * vim:set expandtab shiftwidth=4:
+ */

@@ -24,11 +24,7 @@ dresc_LDADD   = libdres.la @LIBOHMFACT_LIBS@ @GLIB_LIBS@ @LEXLIB@ -lm
 
 
 # various test programs
-noinst_PROGRAMS = lexer-test parser-test
-
-lexer_test_SOURCES = lexer.l
-lexer_test_CFLAGS  = -D__TEST_LEXER__=1
-lexer_test_LDADD   = -lfl
+noinst_PROGRAMS = parser-test
 
 parser_test_SOURCES = parser-test.c
 parser_test_CFLAGS  = @LIBOHMFACT_CFLAGS@ @GLIB_CFLAGS@

@@ -37,6 +37,7 @@ USA.
 #include <dres/compiler.h>
 
 #include "dres-debug.h"
+#include "parser-types.h"
 #include "parser.h"
 
 
@@ -52,7 +53,8 @@ TRACE_DECLARE_MODULE(trcdres, "dres",
     
 
 extern int   lexer_open(char *path);
-extern int   lexer_lineno(void);
+extern int   lexer_line(void);
+extern char *lexer_file(void);
 extern int   yyparse(dres_t *dres);
 
 int  initialize_variables(dres_t *dres);
@@ -722,7 +724,7 @@ yyerror(dres_t *dres, const char *msg)
 {
     extern void dres_parse_error(dres_t *, int, const char *, const char *);
 
-    dres_parse_error(dres, lexer_lineno(), msg, yylval.string);
+    dres_parse_error(dres, lexer_line(), msg, yylval.any.token);
 }
 
 

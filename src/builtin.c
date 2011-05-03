@@ -296,7 +296,7 @@ BUILTIN_HANDLER(fact)
 
     if (args[0].type != DRES_TYPE_STRING) {
         DRES_ERROR("builtin 'fact': invalid fact name (type 0x%x)",
-                   args[i].type);
+                   args[0].type);
         err = EINVAL;
         goto fail;
     }
