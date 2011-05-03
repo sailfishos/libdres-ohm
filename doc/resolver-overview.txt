@@ -1,0 +1,587 @@
+1 Overview
+----------
+
+The policy dependency resolver is used to implement the high-level
+decision making logic in the policy framework. While the rule
+engine and its associated prolog rules in the ruleset are used
+to implement the actual decision making logic the resolver and
+its resolver rules are used to determine when new decisions need
+to be made and what policy domains are involved in and affected
+by the new decisions.
+
+
+2 Introduction
+--------------
+
+The policy dependency resolver is modeled after the make utility.
+Make is typically used when building software from source code,
+and more importantly for our analogy, it is used for rebuilding
+the software when some of the source files has changed. Using its
+input files and modification timestamps of source files make
+triggers the necessary commands to recompile the affected files
+and relink the binaries.
+
+To stretch this analogy a bit further one could say that
+
+  1) The rule engine is akin to the compiler.
+  2) The resolver is akin to make.
+
+The rule engine is the primary tool for producing the actual policy
+decisions. The resolver is used to ensure that the decisions in the
+necessary policy domains are recalculated when the system state
+changes. If used correctly the resolver will, analogously to make,
+prevent the unnecessary recalculation of the decisions for those
+parts of the system that are not affected by the changes. IOW, it
+will not trigger recalculation for those parts that
+ 
+  - either do not depend on the changed state, or
+  - only depend indirectly and the direct depedencies are unchanged
+    (ie. the recalculated direct dependencies are the same as
+    before the change)
+
+In addition to its make-like functionality the resolver is also
+responsible for exporting/updating the decisions to the internal
+policy database, the factstore. During a typical decision making
+cycle triggered by a system state change (or client request) the
+resolver uses its input files to
+
+  - determine what decisions need to be recalculated
+  - trigger the necessary actions to calculate the decisions, and
+  - export the updated decisions to the factstore for the rest of
+    the policy daemon
+
+
+3 Tracking System State
+-----------------------
+
+Implementing the actual tracking of system state is outside the
+scope of the dependency resolver. Instead of putting all this
+functionality into the resolver itself, the various domain-
+specific policy plugins take care of system state tracking in
+their own domain. These plugins then export this information
+to the factstore.
+
+The factstore is a simple in-memory database that is used by the
+policy framework to store system state. It stores all information
+in entries called facts. A fact is a named collection of key-value
+pairs which are called fields. Each field has a single string key.
+Each field has a value of type string, integer, or double-precision
+floating point number. The factstore can be thought of as a light-
+weight primitive SQL database where fact names are tables and facts
+are rows.
+
+The factstore provides methods for inserting, deleting, and looking
+up facts. It also provides a mechanism for tracking changes to the
+factstore itself (insertion or deletion of facts) or to individual
+facts (adding, deleting, or modifying fields). The factstore also
+has a simple transaction mechanism which makes it possible to carry
+out several operations in the factstore as a single atomic entity.
+
+The resolver plugin uses the fact tracking facilities provided by
+the factstore to track system state information exported by the
+other policy plugins.
+
+
+4 Input File
+------------
+
+The resolver input file consists of two parts: the fact section and
+the target sections. The fact section consists of fact definitions
+and is used to populate the factstore with facts and to give the
+fact fields their initial values.
+
+
+4.1 Fact Definitions
+
+A fact definition has one of the following two forms:
+
+    fact_name  = { field0: value0, ..., fieldN: valueN }
+    fact_name += { field0: value0, ..., fieldN: valueN }
+
+Both of these create a fact with the given name and the given fields
+and inserts it to the factstore. The first form initially deletes
+every other fact instance with the given name from the factstore.
+Hence when defining multiple fact instances the first one is typically
+defined using '=' while the rest are defined using '+='.
+
+
+4.2 Target Definitions
+
+The target section defines resolver targets. These are essentially
+the rules that determine how policy decisions are recalculated when
+some system state changes or a client request is received.
+
+A target definition has the following form:
+
+    target: prerequisit0, ..., prerequisitN
+    	action0
+    	...
+    	actionM
+
+A target definition consists of a target name, an optional list of
+prerequisits and an optional list of actions. Prequisits are used
+by the resolver to decide when a target needs updating. Once it has
+been detected that a target needs updating the resolver uses the
+given actions to determine how to update the target.
+
+
+4.2.1 Prerequisits
+
+The resolver uses the prerequisits to decide when a target needs to
+be updated. To determine a correct build order, the resolver uses the
+prerequisits to build a dependency graph of the targets then sorts
+this graph topologically.
+
+Prerequisits come in two flavours: facts and targets. Fact pre-
+requisits are fact names prefixed with a '$' character. They indicate
+that the given target depends on the given facts and should be
+updated whenever any change is made to any of the instances of the
+prerequisit facts.
+
+A target prerequisit is a bit different. In addition to declaring
+the normal dependency it also indicates that when checking if the
+main target is outdated it also needs to be checked whether the
+prerequisit target is up-to-date and it needs to be updated if
+necessary.
+
+
+4.2.2 Target Actions
+
+The resolver uses the given actions to update a target. Once the
+resolver decides that a target needs updating it executes the given
+actions for the target until either all the actions have been
+executed or one of them fails.
+
+Actions consist of action statements. Statements can be
+
+  - method calls,
+  - fact assignments, and
+  - conditional if-then-else branches
+
+
+4.2.2.1 Method Calls
+
+Method calls have the form
+
+    method(arg0, ..., argN, local0=value0, ..., localM=valueM)
+
+The first part of the argument list can consist of facts (fact
+names prefixed with a '$'-character) and constants of integer,
+string, and double-precision floating point number types. Facts
+can be filtered similarly to assignments (see later).
+
+The second part, if not omitted, provides a set of local variable-
+value pairs that is pushed on the local variable stack before
+invoking the given method and popped once the method call returns.
+Local variables were insipired by the pass-by-name argument passing
+mechanism of python and they provide a similar mechanism. These
+variables can have values of the simple (integer, string, double)
+types, have nested scoping and can be looked up by name from the
+invoked method.
+
+Executing a method call invokes the handler registered for that
+method name. If no other method is registered this will be the
+default fallback handler which simply raises an error and thus
+terminates resolution. The resolver provides an interface for
+reading out the arguments (positional parameters) and locals
+(named parameters). Similarly an interface is provided to return
+an integer, string, or double-precision floating point number, or
+a set of facts on the stack.
+
+
+4.2.2.2 Fact Assignments
+
+Assignments can be field assignments or fact assignments. Field
+assignments have the form
+
+    fact_name[filter]:field = value
+
+where [filter] can be omitted if the given fact has only one
+instance. If it is omitted for a fact with multiple instances,
+an error will be raised which in turn raises and error and
+terminates resolution. The filter expression consists of a comma-
+separated lists of field selectors, where each selector is either
+a positive or a negative selector:
+
+    field_name:field_value
+    field_name:!field_value
+
+Each field_value is a constants of one of the simple integer,
+string, or double-precision floating point number types. The
+filter expression limits the scope of the assignment by filtering
+out all facts from the left-hand side that do not match the filter
+expression (ie. all the selectors). The value on the right-hand
+side must evaluate to a constant of the available simple integer,
+string, or double-precision floating point number types. In practice
+this is typically a constant expression but it can also be a method
+call as long as the method returns one of the simple types.
+
+
+Fact assignments come in two flavours:
+
+  - full assignments, and
+  - partial assignments (updates)
+
+A full assignment is of the form
+
+    fact_name[filter] = value
+
+where filter has the same syntax and purpose as for field
+assignments, ie. it is a comma-separated list of negative and
+positive field selectors and is used to filter out non-matching
+facts. If filter is omitted the dimensions of the right- and
+left-hand side of the assignment must be exactly the same,
+otherwise an error will be raised which terminates resolution.
+If filter is given the requirement is to find a matching
+target fact to assign all values on the right-hand side to,
+otherwise an error is raised.
+
+A partial assignment is of the form
+
+    fact_name[filter, matcher] |= value
+
+where filter has the same syntax and purpose as in field and full
+assignments and can be omitted altogether. Matcher is simply a
+comma-separated list of field names that is used to determine
+which facts the values on the right-hand side will be assigned to.
+Each value on the right hand side is assigned to the fact on the
+left-hand side with matching field values for all fields included
+in matcher. Similarly to filtered full assignments, for each right-
+hand side value there must be a matching left-hand side fact to
+assign to. Otherwise an error is raised which terminates resolution.
+
+Full assignments always blindly overwrite fact fields regardless
+of their existing values. Partial assignments never overwrite fact
+fields with identical values. In other words, a partial assignment
+with fully identical values does not touch any facts (and hence will
+not trigger any potential further automatic resolving).
+
+The right-hand side of fact assignments must evaluate to one or more
+facts. Currently the parser provides no way to give a static set of
+facts for the right-hand side of assignments. In practice this means
+that fact assignments always involve method calls that return the
+necessary values for the right-hand side as facts on the stack.
+
+
+4.2.2.3 If-then-else Conditionals
+
+An if-then-else construct is provided for the conditional
+evaluation of actions. Such a construct is of the following
+form
+
+    if condition then
+    	true-branch
+    else
+    	false-branch
+    end
+
+where true-branch and false-branch can be any valid sequence of
+actions. The else part can be omited altogether in which case the
+syntax becomes
+
+    if condition then
+    	true-branch
+    end
+    
+The if-then-else construct causes first the given condition
+expression to be evaluated. If it evaluates to true, true-branch
+is executed, otherwise false-branch is executed if one was given.
+
+The condition expression can be a
+
+  - constant expression,
+  - variable-reference expression,
+  - relational expression,
+  - boolean expression,
+  - a method call
+
+A constant expression is any simple constant type, ie. integer,
+string, or double-precision floating point number.
+
+A variable-reference expression can be a
+
+  - fact reference: $fact, or $fact[filter]
+  - fact field reference: $fact:field, or $fact[filter]:field
+  - local reference: &name
+
+A relational expression is any of the form
+
+    expr1 == expr2
+    expr1 != expr2
+    expr1 < expr2
+    expr1 <= expr2
+    expr1 > expr2
+    expr1 >= expr2
+
+where expr1 and expr2 are condition expressions themselves.
+
+Relational expressions are only defined for the simple types hence
+each subexpression must evaluate to one of the integers, string, or
+double-precision floating point number types. Additionally expr1
+and expr2 must have the same type, otherwise an error is raised
+which in turn will terminate resolution.
+
+A boolean expression is any of the form
+
+    expr1 || expr2
+    expr1 && expr2
+    !expr1
+    (expr1)
+
+where expr1 and expr2 are condition expressions themselves. Boolean
+expressions are subject to short-circuit evaluation, ie. they are
+evaluated left to right and evaluation stops immediately when the
+result is known without further evaluation of any possible remaining
+subexpressions. In particular this means that evaluaton stops
+immediately 
+
+     o for && when a subexpression evaluates to FALSE
+     o for || when a subexpression evaluates to TRUE
+
+The boolean evaluation rules for the various types are
+
+    - integers: 0 is FALSE others are TRUE
+    - strings: '' is FALSE others are TRUE
+    - doubles: 0.0 is FALSE others are TRUE
+    - facts: an empty set of facts is FALSE, others are TRUE
+    - locals: evaluate the current value for the given local
+
+In all expressions, method calls are evaluated by invoking the method
+call with the given arguments and evaluating the value they return.
+
+
+4.2.3 Commonly Used Idioms for Targets
+
+There are usually a few different kinds of targets one enounters
+in a resolver ruleset file. These are
+
+  - the special auto-updated target 'all',
+  - request targets,
+  - fact-updating targets, and
+  - hook targets
+  - collective targets
+
+
+4.2.3.1 The Auto-Updated Target: 'all'
+
+The target 'all' is special and a bit different from the rest of
+the targets in that it is automatically updated whenever any of
+the tracked facts is changed.
+ 
+The dependency resolver tracks changes to all facts that are the
+prerequisits of some targets. When such a fact is changed the
+the resolver automatically schedules an update attempt of the
+target 'all'. During the next execution of the main loop of the
+policy daemon the dependency resolver will check if the target
+'all' is up-to-date and update it if necessary.
+
+
+4.2.3.2. Request Targets
+
+Request targets are typically updated as the side-effect or end-
+result of policy client or other system-state tracking plugin
+requests. They typically have no prerequisits and have actions
+that update facts specific to the domain of the plugin. These
+targets typically get request context information in local
+variables. Accessory and resource request targets are typical
+examples of this kind.
+
+
+4.2.3.3 Fact Updating Targets
+
+These targets are typically used to trigger recalculation of
+decisions in a certain domain upon changes to the state of
+some other domains. These targets typically depend on a few
+domain-specific facts and update some other facts specific
+to their own domain in their actions. The audio volume and cork
+targets are typical examples of this kind of targets.
+
+
+4.2.3.4 Hook Targets
+
+Hook targets are used as a simple 'notification' mechanism by
+some plugins where cross-domain or other actions can be hooked
+into. The hooks correspond to and are resolved when some
+interesting event or state change occurs in the providing plugins
+domain. Typical examples of this kind of targets are the rulesets
+own mode change hooks and the bluetooth state change hooks provided
+by the accessory plugin.
+
+
+4.2.3.5 Collective Targets
+
+These targets are typically used just as a shorthand. They refer
+to a set of targets that either need to be updated together or
+depended on together as a whole. These targets have (typically
+target-only) prerequisits and usually no actions.
+
+
+4.3 Dealing with Errors
+
+The resolver always makes sure that it runs in a factstore transaction
+context. If any action fails the resolver immediately suppresses the
+execution of any further actions, restores the previous state of the
+factstore by rolling back the transaction and stops and returns with
+an error.
+
+
+5 Invoking the Resolver
+-----------------------
+
+The resolver can be invoked directly or indirectly in a number of
+different ways. The most common of these are
+
+  - directly through the C interface
+  - indirectly by modifying facts that some targets depend on
+  - recursively from the resolver ruleset
+
+
+5.1 Direct Invocation
+
+The direct invocation interface from C provides a mechanism to
+resolve a given target in the context of a given set of local
+variables. This mechanism is most commonly used by policy plugins
+to trigger decision making when a client request is received or
+when some system state changes.
+
+
+5.2 Indirect Invocation
+
+Some plugins simply modify facts in the factstore to reflect
+changes in the system state they are responsible of tracking.
+If the modified facts are among the prerequisits of any targets
+this will trigger the resolver to automatically update the special
+target 'all'.
+
+
+5.3 Recursive Invocation
+
+The resolver itself provides the built-in method 'resolve'. This
+can be used to recursively call the resolver to update the given
+target. This is usually used to ensure atomicity of the changes
+in the factstore and the resulting decisions. When the resolver
+is invoked in this manner, the recursive invocation keeps running
+in the same factstore transaction context than its parent. If the
+decision making fails and the transaction is rolled back all
+changes made to the factstore within the transaction are undone.
+Similarly if the transaction is committed, all changes will become
+visible atomically.
+
+If instead of the recursive resolution the caller would let the
+automatically updated 'all' target take care of the latter part
+of the decision making it would be run in a different transaction.
+Then upon failure only the changes under the latter transaction
+would be undone.
+
+It depends entirely on the case whether recursive invocation is
+needed and makes sense or not. Typically, administering a change
+in system state, such as the disconnection of a phone call or an
+accessory, should not be undone even if the resulting decision
+making fails, as the failure will not magically reconnect the
+call or the accessory.
+
+
+6 Extending the Resolver
+------------------------
+
+The dependency resolver provides a mechanism for registering
+handlers for new methods. This functionality can be used to bring
+new functionality to the resolver. Many of the commonly used
+methods in the current policy rulesets is implemented by other
+plugins. These plugins export their functionality to the
+resolver by registering them as method handlers. For instance,
+the signaling plugin implements decision signaling between
+enforcement points and the policy daemon and registers this
+functionality as the 'signal_changed' method to the resolver.
+
+
+7 Builtins
+----------
+
+The depndency resolver provides a set of pre-defined built-in
+methods. These methods are described below.
+
+
+7.1 Builtin 'resolve'
+
+Usage: resolve(target [, local0, value0, ..., localN, valueN])
+
+The builtin 'resolve' will recursively invoke the resolver for
+the given target with the optionally given local variables.
+
+
+7.2 Builtin 'echo'
+
+Usage: echo(arg0, ..., argN)
+
+The builtin 'echo' will simply print the arguments passed to it.
+It is usually used during ruleset development for debugging and
+otherwise to echo certain settings under the procfs or sysfs
+filesystems. Any argument that starts with '>' will cause 
+stdout to be temporarily redirected to the rest of the argument
+until a new redirection is given or until echo returns.
+
+
+7.3 Builtin 'fail'
+
+Usage: fail([error-code])
+
+The builtin 'fail' will fail with the optionally provided error
+code which defaults to EINVAL if omitted. Invoking this builtin
+will force resolution to terminate and the transaction to be rolled
+back.
+
+
+7.4 Builtin 'shell'
+
+Usage: shell('command')
+
+The builtin 'shell' will execute the given command using system(3).
+If the given command exits with non-zero exit status, 'shell' will
+fail causing resolution to be terminated and the transaction to be
+rolled back.
+
+
+7.5 Builtin 'regexp_read'
+
+Usage: regexp_read(path, regexp, nth, type, default)
+
+The builtin 'regexp_read' will open the supplied <path>, read it
+and match it line-by-line against the given <regexp>, until a
+match is found. the <nth> mathing substring will be returned
+converted to a type denoted by <type> ('i' for integer, 's' for
+string, 'd' for double). If <default> is given and it is type-
+compatible with <type>, 'regexp_read' will never fail but instead
+return <default> upon any error. If <default> is omitted upon
+any error an error will be raised causing resolution to be
+terminated and the transaction to be rolled back. The substring
+index <nth> uses 0-based indexing. The implementation is limited
+to 1K long lines and 31 substring matches.
+
+
+8 Dependency Resolver Internals
+-------------------------------
+
+TBD, later...
+
+
+9 Miscallanea
+-------------
+
+For historical reasons most of the actual functionality of the policy
+debug console beyond the actual connection and console management is
+currently implemented as part of the resolver plugin. This includes
+all the basic commands for controlling plugin logging and tracing as
+well as ruleset debugging.
+
+The plugin provides an interface for registering and unregistering
+handlers for new command groups and takes care of tokenizing and
+dispatching the necessary commands to these handlers. Many of the newer
+plugins already use this interface to provide plugin/domain-specific
+debugging commands. This is the preferred way of extending the current
+debug console functionality.
+
+The debugging console functionality including the command registration
+interface will eventually be taken out of the resolver plugin and moved
+over to its proper place in the console plugin.
+
