@@ -56,7 +56,7 @@ main(int argc, char *argv[])
             out = argv[++i];
         }
         else if (!strcmp(argv[i], "-v"))
-            verbose = 1;
+            verbose++;
         else {
             if (in != NULL)
                 fatal(2, "multiple input files given");
@@ -84,36 +84,39 @@ main(int argc, char *argv[])
     if (ohm_fact_store_get_fact_store() == NULL)
         fatal(3, "failed to initalize OHM fact store");
 
+    dres_set_log_level(verbose ? DRES_LOG_INFO : DRES_LOG_WARNING);
+
+    printf("* Loading input file '%s'...\n", in);
     if ((dres = dres_parse_file(in)) == NULL)
         fatal(4, "failed to parse input file %s", in);
 
+    printf("* Compiling targets and actions...\n");
     if (dres_finalize(dres))
         fatal(5, "failed to finalize DRES rule file %s", in);
 
-    if (verbose) {
+    if (verbose > 1) {
         printf("Targets found in input file %s:\n", in);
         dres_dump_targets(dres);
     }
 
     unlink(out);
 
+    printf("* Saving compiled output to '%s'...\n", out);
     if (dres_save(dres, out))
         fatal(6, "failed to precompile DRES file %s to %s", in, out);
 
     dres_exit(dres);
 
+    printf("* Verifying loadability of '%s'...\n", out);
     if ((dres = dres_load(out)) == NULL)
         fatal(7, "failed to load precompiled file %s", out);
 
-    if (verbose) {
+    if (verbose > 1) {
         printf("Targets found in compiled file %s:\n", out);
         dres_dump_targets(dres);
     }
 
-#if 0
-    dres_exit(dres);
-#endif    
-    
+    printf("* Done.\n");
     return 0;
 }
 
@@ -127,8 +130,7 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
     (void)dres;
     (void)token;
     
-    g_warning("compilation error: %s, on line %d\n", msg, lineno);
-    exit(1);
+    fatal(1, "compilation error: %s, on line %d\n", msg, lineno);
 }
 
 
