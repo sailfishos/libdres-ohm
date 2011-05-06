@@ -377,6 +377,9 @@ BUILTIN_HANDLER(shell)
 {
     int status;
 
+    (void)data;
+    (void)name;
+
     if (narg != 1) {
         DRES_ERROR("builtin 'shell': passed %d arguments instead of 1", narg);
         DRES_ACTION_ERROR(EINVAL);
@@ -450,6 +453,8 @@ BUILTIN_HANDLER(regexp_read)
     regmatch_t        rm[32];
     int               max, len;
     
+    (void)data;
+    (void)name;
     
     defval = NULL;
     fp     = NULL;
@@ -518,7 +523,7 @@ BUILTIN_HANDLER(regexp_read)
             continue;
 
         len = rm[nth].rm_eo - rm[nth].rm_so;
-        if (len >= sizeof(match)) {
+        if (len >= (int)sizeof(match)) {
             DRES_WARNING("too long match string in builtin 'regex_read'");
             goto error;
         }
