@@ -254,7 +254,7 @@ local_decl: TOKEN_VARIABLES dresvars TOKEN_EOL
 
 dresvars: dresvar
         | dresvars "," dresvar
-        | dresvars "," error {
+        | dresvars error {
               DRES_ERROR("failed to parse local declaration near token '%s' "
                          "on line %d", lexer_printable_token(yylval.any.token),
 			 yylval.any.lineno);
@@ -586,7 +586,7 @@ locals:   local { $$ = $1; }
             l->next = $3;
             $$ = $1;
         }
-        | locals "," error {
+        | locals error {
               DRES_ERROR("failed to parse local arguments near token '%s' "
                          "on line %d", lexer_printable_token(yylval.any.token),
 			 yylval.any.lineno);
@@ -864,7 +864,7 @@ args_by_value: expr { $$ = $1; }
          arg->any.next = $3;
          $$ = $1;
      }
-     | args_by_value "," error {
+     | args_by_value error {
            DRES_ERROR("failed to parse arguments near token '%s' "
                       "on line %d", lexer_printable_token(yylval.any.token),
 		      yylval.any.lineno);
