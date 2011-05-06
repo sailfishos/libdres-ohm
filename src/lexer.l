@@ -91,11 +91,13 @@ static inline int parse_double(lexer_t *l, char *str, double *value);
  *                    *** token ring buffer management ***                   *
  *****************************************************************************/
 
-static char *
-printable_token(char *token)
+char *
+lexer_printable_token(const char *token)
 {
-    static char buf[PATH_MAX], *p, *q;
-    int         n;
+    static char  buf[PATH_MAX];
+    char        *q;
+    const char  *p;
+    int          n;
 
     p = token;
     q = buf;
@@ -160,7 +162,7 @@ token_saven(lexer_t *l, char *token, int length)
 
     yylval.any.token  = saved;
     yylval.any.lineno = l->current->line;
-    DEBUG("saved token '%s'", printable_token(saved));
+    DEBUG("saved token '%s'", lexer_printable_token(saved));
 
     return saved;
 }

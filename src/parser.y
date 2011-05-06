@@ -42,6 +42,9 @@
 /* parser/lexer interface */
 int  yylex  (void);
 void yyerror(dres_t *dres, char const *);
+extern char *lexer_file(void);
+extern int   lexer_line(void);
+extern char *lexer_printable_token(const char *token);
 
 extern FILE *yyin;
 
@@ -167,7 +170,13 @@ optional_facts: /* empty */
     ;
 
 facts: fact
-    |  fact facts
+    |  facts fact
+    |  facts error {
+           DRES_ERROR("failed to parse fact near token '%s' on line %d",
+	              lexer_printable_token(yylval.any.token),
+		      yylval.any.lineno);
+           YYABORT;
+    }
     ;
 
 fact: prefix
@@ -224,6 +233,12 @@ ifields: field {
             f->next  = NULL;
             $$       = $1;
         }
+        | ifields error  {
+            DRES_ERROR("failed to parse fact initializer token '%s' on line %d",
+	               lexer_printable_token(yylval.any.token),
+		       yylval.any.lineno);
+           YYABORT;
+        }
         ;
 
 optional_local_decls: /* empty */
@@ -239,6 +254,12 @@ local_decl: TOKEN_VARIABLES dresvars TOKEN_EOL
 
 dresvars: dresvar
         | dresvars "," dresvar
+        | dresvars "," error {
+              DRES_ERROR("failed to parse local declaration near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+           YYABORT;
+        }
         ;
 
 dresvar: TOKEN_DRESVAR { dres_dresvar_id(dres, $1.value); }
@@ -252,6 +273,12 @@ sfields: sfield { $$ = $1; }
                 ;
 	    p->next = $3;
             $$      = $1;
+        }
+        | sfields error {
+              DRES_ERROR("failed to parse selectors near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+              YYABORT;
         }
         ;
 
@@ -447,6 +474,12 @@ field: TOKEN_IDENT ":" TOKEN_INTEGER {
 rules:    rule
 	| rules rule
         | rules prefix
+        | rules error {
+              DRES_ERROR("failed to parse rule or prefix near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+              YYABORT;
+        }
 	;
 
 
@@ -496,6 +529,12 @@ optional_prereqs: /* empty */    { $$ = NULL; }
 
 prereqs:  prereq                 { $$ = dres_new_prereq($1);          }
 	| prereqs prereq         { dres_add_prereq($1, $2); $$ = $1;  }
+        | prereqs error {
+              DRES_ERROR("failed to parse target prerequisits near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+              YYABORT;
+        }
 	;
 
 prereq:   TOKEN_IDENT            { $$ = dres_target_id(dres, $1.value); }
@@ -546,6 +585,12 @@ locals:   local { $$ = $1; }
                 ;
             l->next = $3;
             $$ = $1;
+        }
+        | locals "," error {
+              DRES_ERROR("failed to parse local arguments near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+              YYABORT;
         }
 
 
@@ -619,6 +664,12 @@ statements: statement            { $$ = $1; }
 
             s->any.next = $2;
             $$          = $1;
+        }
+        |   statements error {
+              DRES_ERROR("failed to parse statements near token '%s' "
+                         "on line %d", lexer_printable_token(yylval.any.token),
+			 yylval.any.lineno);
+              YYABORT;
         }
 	;
 
@@ -813,6 +864,12 @@ args_by_value: expr { $$ = $1; }
          arg->any.next = $3;
          $$ = $1;
      }
+     | args_by_value "," error {
+           DRES_ERROR("failed to parse arguments near token '%s' "
+                      "on line %d", lexer_printable_token(yylval.any.token),
+		      yylval.any.lineno);
+           YYABORT;
+     }
      ;
 
 
@@ -821,6 +878,12 @@ expr:  expr_const   { $$ = $1; }
      | expr_relop   { $$ = $1; }
      | expr_call    { $$ = $1; }
      | "(" expr ")" { $$ = $2; }
+     | error {
+           DRES_ERROR("failed to parse expression near token '%s' "
+                      "on line %d", lexer_printable_token(yylval.any.token),
+		      yylval.any.lineno);
+           YYABORT;
+     }
      ;
 
 expr_const: TOKEN_INTEGER {
@@ -1137,7 +1200,7 @@ factname(char *name)
      *     The other and perhaps more intuitive alternative would be to
      *     have it the other way around and prefix any variable names
      *     starting with a dot with the current prefix.
-
+     *
      *     Since the absolute/relative notation is backward-compatible
      *     with our original concept of a single default prefix we use
      *     that one.
@@ -1154,13 +1217,22 @@ factname(char *name)
 }
 
 
-
-#ifdef __TEST_PARSER__	
-void yyerror(dres_t *dres, const char *msg)
+/********************
+ * yyerror
+ ********************/
+void
+yyerror(dres_t *dres, const char *msg)
 {
-  printf("parse error: %s (%s)\n", msg, yylval.any.token);
+    (void)dres;
+
+    DRES_ERROR("parse error: %s near token '%s' on line %d in file %s",
+               msg, lexer_printable_token(yylval.any.token),
+	        lexer_line(), lexer_file());
 }
 
+
+
+#ifdef __TEST_PARSER__	
 
 int main(int argc, char *argv[])
 {
