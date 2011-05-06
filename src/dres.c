@@ -79,6 +79,20 @@ dres_set_logger(void (*logger)(dres_log_level_t, const char *, va_list))
 
 
 /********************
+ * dres_set_log_level
+ ********************/
+EXPORTED dres_log_level_t
+dres_set_log_level(dres_log_level_t level)
+{
+    dres_log_level_t old_level;
+
+    old_level = (dres_log_level_t)vm_set_log_level((vm_log_level_t)level);
+
+    return old_level;
+}
+
+
+/********************
  * dres_open
  ********************/
 EXPORTED dres_t *
@@ -713,18 +727,6 @@ dres_dump_sort(dres_t *dres, int *list)
     for (i = 0; list[i] != DRES_ID_NONE; i++)
         DEBUG(DBG_GRAPH, "  #%03d: 0x%x (%s)\n", i, list[i],
               dres_name(dres, list[i], buf, sizeof(buf)));
-}
-
-
-/********************
- * yyerror
- ********************/
-EXPORTED void
-yyerror(dres_t *dres, const char *msg)
-{
-    extern void dres_parse_error(dres_t *, int, const char *, const char *);
-
-    dres_parse_error(dres, lexer_line(), msg, yylval.any.token);
 }
 
 

@@ -822,6 +822,8 @@ int vm_dump_instr(unsigned int **pc, char *buf, size_t size, int indent);
 /* vm-log.c */
 void vm_set_logger(void (*logger)(vm_log_level_t, const char *, va_list));
 void vm_log(vm_log_level_t level, const char *format, ...);
+vm_log_level_t vm_set_log_level(vm_log_level_t level);
+
 
 
 #endif /* __DRES_VM_H__ */

@@ -29,7 +29,7 @@ USA.
 #include <dres/vm.h>
 
 static void (*logger)(vm_log_level_t level, const char *format, va_list ap);
-
+static vm_log_level_t log_level = VM_LOG_INFO;
 
 /********************
  * vm_log
@@ -46,6 +46,9 @@ vm_log(vm_log_level_t level, const char *format, ...)
     if (logger != NULL)
         logger(level, format, ap);
     else {
+        if (level > log_level)
+            return;
+
         switch (level) {
         case VM_LOG_FATAL:   out = stderr; prefix = "C:"; break;
         case VM_LOG_ERROR:   out = stderr; prefix = "E:"; break;
@@ -72,13 +75,26 @@ vm_log(vm_log_level_t level, const char *format, ...)
 /********************
  * vm_set_logger
  ********************/
-EXPORTED void
+void
 vm_set_logger(void (*app_logger)(vm_log_level_t, const char *, va_list))
 {
     logger = (void (*)(vm_log_level_t, const char *, va_list))app_logger;
 }
 
 
+/********************
+ * vm_set_log_level
+ ********************/
+vm_log_level_t
+vm_set_log_level(vm_log_level_t level)
+{
+    vm_log_level_t old_level;
+
+    old_level = log_level;
+    log_level = level;
+    
+    return old_level;
+}
 
 /* 
  * Local Variables:

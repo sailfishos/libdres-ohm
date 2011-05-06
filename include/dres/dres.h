@@ -443,6 +443,8 @@ void    dres_free_field(dres_field_t *f);
 
 typedef vm_log_level_t dres_log_level_t;
 void dres_set_logger(void (*logger)(dres_log_level_t, const char *, va_list));
+dres_log_level_t dres_set_log_level(dres_log_level_t level);
+
 
 /* target.c */
 int            dres_add_target   (dres_t *dres, char *name);
