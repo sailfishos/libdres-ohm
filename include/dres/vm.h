@@ -53,9 +53,9 @@ typedef enum {
 } vm_log_level_t;
 
 
-#define VM_ERROR(fmt, args...)   vm_log(VM_LOG_ERROR, fmt"\n" , ## args)
-#define VM_WARNING(fmt, args...) vm_log(VM_LOG_WARNING, fmt"\n" , ## args)
-#define VM_INFO(fmt, args...)    vm_log(VM_LOG_INFO, fmt"\n" , ## args)
+#define VM_ERROR(fmt, args...)   vm_log(VM_LOG_ERROR, fmt , ## args)
+#define VM_WARNING(fmt, args...) vm_log(VM_LOG_WARNING, fmt , ## args)
+#define VM_INFO(fmt, args...)    vm_log(VM_LOG_INFO, fmt , ## args)
 
 
 /*

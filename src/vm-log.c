@@ -47,12 +47,12 @@ vm_log(vm_log_level_t level, const char *format, ...)
         logger(level, format, ap);
     else {
         switch (level) {
-        case VM_LOG_FATAL:   out = stderr; prefix = "FATAL";   break;
-        case VM_LOG_ERROR:   out = stderr; prefix = "ERROR";   break;
-        case VM_LOG_WARNING: out = stderr; prefix = "WARNING"; break;
-        case VM_LOG_NOTICE:  out = stdout; prefix = "NOTICE";  break;
-        case VM_LOG_INFO:    out = stdout; prefix = "INFO";    break;
-        default:                                               return;
+        case VM_LOG_FATAL:   out = stderr; prefix = "C:"; break;
+        case VM_LOG_ERROR:   out = stderr; prefix = "E:"; break;
+        case VM_LOG_WARNING: out = stderr; prefix = "W:"; break;
+        case VM_LOG_NOTICE:  out = stdout; prefix = "N:"; break;
+        case VM_LOG_INFO:    out = stdout; prefix = "I:"; break;
+        default:                                          return;
         }
 
         /*
@@ -60,7 +60,7 @@ vm_log(vm_log_level_t level, const char *format, ...)
          * message in a buffer then write(2) it to fileno(out) for atomicity.
          */
 
-        fprintf(out , "[%s] ", prefix);
+        fprintf(out , "%s ", prefix);
         vfprintf(out, format , ap);
         fprintf(out, "\n");
     }
