@@ -274,7 +274,14 @@ create_variable(dres_t *dres, char *name, dres_init_t *fields)
         case DRES_TYPE_INTEGER: gval = ohm_value_from_int(value->v.i);    break;
         case DRES_TYPE_DOUBLE:  gval = ohm_value_from_double(value->v.d); break;
         case DRES_TYPE_STRING:  gval = ohm_value_from_string(value->v.s); break;
-        default:                return EINVAL;
+        case DRES_TYPE_UNKNOWN:
+            DRES_ERROR("Missing field initialiser for fact field %s:%s.",
+                       name, field);
+            return EINVAL;
+        default:
+            DRES_ERROR("Invalid field initialiser for fact field %s:%s.",
+                       name, field);
+            return EINVAL;
         }
 
         ohm_fact_set(fact, field, gval);
