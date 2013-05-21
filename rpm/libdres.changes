@@ -1,0 +1,13 @@
+* Mon Dec 10 2012 Marko Saukko <marko.saukko@jollamobile.com> - 1.1.12
+- Updated packaging.
+
+* Thu Dec 09 2010 Kalle Lampila <kalle.lampila@cybercom.com> - 1.1.12
+- Version update
+- Packaging now uses spectacle
+- Part of FEA#6701
+
+* Tue Jun 29 2010 Markus Lehtonen <markus.lehtonen@nokia.com> - 0.1.0
+- Import to MeeGo OBS, some cosmetic changes in spec
+
+* Tue Jun 29 2010 Krisztian Litkey <mmf-audio-bounces@projects.maemo.org> - 0.1.0
+- Quick'n dirty initial packaging.
