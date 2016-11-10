@@ -69,7 +69,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-,root,root,-)
 %{_libdir}/*.so.*
-%doc README COPYING INSTALL AUTHORS NEWS ChangeLog
+%doc COPYING
 
 %files utils
 %defattr(-,root,root,-)
@@ -82,6 +82,7 @@ rm -rf %{buildroot}
 
 %files devel
 %defattr(-,root,root,-)
+%doc README COPYING INSTALL AUTHORS NEWS ChangeLog
 %{_includedir}/dres
 %{_libdir}/*.so
 %{_libdir}/pkgconfig/*
