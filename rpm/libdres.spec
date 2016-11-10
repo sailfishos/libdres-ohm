@@ -1,7 +1,7 @@
 Name:       libdres
 
 Summary:    Dependency resolver for OHM
-Version:    1.1.12
+Version:    1.1.13
 Release:    1
 Group:      System/Resource Policy
 License:    LGPLv2.1
@@ -51,6 +51,7 @@ Development files for %{name}.
 
 
 %build
+echo -n "%{version}" > .tarball-version
 %autogen --disable-static
 %configure --disable-static
 make
