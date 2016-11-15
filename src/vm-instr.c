@@ -60,7 +60,7 @@ vm_run(vm_state_t *vm)
 
     while (vm->ninstr > 0) {
         if (DEBUG_ON(DBG_VM)) {
-            unsigned int *pc = vm->pc;
+            uintptr_t    *pc = vm->pc;
             char          instr[128];
             int           n;
             
@@ -106,18 +106,18 @@ int
 vm_instr_push(vm_state_t *vm)
 {
 #define CHECK_AND_GROW(t, nbyte) do {                                    \
-        if (vm->nsize - sizeof(int) < nbyte)                             \
+        if (vm->nsize - sizeof(uintptr_t) < nbyte)                       \
             VM_RAISE(vm, EINVAL, "PUSH "#t": not enough data");          \
-        if (vm_stack_grow(vm->stack, nbyte / sizeof(int)))               \
+        if (vm_stack_grow(vm->stack, VM_ALIGN_TO_INSTR(nbyte)))          \
             VM_RAISE(vm, ENOMEM, "PUSH "#t": failed to grow the stack"); \
     } while (0)
 
     vm_global_t  *g;
     vm_value_t    v;
 
-    unsigned int  type = VM_PUSH_TYPE(*vm->pc);
-    unsigned int  data = VM_PUSH_DATA(*vm->pc);
-    unsigned int  i;
+    uintptr_t     type = VM_PUSH_TYPE(*vm->pc);
+    uintptr_t     data = VM_PUSH_DATA(*vm->pc);
+    uintptr_t     i;
     char         *name;
     int           nsize, id;
     
@@ -132,13 +132,13 @@ vm_instr_push(vm_state_t *vm)
     case VM_TYPE_DOUBLE:
         CHECK_AND_GROW(double, sizeof(double));
         vm_push_double(vm->stack, *(double *)(vm->pc + 1));
-        nsize = 1 + sizeof(double) / sizeof(int);
+        nsize = 1 + VM_ALIGN_TO_INSTR(sizeof(double));
         break;
 
     case VM_TYPE_STRING:
         CHECK_AND_GROW(char *, data);
         vm_push_string(vm->stack, (char *)(vm->pc + 1));
-        nsize = 1 + VM_ALIGN_TO(data, sizeof(int)) / sizeof(int);
+        nsize = 1 + VM_ALIGN_TO_INSTR(data);
         break;
 
     case VM_TYPE_GLOBAL:
@@ -149,7 +149,7 @@ vm_instr_push(vm_state_t *vm)
         if (g == NULL)
             VM_RAISE(vm, ENOENT, "PUSH GLOBAL: failed to look up %s", name);
         vm_push_global(vm->stack, g);
-        nsize = 1 + VM_ALIGN_TO(data, sizeof(int)) / sizeof(int);;
+        nsize = 1 + VM_ALIGN_TO_INSTR(data);
         break;
 
     case VM_TYPE_LOCAL:
@@ -178,7 +178,7 @@ vm_instr_push(vm_state_t *vm)
         
     vm->ninstr--;
     vm->pc    += nsize;
-    vm->nsize -= nsize * sizeof(int);
+    vm->nsize -= nsize * sizeof(uintptr_t);
     
     return 0;
 }
@@ -216,7 +216,7 @@ vm_instr_pop(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc    += 1;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     return 0;
 }
@@ -290,7 +290,7 @@ vm_instr_filter(vm_state_t *vm)
 
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     return 0;
 }
@@ -389,7 +389,7 @@ vm_instr_update(vm_state_t *vm)
 
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     return 0;
 #undef FAIL
@@ -536,7 +536,7 @@ vm_instr_replace(vm_state_t *vm)
 
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     return 0;
 #undef FAIL
@@ -606,7 +606,7 @@ vm_instr_set_var(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     
     return 0;
 }
@@ -655,7 +655,7 @@ vm_instr_set_field(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     
     return 0;
 }
@@ -725,7 +725,7 @@ vm_instr_get_field(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     
     return 0;
 }
@@ -752,7 +752,7 @@ vm_instr_get_local(vm_state_t *vm)
 
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     
     return 0;
 }
@@ -848,7 +848,7 @@ vm_instr_create(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     return 0;
 #undef FAIL
@@ -892,7 +892,7 @@ vm_instr_call(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     
     return 0;
 }
@@ -916,7 +916,7 @@ vm_instr_cmp(vm_state_t *vm)
 
     vm_relop_t op;
     vm_value_t arg1, arg2;
-    int        type1, type2, result;
+    uintptr_t  type1, type2, result;
     
     op = VM_CMP_RELOP(*vm->pc);
 
@@ -969,7 +969,7 @@ vm_instr_cmp(vm_state_t *vm)
     
     vm->ninstr--;
     vm->pc++;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
 
     if (type1 == VM_TYPE_GLOBAL)
         vm_global_free(arg1.g);
@@ -991,8 +991,8 @@ vm_instr_cmp(vm_state_t *vm)
 int
 vm_instr_branch (vm_state_t *vm)
 {
-    int        brtype, brdiff, branch;
-    int        type;
+    uintptr_t  brtype, brdiff, branch;
+    uintptr_t  type;
     vm_value_t value;
 
     brtype = VM_BRANCH_TYPE(*vm->pc);
@@ -1054,17 +1054,17 @@ vm_instr_branch (vm_state_t *vm)
     
 #if 0
     vm->ninstr--;
-    vm->nsize -= sizeof(int);
+    vm->nsize -= sizeof(uintptr_t);
     vm->pc++;
 #endif
     
     if (branch) {
         if (brdiff > 0) {
-            if (vm->nsize < (int)(brdiff * sizeof(int)))
+            if (vm->nsize < (int)(brdiff * sizeof(uintptr_t)))
                 VM_RAISE(vm, EOVERFLOW, "branch beyond end of code");
         }
         else {
-            if ((int)(brdiff * sizeof(int)) > vm->nsize)
+            if ((uintptr_t)(brdiff * sizeof(uintptr_t)) > vm->nsize)
                 VM_RAISE(vm, EOVERFLOW, "branch beyond beginning of code");
         }
         
@@ -1090,14 +1090,14 @@ vm_instr_debug(vm_state_t *vm)
 {
     char *info  = (char *)(vm->pc + 1);
     int   len   = VM_DEBUG_LEN(*vm->pc);
-    int   nsize = 1 + VM_ALIGN_TO(len, sizeof(int)) / sizeof(int);
+    int   nsize = 1 + VM_ALIGN_TO_INSTR(len);
     
     DEBUG(DBG_VM, "%s", info);
     vm->info = info;
 
     vm->ninstr--;
     vm->pc    += nsize;
-    vm->nsize -= nsize * sizeof(int);
+    vm->nsize -= nsize * sizeof(uintptr_t);
     
     return 0;
 }
@@ -1118,14 +1118,14 @@ vm_chunk_new(int ninstr)
         return NULL;
 
     if (ninstr > 0)
-        if ((chunk->instrs = (unsigned *)ALLOC_ARR(int, ninstr)) == NULL) {
+        if ((chunk->instrs = (uintptr_t *)ALLOC_ARR(uintptr_t, ninstr)) == NULL) {
             FREE(chunk);
             return NULL;
         }
 
     chunk->ninstr = 0;
     chunk->nsize  = 0;
-    chunk->nleft  = ninstr * sizeof(int);
+    chunk->nleft  = ninstr * sizeof(uintptr_t);
 
     return chunk;
 }
@@ -1147,7 +1147,7 @@ vm_chunk_del(vm_chunk_t *chunk)
 /********************
  * vm_chunk_grow
  ********************/
-unsigned int *
+uintptr_t *
 vm_chunk_grow(vm_chunk_t *c, int nsize)
 {
     /* Notes: nsize is the min. desired amount of free space in the buffer. */
@@ -1159,7 +1159,7 @@ vm_chunk_grow(vm_chunk_t *c, int nsize)
         c->nleft += nsize;
     }
     
-    return (unsigned int *)(((char *)c->instrs) + c->nsize);
+    return (uintptr_t *)(((char *)c->instrs) + c->nsize);
 }
 
 
@@ -1167,9 +1167,9 @@ vm_chunk_grow(vm_chunk_t *c, int nsize)
  * vm_chunk_add
  ********************/
 int
-vm_chunk_add(vm_chunk_t *c, unsigned int *code, int ninstr, int nsize)
+vm_chunk_add(vm_chunk_t *c, uintptr_t *code, int ninstr, int nsize)
 {
-    unsigned int *cp = vm_chunk_grow(c, nsize);
+    uintptr_t *cp = vm_chunk_grow(c, nsize);
 
     if (!VM_ALIGNED_OK(nsize)) {
         VM_ERROR("%s: code aligment problem, size: %d.", __FUNCTION__, nsize);

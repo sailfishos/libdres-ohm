@@ -25,6 +25,7 @@ USA.
 
 #include <string.h>
 #include <setjmp.h>
+#include <stdint.h>
 
 #include <ohm/ohm-fact.h>
 
@@ -39,6 +40,7 @@ USA.
 #define VM_ALIGNMENT     (sizeof(void *))
 #define VM_ALIGNED_OK(n) VM_ALIGNED(n, VM_ALIGNMENT)
 
+#define VM_ALIGN_TO_INSTR(n)    (VM_ALIGN_TO(n, sizeof(uintptr_t)) / sizeof(uintptr_t))
 
 /*
  * VM logging
@@ -160,14 +162,14 @@ typedef enum {
 
 #define VM_INSTR_PUSH_INT(c, errlbl, ec, val) do {                      \
         if (0 <= val && val < 0xfffe) {                                 \
-            unsigned int instr;                                         \
+            uintptr_t instr;                                            \
             instr = VM_PUSH_INSTR(VM_TYPE_INTEGER, val + 1);            \
             ec = vm_chunk_add(c, &instr, 1, sizeof(instr));             \
             if (ec)                                                     \
                 goto errlbl;                                            \
         }                                                               \
         else {                                                          \
-            unsigned int instr[2];                                      \
+            uintptr_t instr[2];                                         \
             instr[0] = VM_PUSH_INSTR(VM_TYPE_INTEGER, 0);               \
             instr[1] = val;                                             \
             ec = vm_chunk_add(c, instr, 1, sizeof(instr));              \
@@ -177,7 +179,7 @@ typedef enum {
     } while (0)
 
 #define VM_INSTR_PUSH_DOUBLE(c, errlbl, ec, val) do {                   \
-        unsigned  instr[1 + sizeof(double)/sizeof(int)];                \
+        uintptr_t instr[1 + VM_ALIGN_TO_INSTR(sizeof(double))];         \
         double   *dp = (double *)&instr[1];                             \
         instr[0] = VM_PUSH_INSTR(VM_TYPE_DOUBLE, 0);                    \
         *dp      = val;                                                 \
@@ -188,8 +190,8 @@ typedef enum {
 
 #define VM_INSTR_PUSH_STRING(c, errlbl, ec, val) do {                   \
         int           len = strlen(val) + 1;                            \
-        int           n   = VM_ALIGN_TO(len, sizeof(int))/sizeof(int);  \
-        unsigned int  instr[1 + n];                                     \
+        int           n   = VM_ALIGN_TO_INSTR(len);                     \
+        uintptr_t     instr[1 + n];                                     \
         instr[0] = VM_PUSH_INSTR(VM_TYPE_STRING, len);                  \
         strcpy((char *)(instr + 1), val);                               \
         /* could pad here with zeros if (len & 0x3) */                  \
@@ -200,8 +202,8 @@ typedef enum {
 
 #define VM_INSTR_PUSH_GLOBAL(c, errlbl, ec, val) do {                   \
         int           len = strlen(val) + 1;                            \
-        int           n   = VM_ALIGN_TO(len, sizeof(int))/sizeof(int);  \
-        unsigned int  instr[1 + n];                                     \
+        int           n   = VM_ALIGN_TO_INSTR(len);                     \
+        uintptr_t     instr[1 + n];                                     \
         instr[0] = VM_PUSH_INSTR(VM_TYPE_GLOBAL, len);                  \
         strcpy((char *)(instr + 1), val);                               \
         /* could pad here with zeros if (len & 0x3) */                  \
@@ -211,7 +213,7 @@ typedef enum {
     } while (0)
 
 #define VM_INSTR_PUSH_LOCALS(c, errlbl, ec, nvar) do {                  \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_PUSH_INSTR(VM_TYPE_LOCAL, nvar);                     \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -229,7 +231,7 @@ enum {
 };
 
 #define VM_INSTR_POP_LOCALS(c, errlbl, ec) do {                         \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_POP, VM_POP_LOCALS);                     \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -238,7 +240,7 @@ enum {
 
 
 #define VM_INSTR_POP_DISCARD(c, errlbl, ec) do {                        \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_POP, VM_POP_DISCARD);                    \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -253,7 +255,7 @@ enum {
 #define VM_FILTER_NFIELD(instr) VM_OP_ARGS(instr)
 
 #define VM_INSTR_FILTER(c, errlbl, ec, n) do {                          \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_FILTER, n);                              \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -270,8 +272,8 @@ enum {
 #define VM_UPDATE_PARTIAL(instr) (VM_OP_ARGS(instr) & VM_ASSIGN_PARTIAL)
 
 #define VM_INSTR_UPDATE(c, errlbl, ec, n, partial) do {                 \
-        unsigned int instr;                                             \
-        unsigned int mod = n | (partial ? VM_ASSIGN_PARTIAL : 0);       \
+        uintptr_t instr;                                                \
+        uintptr_t mod = n | (partial ? VM_ASSIGN_PARTIAL : 0);          \
         instr = VM_INSTR(VM_OP_UPDATE, mod);                            \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -285,8 +287,8 @@ enum {
 
 #define VM_REPLACE_NFIELD(instr) (VM_OP_ARGS(instr))
 #define VM_INSTR_REPLACE(c, errlbl, ec, n) do {                         \
-        unsigned int instr;                                             \
-        unsigned int mod = n;                                           \
+        uintptr_t instr;                                                \
+        uintptr_t mod = n;                                              \
         instr = VM_INSTR(VM_OP_REPLACE, mod);                           \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -301,7 +303,7 @@ enum {
 #define VM_CREATE_NFIELD(instr) VM_OP_ARGS(instr)
 
 #define VM_INSTR_CREATE(c, errlbl, ec, n) do {                          \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_CREATE, n);                              \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -319,7 +321,7 @@ enum {
 };
 
 #define VM_INSTR_SET(c, errlbl, ec) do {                                \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_SET, VM_SET_NONE);                       \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -327,7 +329,7 @@ enum {
     } while (0)
 
 #define VM_INSTR_SET_FIELD(c, errlbl, ec) do {                          \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_SET, VM_SET_FIELD);                      \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -346,7 +348,7 @@ enum {
 };
 
 #define VM_INSTR_GET_FIELD(c, errlbl, ec) do {                          \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_GET, VM_GET_FIELD);                      \
         ec = vm_chunk_add(c, &instr, 1, sizeof(instr));                 \
         if (ec)                                                         \
@@ -354,7 +356,7 @@ enum {
     } while (0)
 
 #define VM_INSTR_GET_LOCAL(c, errlbl, ec, idx) do {                     \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_GET, VM_GET_LOCAL | idx);                \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
         if (ec)                                                         \
@@ -367,7 +369,7 @@ enum {
  */
 
 #define VM_INSTR_CALL(c, errlbl, ec, narg) do {                         \
-        unsigned int instr;                                             \
+        uintptr_t instr;                                                \
         instr = VM_INSTR(VM_OP_CALL, narg);                             \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));              \
         if (ec)                                                         \
@@ -395,7 +397,7 @@ typedef enum {
 #define VM_CMP_RELOP(instr) ((vm_relop_t)VM_OP_ARGS(instr))
 
 #define VM_INSTR_CMP(c, errlbl, ec, op) do {                    \
-        unsigned int instr;                                     \
+        uintptr_t instr;                                        \
         instr = VM_INSTR(VM_OP_CMP, (vm_relop_t)op);            \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
         if (ec)                                                 \
@@ -415,7 +417,7 @@ typedef enum {
 
 #define VM_BRANCH_TYPE(instr) (VM_OP_ARGS(instr) >> 22)
 #define VM_BRANCH_DIFF(instr) ({                                \
-    int __sign, __diff;                                         \
+    intptr_t __sign, __diff;                                    \
     __sign = VM_OP_ARGS(instr) & (0x1 << 21);                   \
     __diff = VM_OP_ARGS(instr) & (0xffffff >> 2);               \
     if (__sign)                                                 \
@@ -423,9 +425,9 @@ typedef enum {
     __diff; })
 
 #define VM_INSTR_BRANCH(c, errlbl, ec, type, diff) ({           \
-        unsigned int instr;                                     \
-        int __d, __t;                                           \
-        int          __offs;                                    \
+        uintptr_t instr;                                        \
+        intptr_t  __d, __t;                                     \
+        intptr_t  __offs;                                       \
         __d = (diff);                                           \
         if (__d < 0)                                            \
             __d = (0x1 << 21) | (-__d & (0xffffff >> 3));       \
@@ -436,13 +438,13 @@ typedef enum {
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
         if (ec)                                                 \
             goto errlbl;                                        \
-        __offs = (c)->nsize / sizeof(int) - 1;                  \
+        __offs = (c)->nsize / sizeof(uintptr_t) - 1;            \
         __offs;                                                 \
         })
 
 #define VM_BRANCH_PATCH(c, offs, errlbl, ec, type, diff) do {   \
-        unsigned int *instr = (c)->instrs + (offs);             \
-        int __d, __t;                                           \
+        uintptr_t *instr = (c)->instrs + (offs);                \
+        intptr_t  __d, __t;                                     \
         __d = (diff);                                           \
         if (__d < 0)                                            \
             __d = (0x1 << 21) | (-__d & (0xffffff >> 3));       \
@@ -452,7 +454,7 @@ typedef enum {
         *instr = VM_INSTR(VM_OP_BRANCH, __t | __d);             \
     } while (0)
 
-#define VM_CHUNK_OFFSET(c) ((c)->nsize / sizeof(int))
+#define VM_CHUNK_OFFSET(c) ((c)->nsize / sizeof(uintptr_t))
 
 /*
  * DEBUG instructions
@@ -463,8 +465,8 @@ typedef enum {
 
 #define VM_INSTR_DEBUG(c, errlbl, ec, val) do {                         \
         int           len = strlen(val) + 1;                            \
-        int           n   = VM_ALIGN_TO(len, sizeof(int))/sizeof(int);  \
-        unsigned int  instr[1 + n];                                     \
+        int           n   = VM_ALIGN_TO_INSTR(len);                     \
+        uintptr_t     instr[1 + n];                                     \
         instr[0] = VM_DEBUG_INSTR(len);                                 \
         strcpy((char *)(instr + 1), val);                               \
         /* could pad here with zeros if (len & 0x3) */                  \
@@ -480,7 +482,7 @@ typedef enum {
  */
 
 #define VM_INSTR_HALT(c, errlbl, ec) do {                       \
-        unsigned int instr;                                     \
+        uintptr_t instr;                                        \
         instr = VM_INSTR(VM_OP_HALT, 0);                        \
         ec    = vm_chunk_add(c, &instr, 1, sizeof(instr));      \
         if (ec)                                                 \
@@ -494,7 +496,7 @@ typedef enum {
  */
 
 typedef struct vm_chunk_s {
-    unsigned int *instrs;                    /* actual VM instructions */
+    uintptr_t    *instrs;                    /* actual VM instructions */
     int           ninstr;                    /* number of instructions */
     int           nsize;                     /* code size in bytes */
     int           nleft;                     /* number of bytes free */
@@ -689,7 +691,7 @@ typedef struct vm_state_s {
     vm_stack_t    *stack;                     /* VM stack */
 
     vm_chunk_t    *chunk;                     /* code being executed */
-    unsigned int  *pc;                        /* program counter */
+    uintptr_t     *pc;                        /* program counter */
     int            ninstr;                    /* # of instructions left */
     int            nsize;                     /* of code left */
 
@@ -737,9 +739,9 @@ vm_global_t *vm_pop_global(vm_stack_t *s);
 /* vm-instr.c */
 vm_chunk_t   *vm_chunk_new (int ninstr);
 void          vm_chunk_del (vm_chunk_t *chunk);
-unsigned int *vm_chunk_grow(vm_chunk_t *c, int nsize);
+uintptr_t    *vm_chunk_grow(vm_chunk_t *c, int nsize);
 int           vm_chunk_add (vm_chunk_t *c,
-                            unsigned int *code, int ninstr, int nsize);
+                            uintptr_t *code, int ninstr, int nsize);
 
 int vm_run(vm_state_t *vm);
 
@@ -817,7 +819,7 @@ void vm_free_varnames(vm_state_t *vm);
 
 /* vm-debug.c */
 int vm_dump_chunk(vm_state_t *vm, char *buf, size_t size, int indent);
-int vm_dump_instr(unsigned int **pc, char *buf, size_t size, int indent);
+int vm_dump_instr(uintptr_t **pc, char *buf, size_t size, int indent);
 
 /* vm-log.c */
 void vm_set_logger(void (*logger)(vm_log_level_t, const char *, va_list));

@@ -45,8 +45,10 @@ main(int argc, char *argv[])
     char   *in = argc >= 2 ? argv[1] : "test.dres";
     int     i;
 
+#if (GLIB_MAJOR_VERSION <= 2) && (GLIB_MINOR_VERSION < 36)
     g_type_init();
-    
+#endif
+
     if (ohm_fact_store_get_fact_store() == NULL)
         fatal(3, "failed to initalize OHM fact store");
 

@@ -133,7 +133,7 @@ BUILTIN_HANDLER(dres)
     dres_t       *dres = (dres_t *)data;
     char         *goal;
     vm_chunk_t   *chunk;
-    unsigned int *pc;
+    uintptr_t    *pc;
     int           ninstr;
     int           nsize;
     int           status;

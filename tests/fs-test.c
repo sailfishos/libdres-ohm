@@ -44,8 +44,10 @@ void startup(void)
 {
     OhmPattern *pattern;
 
+#if (GLIB_MAJOR_VERSION <= 2) && (GLIB_MINOR_VERSION < 36)
     g_type_init();
-    
+#endif
+
    if ((store = ohm_get_fact_store()) == NULL)
         fatal(1, "Failed to create test factstore.");
 

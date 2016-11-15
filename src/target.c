@@ -381,7 +381,7 @@ dres_load_targets(dres_t *dres, dres_buf_t *buf)
             t->code->nsize  = dres_buf_rs32(buf);
             
 #if 1 /* XXX TODO: this is broken wrt. endianness */
-            t->code->instrs = (unsigned int *)dres_buf_rbuf(buf,t->code->nsize);
+            t->code->instrs = (uintptr_t *)dres_buf_rbuf(buf,t->code->nsize);
 #else /* XXX TODO: this is also broken wrt. endianness */
             t->code->instrs =
                 dres_buf_alloc(buf, t->code->ninstr * sizeof(*t->code->instrs));

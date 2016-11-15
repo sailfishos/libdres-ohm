@@ -6,6 +6,6 @@ includedir=@includedir@
 Name: libdres
 Description: A dependency resolver library.
 Requires: libsimple-trace
-Version: @PACKAGE_VERSION@
+Version: @VERSION_FULL@
 Libs: -L${libdir} -ldres -lfl
 Cflags: -I${includedir}

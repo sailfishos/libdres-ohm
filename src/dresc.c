@@ -37,6 +37,7 @@ USA.
         exit(ec);                                   \
     } while (0)
 
+static void check_env(const char *op);
 
 int
 main(int argc, char *argv[])
@@ -45,8 +46,10 @@ main(int argc, char *argv[])
     char   *in, *out;
     char    compiled[PATH_MAX];
     int     i, verbose;
+    int     op_compile = 0;
+    int     op_save = 0;
+    int     op_test = 0;
 
-    
     in = out = NULL;
     verbose  = 0;
     for (i = 1; i < argc; i++) {
@@ -57,12 +60,21 @@ main(int argc, char *argv[])
         }
         else if (!strcmp(argv[i], "-v"))
             verbose++;
+        else if (!strcmp(argv[i], "--compile"))
+            op_compile = 1;
+        else if (!strcmp(argv[i], "--test"))
+            op_test = 1;
+        else if (!strcmp(argv[i], "--save"))
+            op_save = 1;
         else {
             if (in != NULL)
                 fatal(2, "multiple input files given");
             in = argv[i];
         }
     }
+
+    if (!op_compile && !op_save && !op_test)
+        fatal(1, "no operation defined (--compile|--test|--save).");
 
     if (out == NULL) {
         snprintf(compiled, sizeof(compiled), "%sc", in);
@@ -78,42 +90,61 @@ main(int argc, char *argv[])
                 fatal(3, "input and output files cannot be the same");
         }
     }
-    
+
+#if (GLIB_MAJOR_VERSION <= 2) && (GLIB_MINOR_VERSION < 36)
     g_type_init();
-    
+#endif
+
     if (ohm_fact_store_get_fact_store() == NULL)
         fatal(3, "failed to initalize OHM fact store");
 
     dres_set_log_level(verbose ? DRES_LOG_INFO : DRES_LOG_WARNING);
 
-    printf("* Loading input file '%s'...\n", in);
-    if ((dres = dres_parse_file(in)) == NULL)
-        fatal(4, "failed to parse input file %s", in);
 
-    printf("* Compiling targets and actions...\n");
-    if (dres_finalize(dres))
-        fatal(5, "failed to finalize DRES rule file %s", in);
+    if (op_compile) {
+        printf("* Loading input file '%s'...\n", in);
+        if ((dres = dres_parse_file(in)) == NULL)
+            fatal(4, "failed to parse input file %s", in);
 
-    if (verbose > 1) {
-        printf("Targets found in input file %s:\n", in);
-        dres_dump_targets(dres);
+        printf("* Compiling targets and actions...\n");
+        if (dres_finalize(dres))
+            fatal(5, "failed to finalize DRES rule file %s", in);
+
+        if (verbose > 1) {
+            printf("Targets found in input file %s:\n", in);
+            dres_dump_targets(dres);
+        }
     }
 
-    unlink(out);
+    if (op_save) {
+        check_env("--save");
 
-    printf("* Saving compiled output to '%s'...\n", out);
-    if (dres_save(dres, out))
-        fatal(6, "failed to precompile DRES file %s to %s", in, out);
+        if (!op_compile)
+            fatal(6, "need to have --compile to be able to --save!");
 
-    dres_exit(dres);
+        unlink(out);
 
-    printf("* Verifying loadability of '%s'...\n", out);
-    if ((dres = dres_load(out)) == NULL)
-        fatal(7, "failed to load precompiled file %s", out);
+        printf("* Saving compiled output to '%s'...\n", out);
+        if (dres_save(dres, out))
+            fatal(6, "failed to precompile DRES file %s to %s", in, out);
+    }
 
-    if (verbose > 1) {
-        printf("Targets found in compiled file %s:\n", out);
-        dres_dump_targets(dres);
+    if (op_compile)
+        dres_exit(dres);
+
+    if (op_test) {
+        const char *file = op_save ? out : in;
+
+        check_env("--test");
+
+        printf("* Verifying loadability of '%s'...\n", file);
+        if ((dres = dres_load(file)) == NULL)
+            fatal(7, "failed to load precompiled file %s", file);
+
+        if (verbose > 1) {
+            printf("Targets found in compiled file %s:\n", file);
+            dres_dump_targets(dres);
+        }
     }
 
     printf("* Done.\n");
@@ -134,6 +165,12 @@ dres_parse_error(dres_t *dres, int lineno, const char *msg, const char *token)
 }
 
 
+static void
+check_env(const char *op)
+{
+    if (sizeof(void*) != sizeof(int32_t))
+        fatal(10, "%s operation is not supported in this env.", op);
+}
 
 
 /* 
