@@ -32,7 +32,6 @@ USA.
 
 #include <glib.h>
 #include <gmodule.h>
-#include <dbus/dbus.h>
 
 #include <dres/dres.h>
 /*#include <prolog/prolog.h>*/
