@@ -9,11 +9,11 @@ URL:        http://meego.gitorious.org/maemo-multimedia/dres
 Source0:    %{name}-%{version}.tar.gz
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
-BuildRequires:  pkgconfig(ohm)
+BuildRequires:  pkgconfig(libohmplugin) >= 1.2.0
+BuildRequires:  pkgconfig(libohmfact) >= 1.2.0
 BuildRequires:  pkgconfig(libprolog)
 BuildRequires:  pkgconfig(libsimple-trace)
 BuildRequires:  pkgconfig(glib-2.0)
-BuildRequires:  pkgconfig(dbus-glib-1)
 BuildRequires:  bison
 BuildRequires:  flex
 
