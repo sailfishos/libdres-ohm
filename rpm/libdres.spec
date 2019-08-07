@@ -4,8 +4,8 @@ Summary:    Dependency resolver for OHM
 Version:    1.1.14
 Release:    1
 Group:      System/Resource Policy
-License:    LGPLv2.1
-URL:        http://meego.gitorious.org/maemo-multimedia/dres
+License:    LGPLv2
+URL:        https://git.sailfishos.org/mer-core/libdres-ohm
 Source0:    %{name}-%{version}.tar.gz
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
