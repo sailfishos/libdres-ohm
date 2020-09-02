@@ -60,7 +60,8 @@ make
 %install
 rm -rf %{buildroot}
 %make_install
-
+rm -f %{buildroot}/%{_libdir}/*.la
+rm -f %{buildroot}/%{_libdir}/ohm/*.la
 
 %post -p /sbin/ldconfig
 
