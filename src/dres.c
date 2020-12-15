@@ -611,14 +611,14 @@ push_locals(dres_t *dres, char **locals)
     i = 0;
     while (locals[i] != NULL) {
         name = locals[i++];
-        type = (int)locals[i++];
+        type = GPOINTER_TO_INT(locals[i++]);
         
         if (type < 0xff) {
             value = locals[i++];
             switch (type) {
-            case 's': type = DRES_TYPE_STRING;  v.s = value;            break;
-            case 'i': type = DRES_TYPE_INTEGER; v.i = (int)value;       break;
-            case 'd': type = DRES_TYPE_DOUBLE;  v.d = *(double *)value; break;
+            case 's': type = DRES_TYPE_STRING;  v.s = value;                    break;
+            case 'i': type = DRES_TYPE_INTEGER; v.i = GPOINTER_TO_INT(value);   break;
+            case 'd': type = DRES_TYPE_DOUBLE;  v.d = *(double *)value;         break;
             default:
                 DRES_ERROR("local value of invalid type 0x%x", type);
                 FAIL(EINVAL);

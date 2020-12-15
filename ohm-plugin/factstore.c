@@ -146,7 +146,7 @@ object_to_fact(char **object)
     if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
         return NULL;
     
-    if ((int)object[1] != 's' || (name = object[2]) == NULL)
+    if (GPOINTER_TO_INT(object[1]) != 's' || (name = object[2]) == NULL)
         return NULL;
 
     if ((fact = ohm_fact_new(name)) == NULL)
@@ -154,11 +154,11 @@ object_to_fact(char **object)
     
     for (i = 3; object[i] != NULL; i += 3) {
         field = object[i];
-        type  = (int)object[i+1];
+        type  = GPOINTER_TO_INT(object[i+1]);
         v     = object[i+2];
         switch (type) {
         case 's': value = ohm_value_from_string(v);                  break;
-        case 'i': value = ohm_value_from_int((int)v);                break;
+        case 'i': value = ohm_value_from_int(GPOINTER_TO_INT(v));    break;
         case 'd': value = ohm_value_from_double(*(double *)v);       break;
         default:  value = ohm_value_from_string("<invalid type>");   break;
         }

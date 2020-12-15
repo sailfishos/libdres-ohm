@@ -129,7 +129,7 @@ dres_store_track(dres_t *dres)
 
         ohm_fact_store_view_add(store->view, OHM_STRUCTURE(pattern));
         g_object_unref(pattern);
-        g_hash_table_insert(store->ht, (gpointer)name, (gpointer)id);
+        g_hash_table_insert(store->ht, (gpointer)name, GINT_TO_POINTER(id));
     }
 
     return 0;
@@ -165,7 +165,7 @@ dres_store_check(dres_t *dres)
             match = OHM_PATTERN_MATCH(l->data);
             fact  = ohm_pattern_match_get_fact(match);
             name  = ohm_structure_get_name(OHM_STRUCTURE(fact));
-            id    = (int)g_hash_table_lookup(store->ht, name);
+            id    = GPOINTER_TO_INT(g_hash_table_lookup(store->ht, name));
 
 #if 0
             DRES_INFO("variable '%s' has changed", name);
