@@ -315,7 +315,7 @@ vm_instr_update(vm_state_t *vm)
     } while (0)
 
     vm_global_t *src, *dst;
-    int          nsrc, ndst;
+    int          nsrc;
     vm_value_t   sval, dval;
     OhmFact     *sfact, *dfact;
     int          partial, nfield, i, j, success;
@@ -341,7 +341,6 @@ vm_instr_update(vm_state_t *vm)
                 FAIL(ENOENT, "UPDATE: expected #%d field name not in stack", i);
     
         dst  = dval.g;
-        ndst = dst->nfact;
         src  = sval.g;
         nsrc = src->nfact;
         
@@ -414,7 +413,7 @@ vm_instr_replace(vm_state_t *vm)
     } while (0)
 
     vm_global_t *src, *dst;
-    int          nsrc, ndst;
+    int          nsrc;
     vm_value_t   sval, dval;
     OhmFact     *sfact, *dfact;
     int          nfield, i, j, cnt;
@@ -432,7 +431,6 @@ vm_instr_replace(vm_state_t *vm)
         FAIL(ENOENT, "REPLACE: no global source found in stack");
     
     dst  = dval.g;
-    ndst = dst->nfact;
     src  = sval.g;
     nsrc = src->nfact;
     

@@ -132,7 +132,7 @@ dres_dump_targets(dres_t *dres)
     dres_target_t *t;
     dres_prereq_t *d;
     dres_stmt_t   *stmt;
-    int            i, j, id, idx;
+    int            i, j, id;
     char          *sep, name[64];
     char           buf[16384];
 
@@ -154,7 +154,6 @@ dres_dump_targets(dres_t *dres)
                 for (id = t->dependencies[j=0], sep = " ";
                      id != DRES_ID_NONE;
                      id = t->dependencies[++j], sep = ", ") {
-                    idx = DRES_INDEX(id);
                     dres_name(dres, id, name, sizeof(name));
                     printf("%s%s", sep, name);
                 }
