@@ -581,7 +581,7 @@ compile_expr_relop(dres_t *dres, dres_expr_relop_t *expr, vm_chunk_t *code)
     int err;
 
     
-    if (expr->op == VM_RELOP_OR || expr->op == VM_RELOP_AND)
+    if (expr->op == DRES_RELOP_OR || expr->op == DRES_RELOP_AND)
         return compile_expr_boolean(dres, expr, code);
     else {
         if (expr->arg2)
