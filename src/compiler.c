@@ -49,7 +49,6 @@ static int compile_stmt_call(dres_t *dres, dres_stmt_call_t *stmt,
 static int compile_stmt_ifthen(dres_t *dres, dres_stmt_if_t *stmt,
                                vm_chunk_t *code);
 static int compile_stmt_discard(dres_t *dres, vm_chunk_t *code);
-static int compile_stmt_debug  (const char *info, vm_chunk_t *code);
 static int compile_call(dres_t *dres, const char *method, dres_expr_t *args,
                         dres_local_t *locals, vm_chunk_t *code);
 static int compile_expr(dres_t *dres, dres_expr_t *expr, vm_chunk_t *code);
@@ -335,21 +334,6 @@ compile_stmt_discard(dres_t *dres, vm_chunk_t *code)
 
  fail:
     DRES_ERROR("%s: code generation failed", __FUNCTION__);
-    return FALSE;
-}
-
-
-static int
-compile_stmt_debug(const char *info, vm_chunk_t *code)
-{
-    int err;
-
-    VM_INSTR_DEBUG(code, fail, err, info);
-    return TRUE;
-    
- fail:
-    DRES_ERROR("%s: code generation failed for debug info \"%s\"",
-               __FUNCTION__, info);
     return FALSE;
 }
 
