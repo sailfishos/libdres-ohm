@@ -625,7 +625,7 @@ push_locals(dres_t *dres, char **locals)
             }
         }
         else {
-            v.s  = (char *)type;
+            v.s  = locals[i - 1];
             type = DRES_TYPE_STRING;
         }
         
