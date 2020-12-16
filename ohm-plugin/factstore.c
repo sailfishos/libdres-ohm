@@ -216,7 +216,6 @@ static dres_selector_t *parse_selector(char *descr)
     char            *name;
     char            *value;
     char             buf[1024];
-    int              i;
 
     
     if (descr == NULL) {
@@ -234,7 +233,7 @@ static dres_selector_t *parse_selector(char *descr)
         return NULL;
     memset(selector, 0, sizeof(*selector));
 
-    for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
+    for (str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
         if ((p = strchr(name, ':')) == NULL)
             OHM_DEBUG(DBG_FACTS, "invalid selctor: '%s'", descr);
         else {
@@ -319,15 +318,12 @@ static int find_facts(char *name, char *select, OhmFact **facts, int max)
     dres_selector_t *selector = parse_selector(select);
     
     GSList            *list;
-    int                llen;
     OhmFact           *fact;
     int                flen;
     int                i;
 
     list   = ohm_fact_store_get_facts_by_name(ohm_fact_store_get_fact_store(),
                                               name);
-    llen   = list ? g_slist_length(list) : 0;
-
     for (i = flen = 0;    list != NULL;   i++, list = g_slist_next(list)) {
         fact = (OhmFact *)list->data;
 
@@ -355,7 +351,7 @@ set_fact(int cid, char *buf)
 {
     GValue      *gval;
     char         selector[128];
-    char        *str, *name, *member, *selfld, *selval, *value, *p, *q;
+    char        *str, *name, *member, *selfld, *value, *p, *q;
     int          n = 128, len, i;
     OhmFact     *facts[n];
     
@@ -393,7 +389,6 @@ set_fact(int cid, char *buf)
                     }
                     else {
                         *p++ = 0;
-                        selval = p;
                     }
                 }
                     
