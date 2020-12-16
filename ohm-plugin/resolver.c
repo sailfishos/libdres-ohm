@@ -684,7 +684,7 @@ DRES_ACTION(delay_handler)
     char        *delay_str;
     char        *id;
     char        *cb_name;
-    delay_cb_t   cb;
+    delay_cb_t   cb = NULL;
     char         argt[MAX_ARGS + 1];
     void        *argv[MAX_ARGS];
     int          i;
@@ -755,9 +755,14 @@ DRES_ACTION(delay_handler)
 
         cb = delayed_resolve;
     }
-    else if (!ohm_module_find_method(cb_name, &signature, (void *)&cb)) {
-        OHM_DEBUG(DBG_DELAY, "could not resolve callback '%s'", cb_name);
-        DRES_ACTION_ERROR(EINVAL);
+    else {
+        if (!delay_cb && !ohm_module_find_method(cb_name, &signature, (void *)&delay_cb)) {
+            OHM_DEBUG(DBG_DELAY, "could not resolve callback '%s'", cb_name);
+            DRES_ACTION_ERROR(EINVAL);
+        }
+
+        /* Set to NULL if we couldn't resolve the callback. */
+        cb = delay_cb;
     }
 
     memset(argt, 0, sizeof(argt));
