@@ -146,7 +146,7 @@ object_to_fact(char **object)
     if (object == NULL || strcmp(object[0], "name") || object[1] == NULL)
         return NULL;
     
-    if ((int)object[1] != 's' || (name = object[2]) == NULL)
+    if (GPOINTER_TO_INT(object[1]) != 's' || (name = object[2]) == NULL)
         return NULL;
 
     if ((fact = ohm_fact_new(name)) == NULL)
@@ -154,11 +154,11 @@ object_to_fact(char **object)
     
     for (i = 3; object[i] != NULL; i += 3) {
         field = object[i];
-        type  = (int)object[i+1];
+        type  = GPOINTER_TO_INT(object[i+1]);
         v     = object[i+2];
         switch (type) {
         case 's': value = ohm_value_from_string(v);                  break;
-        case 'i': value = ohm_value_from_int((int)v);                break;
+        case 'i': value = ohm_value_from_int(GPOINTER_TO_INT(v));    break;
         case 'd': value = ohm_value_from_double(*(double *)v);       break;
         default:  value = ohm_value_from_string("<invalid type>");   break;
         }
@@ -216,7 +216,6 @@ static dres_selector_t *parse_selector(char *descr)
     char            *name;
     char            *value;
     char             buf[1024];
-    int              i;
 
     
     if (descr == NULL) {
@@ -234,7 +233,7 @@ static dres_selector_t *parse_selector(char *descr)
         return NULL;
     memset(selector, 0, sizeof(*selector));
 
-    for (i = 0, str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
+    for (str = buf;   (name = strtok(str, ",")) != NULL;   str = NULL) {
         if ((p = strchr(name, ':')) == NULL)
             OHM_DEBUG(DBG_FACTS, "invalid selctor: '%s'", descr);
         else {
@@ -319,15 +318,12 @@ static int find_facts(char *name, char *select, OhmFact **facts, int max)
     dres_selector_t *selector = parse_selector(select);
     
     GSList            *list;
-    int                llen;
     OhmFact           *fact;
     int                flen;
     int                i;
 
     list   = ohm_fact_store_get_facts_by_name(ohm_fact_store_get_fact_store(),
                                               name);
-    llen   = list ? g_slist_length(list) : 0;
-
     for (i = flen = 0;    list != NULL;   i++, list = g_slist_next(list)) {
         fact = (OhmFact *)list->data;
 
@@ -355,7 +351,7 @@ set_fact(int cid, char *buf)
 {
     GValue      *gval;
     char         selector[128];
-    char        *str, *name, *member, *selfld, *selval, *value, *p, *q;
+    char        *str, *name, *member, *selfld, *value, *p, *q;
     int          n = 128, len, i;
     OhmFact     *facts[n];
     
@@ -393,7 +389,6 @@ set_fact(int cid, char *buf)
                     }
                     else {
                         *p++ = 0;
-                        selval = p;
                     }
                 }
                     

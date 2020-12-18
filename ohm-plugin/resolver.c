@@ -99,7 +99,7 @@ OHM_IMPORTABLE(int, signal_changed,    (char *signal, int transid,
                                         int factc, char **factv,
                                         completion_cb_t callback,
                                         unsigned long timeout));
-OHM_IMPORTABLE(void, completion_cb,    (int transid, int success));
+OHM_IMPORTABLE(void, completion_cb,    (char *id, char *argt, void **argv));
 
 OHM_IMPORTABLE(int, delay_execution,   (unsigned long delay, char *id,
                                         int restart, char *cb_name,
@@ -406,7 +406,7 @@ DRES_ACTION(rule_handler)
             break;
         case DRES_TYPE_INTEGER:
             argv[2*i]   = (char *)'i';
-            argv[2*i+1] = (char *)args[i].v.i;
+            argv[2*i+1] = GINT_TO_POINTER(args[i].v.i);
             break;
         case DRES_TYPE_DOUBLE:
             argv[2*i]   = (char *)'d';
@@ -494,7 +494,7 @@ DRES_ACTION(fallback_handler)
             break;
         case DRES_TYPE_INTEGER:
             argv[2*i]   = (char *)'i';
-            argv[2*i+1] = (char *)args[i].v.i;
+            argv[2*i+1] = GINT_TO_POINTER(args[i].v.i);
             break;
         case DRES_TYPE_DOUBLE:
             argv[2*i]   = (char *)'d';
@@ -684,7 +684,7 @@ DRES_ACTION(delay_handler)
     char        *delay_str;
     char        *id;
     char        *cb_name;
-    delay_cb_t   cb;
+    delay_cb_t   cb = NULL;
     char         argt[MAX_ARGS + 1];
     void        *argv[MAX_ARGS];
     int          i;
@@ -755,9 +755,14 @@ DRES_ACTION(delay_handler)
 
         cb = delayed_resolve;
     }
-    else if (!ohm_module_find_method(cb_name, &signature, (void *)&cb)) {
-        OHM_DEBUG(DBG_DELAY, "could not resolve callback '%s'", cb_name);
-        DRES_ACTION_ERROR(EINVAL);
+    else {
+        if (!delay_cb && !ohm_module_find_method(cb_name, &signature, (void *)&delay_cb)) {
+            OHM_DEBUG(DBG_DELAY, "could not resolve callback '%s'", cb_name);
+            DRES_ACTION_ERROR(EINVAL);
+        }
+
+        /* Set to NULL if we couldn't resolve the callback. */
+        cb = delay_cb;
     }
 
     memset(argt, 0, sizeof(argt));
@@ -877,7 +882,7 @@ static void delayed_resolve(char *id, char *argt, void **argv)
                     goto failed;
 
                 vars[j++] = (char *)argv[i];
-                vars[j++] = (char *)((int)argt[i+1]);
+                vars[j++] = GINT_TO_POINTER(argt[i+1]);
                 vars[j++] = (char *)argv[i+1];
             }
 
@@ -957,13 +962,13 @@ rule_lookup(const char *name, int arity)
     
     snprintf(key, sizeof(key), "%s/%d", name, arity);
     
-    if ((rule = (int)g_hash_table_lookup(ruletbl, key)) > 0)
+    if ((rule = GPOINTER_TO_INT(g_hash_table_lookup(ruletbl, key))) > 0)
         return rule - 1;
     
     if ((rule = rule_find((char *)name, arity)) < 0)
         return -1;
 
-    value = (gpointer)(rule + 1);
+    value = GINT_TO_POINTER((rule + 1));
     keyp  = g_strdup(key);
 
     if (keyp == NULL) {

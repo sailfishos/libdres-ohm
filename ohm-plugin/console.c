@@ -442,7 +442,7 @@ command_dump(int id, char *input)
             p++;
         q = factname;
         if (strchr(input, '.') == NULL && prefix[0])
-            q += sprintf(factname, "%s.", prefix);
+            q += snprintf(factname, 128, "%s.", prefix);
         for ( ; *p && *p != ','; *q++ = *p++)
             ;
         *q = '\0';
@@ -526,7 +526,7 @@ command_resolve(int id, char *input)
             int   type;
             
             var  = args[i];
-            type = (int)args[i + 1];
+            type = GPOINTER_TO_INT(args[i + 1]);
             val  = args[i + 2];
             
             switch (type) {
@@ -534,7 +534,7 @@ command_resolve(int id, char *input)
                 console_printf(id, "%s%s='%s'", t, var, val);
                 break;
             case 'i':
-                console_printf(id, "%s%s=%d", t, var, (int)val);
+                console_printf(id, "%s%s=%d", t, var, GPOINTER_TO_INT(val));
                 break;
             case 'd':
                 console_printf(id, "%s%s=%f", t, var, *(double *)val);

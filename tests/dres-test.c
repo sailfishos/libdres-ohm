@@ -222,7 +222,7 @@ show_handler(char *command, char *args)
     while (s && *s) {
         if ((e = strchr(s, ' ')) != NULL) {
         delimited:
-            if ((len = (int)e - (int)s + 1) > sizeof(name) - 1)
+            if ((len = (uintptr_t)e - (uintptr_t)s + 1) > sizeof(name) - 1)
                 len = sizeof(name) - 1;
             strncpy(name, s, len);
             name[len] = '\0';

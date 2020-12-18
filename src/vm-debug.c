@@ -25,6 +25,7 @@ USA.
 #include <string.h>
 #include <limits.h>
 #include <errno.h>
+#include <inttypes.h>
 
 #include <dres/mm.h>
 #include <dres/vm.h>
@@ -154,7 +155,7 @@ vm_dump_push(uintptr_t **pc, char *buf, size_t size, int indent)
         break;
         
     default:
-        n += snprintf(buf, size, "<invalid push instruction 0x%x>\n", type);
+        n += snprintf(buf, size, "<invalid push instruction 0x%" PRIxPTR ">\n", type);
         nsize = 1;
     }
 
@@ -185,7 +186,7 @@ vm_dump_pop(uintptr_t **pc, char *buf, size_t size, int indent)
         break;
         
     default:
-        n += snprintf(buf, size, "<invalid POP instructions 0x%x>\n", type);
+        n += snprintf(buf, size, "<invalid POP instructions 0x%" PRIxPTR ">\n", type);
     }
     
     (*pc)++;
@@ -286,9 +287,9 @@ vm_dump_get(uintptr_t **pc, char *buf, size_t size, int indent)
     if (type & VM_GET_FIELD)
         n += snprintf(buf, size, "get field\n");
     else if (type & VM_GET_LOCAL)
-        n += snprintf(buf, size, "get local 0x%x\n", type & ~VM_GET_LOCAL);
+        n += snprintf(buf, size, "get local 0x%" PRIxPTR "\n", type & ~VM_GET_LOCAL);
     else
-        n += snprintf(buf, size, "<invalid get instruction 0x%x\n", type);
+        n += snprintf(buf, size, "<invalid get instruction 0x%" PRIxPTR "\n", type);
     
     (*pc)++;
     
@@ -437,7 +438,7 @@ vm_dump_invalid(uintptr_t **pc, char *buf, size_t size, int indent)
     int n;
     
     INDENT(indent);
-    n += snprintf(buf, size, "invalid instruction 0x%x", **pc);
+    n += snprintf(buf, size, "invalid instruction 0x%" PRIxPTR "", **pc);
 
     return n;
 }

@@ -133,7 +133,7 @@ main(int argc, char *argv[])
         dres_exit(dres);
 
     if (op_test) {
-        const char *file = op_save ? out : in;
+        char *file = op_save ? out : in;
 
         check_env("--test");
 
