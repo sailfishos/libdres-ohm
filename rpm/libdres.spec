@@ -1,7 +1,7 @@
 Name:       libdres
 
 Summary:    Dependency resolver for OHM
-Version:    1.1.15
+Version:    1.1.17
 Release:    1
 Group:      System/Resource Policy
 License:    LGPLv2
