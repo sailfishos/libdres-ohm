@@ -3,7 +3,6 @@ Name:       libdres
 Summary:    Dependency resolver for OHM
 Version:    1.1.17
 Release:    1
-Group:      System/Resource Policy
 License:    LGPLv2
 URL:        https://git.sailfishos.org/mer-core/libdres-ohm
 Source0:    %{name}-%{version}.tar.gz
@@ -22,7 +21,6 @@ A dependency resolver for OHM.
 
 %package utils
 Summary:    Miscallaneous DRES utilities, including dresc
-Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description utils
@@ -30,7 +28,6 @@ Miscallaneous DRES utilities, including dresc.
 
 %package -n ohm-plugin-resolver
 Summary:    OHM dependency resolver plugin
-Group:      System/Resource Policy
 Requires:   %{name} = %{version}-%{release}
 Requires:   ohm
 
@@ -39,7 +36,6 @@ A dependency resolver plugin for OHM.
 
 %package devel
 Summary:    Development files for %{name}
-Group:      Development/Libraries
 Requires:   %{name} = %{version}-%{release}
 
 %description devel
@@ -69,8 +65,8 @@ rm -f %{buildroot}/%{_libdir}/ohm/*.la
 
 %files
 %defattr(-,root,root,-)
+%license COPYING
 %{_libdir}/*.so.*
-%doc COPYING
 
 %files utils
 %defattr(-,root,root,-)
