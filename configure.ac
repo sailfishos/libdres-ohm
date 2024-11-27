@@ -1,11 +1,9 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.61)
+AC_PREREQ([2.72])
 
-AC_INIT([dres],
-	m4_esyscmd([build-aux/git-version-gen .tarball-version]),
-	[multimedia at maemo.org])
+AC_INIT([dres],[m4_esyscmd(build-aux/git-version-gen .tarball-version)],[multimedia at maemo.org])
 
 AC_CONFIG_SRCDIR([src])
 AC_CONFIG_MACRO_DIR([m4])
@@ -13,7 +11,7 @@ AC_CONFIG_MACRO_DIR([m4])
 DOC_SUPPORT_INIT
 
 AM_INIT_AUTOMAKE(AC_PACKAGE_NAME, AC_PACKAGE_VERSION)
-AC_CONFIG_HEADER([include/dres/config.h])
+AC_CONFIG_HEADERS([include/dres/config.h])
 
 AC_SUBST(ACLOCAL_AMFLAGS, "-I m4")
 
@@ -45,7 +43,15 @@ AM_PROG_LEX
 AC_SUBST(LEXLIB)
 
 # Checks for header files.
-AC_HEADER_STDC
+m4_warn([obsolete],
+[The preprocessor macro 'STDC_HEADERS' is obsolete.
+  Except in unusual embedded environments, you can safely include all
+  C89 headers unconditionally.])dnl
+# Autoupdate added the next two lines to ensure that your configure
+# script's behavior did not change.  They are probably safe to remove.
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_CHECK_HEADERS([stdlib.h string.h unistd.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
