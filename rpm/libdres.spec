@@ -1,10 +1,10 @@
 Name:       libdres
 
 Summary:    Dependency resolver for OHM
-Version:    1.1.17
+Version:    1.1.19
 Release:    1
 License:    LGPLv2
-URL:        https://git.sailfishos.org/mer-core/libdres-ohm
+URL:        https://github.com/sailfishos/libdres-ohm
 Source0:    %{name}-%{version}.tar.gz
 Requires(post): /sbin/ldconfig
 Requires(postun): /sbin/ldconfig
@@ -50,35 +50,28 @@ Development files for %{name}.
 echo -n "%{version}" > .tarball-version
 %autogen --disable-static
 %configure --disable-static
-make
+%make_build
 
 
 %install
-rm -rf %{buildroot}
 %make_install
-rm -f %{buildroot}/%{_libdir}/*.la
-rm -f %{buildroot}/%{_libdir}/ohm/*.la
 
 %post -p /sbin/ldconfig
 
 %postun -p /sbin/ldconfig
 
 %files
-%defattr(-,root,root,-)
 %license COPYING
 %{_libdir}/*.so.*
 
 %files utils
-%defattr(-,root,root,-)
 %{_bindir}/dresc
 
 %files -n ohm-plugin-resolver
-%defattr(-,root,root,-)
 %{_libdir}/ohm/libohm_dres.so
 %config %{_sysconfdir}/ohm/plugins.d/dres.ini
 
 %files devel
-%defattr(-,root,root,-)
 %doc README COPYING INSTALL AUTHORS NEWS ChangeLog
 %{_includedir}/dres
 %{_libdir}/*.so

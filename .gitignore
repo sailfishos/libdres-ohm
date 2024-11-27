@@ -1,0 +1,8 @@
+*.libs
+Makefile
+Makefile.in
+*.o
+/m4
+/autom4te.cache
+*.la
+*.lo
